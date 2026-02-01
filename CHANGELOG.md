@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.3](https://github.com/pipe-works/pipeworks_mud_mapper/compare/pipeworks-mud-mapper-v0.0.2...pipeworks-mud-mapper-v0.0.3) (2026-02-01)
+
+
+### Features
+
+* add room selection, editing, and save functionality ([3bb3dc1](https://github.com/pipe-works/pipeworks_mud_mapper/commit/3bb3dc133d4374619d6e711ae68ddf82fbc8eccd))
+
 ## [0.0.2](https://github.com/pipe-works/pipeworks_mud_mapper/compare/pipeworks-mud-mapper-v0.0.1...pipeworks-mud-mapper-v0.0.2) (2026-02-01)
 
 
