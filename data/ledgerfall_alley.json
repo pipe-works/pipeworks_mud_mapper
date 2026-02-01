@@ -1,0 +1,45 @@
+{
+  "id": "ledgerfall_alley",
+  "name": "Ledgerfall Alley",
+  "description": "A grimy, dark alley.",
+  "spawn_room": "spawn",
+  "rooms": {
+    "spawn": {
+      "id": "spawn",
+      "name": "Starting Room",
+      "description": "To the East is an old broken door hanging ajar on its hinges.",
+      "exits": {},
+      "items": [],
+      "coords": [
+        0,
+        0,
+        0
+      ]
+    },
+    "broken_door": {
+      "id": "broken_door",
+      "name": "Broken Door",
+      "description": "Skittering sounds can be heard from behind the door.",
+      "coords": [
+        5,
+        0,
+        0
+      ],
+      "exits": {},
+      "items": []
+    },
+    "dark_hallway": {
+      "id": "dark_hallway",
+      "name": "Dark Hallway",
+      "description": "A dark hallway. The sound of tiny feet skittering on stone.",
+      "coords": [
+        5,
+        -5,
+        0
+      ],
+      "exits": {},
+      "items": []
+    }
+  },
+  "items": {}
+}

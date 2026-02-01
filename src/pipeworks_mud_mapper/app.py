@@ -104,74 +104,123 @@ def create_map_panel() -> dbc.Card:
 
 
 def create_properties_panel() -> dbc.Card:
-    """Create the right column properties panel placeholder."""
+    """Create the right column properties panel for adding/editing rooms."""
     return dbc.Card(
         [
-            dbc.CardHeader("Properties"),
+            dbc.CardHeader(
+                [
+                    html.Span("Room Properties", className="me-auto"),
+                    dbc.Button(
+                        [html.I(className="bi bi-plus-lg me-1"), "New Room"],
+                        id="new-room-btn",
+                        color="primary",
+                        size="sm",
+                        outline=True,
+                    ),
+                ],
+                className="d-flex align-items-center",
+            ),
             dbc.CardBody(
                 [
-                    html.P(
-                        "Select a room to edit its properties.",
-                        className="text-muted fst-italic",
-                    ),
-                    html.Hr(),
-                    # Placeholder form fields
+                    # Feedback area
+                    html.Div(id="room-form-feedback", className="mb-2"),
+                    # Room ID field
                     dbc.Label("Room ID", html_for="room-id"),
                     dbc.Input(
                         id="room-id",
                         type="text",
-                        placeholder="spawn",
-                        disabled=True,
-                        className="mb-3",
+                        placeholder="e.g., main_hall",
+                        className="mb-2",
                     ),
+                    dbc.FormText(
+                        "Unique identifier (letters, numbers, underscores)",
+                        className="mb-3 d-block",
+                    ),
+                    # Name field
                     dbc.Label("Name", html_for="room-name"),
                     dbc.Input(
                         id="room-name",
                         type="text",
-                        placeholder="The Crooked Pipe",
-                        disabled=True,
+                        placeholder="e.g., The Main Hall",
                         className="mb-3",
                     ),
+                    # Description field
                     dbc.Label("Description", html_for="room-description"),
                     dbc.Textarea(
                         id="room-description",
-                        placeholder="A low-ceilinged goblin pub...",
-                        disabled=True,
+                        placeholder="A spacious hall with stone pillars...",
                         className="mb-3",
-                        style={"height": "100px"},
+                        style={"height": "80px"},
                     ),
-                    dbc.Label("Coordinates", html_for="room-coords"),
+                    # Coordinates
+                    dbc.Label("Coordinates"),
                     dbc.InputGroup(
                         [
                             dbc.InputGroupText("X"),
                             dbc.Input(
-                                type="number", value=0, disabled=True, style={"width": "60px"}
+                                id="room-coord-x",
+                                type="number",
+                                value=0,
+                                style={"width": "70px"},
                             ),
                             dbc.InputGroupText("Y"),
                             dbc.Input(
-                                type="number", value=0, disabled=True, style={"width": "60px"}
+                                id="room-coord-y",
+                                type="number",
+                                value=0,
+                                style={"width": "70px"},
                             ),
                             dbc.InputGroupText("Z"),
                             dbc.Input(
-                                type="number", value=0, disabled=True, style={"width": "60px"}
+                                id="room-coord-z",
+                                type="number",
+                                value=0,
+                                style={"width": "70px"},
+                            ),
+                        ],
+                        className="mb-1",
+                        size="sm",
+                    ),
+                    dbc.FormText(
+                        "X: East(+)/West(-), Y: North(+)/South(-), Z: Up(+)/Down(-)",
+                        className="mb-3 d-block",
+                    ),
+                    # Add/Update Room buttons
+                    dbc.Row(
+                        [
+                            dbc.Col(
+                                dbc.Button(
+                                    [html.I(className="bi bi-plus-circle me-2"), "Add Room"],
+                                    id="add-room-btn",
+                                    color="success",
+                                    className="w-100",
+                                ),
+                                width=6,
+                            ),
+                            dbc.Col(
+                                dbc.Button(
+                                    [html.I(className="bi bi-pencil me-2"), "Update"],
+                                    id="update-room-btn",
+                                    color="primary",
+                                    className="w-100",
+                                    disabled=True,
+                                ),
+                                width=6,
                             ),
                         ],
                         className="mb-3",
                     ),
                     html.Hr(),
+                    # Exits section (placeholder for now)
                     dbc.Label("Exits"),
                     html.Div(
-                        [
-                            html.Small("No exits defined", className="text-muted"),
+                        id="room-exits-display",
+                        children=[
+                            html.Small(
+                                "Add rooms first, then connect exits", className="text-muted"
+                            ),
                         ],
-                        className="mb-3 p-2 bg-light rounded",
-                    ),
-                    dbc.Label("Items"),
-                    html.Div(
-                        [
-                            html.Small("No items", className="text-muted"),
-                        ],
-                        className="mb-3 p-2 bg-light rounded",
+                        className="mb-3 p-2 bg-light rounded small",
                     ),
                 ]
             ),
@@ -200,12 +249,17 @@ def create_action_bar() -> html.Div:
             ),
             dbc.Button(
                 [html.I(className="bi bi-save me-2"), "Save Map"],
+                id="save-map-btn",
                 color="success",
                 outline=True,
                 disabled=True,
             ),
             html.Span(
-                [html.I(className="bi bi-circle-fill text-secondary me-2"), "No file loaded"],
+                id="status-indicator",
+                children=[
+                    html.I(className="bi bi-circle-fill text-secondary me-2"),
+                    "No file loaded",
+                ],
                 className="ms-auto text-muted",
             ),
         ],
@@ -220,6 +274,8 @@ app.layout = dbc.Container(
         dcc.Store(id="zone-files-store", data=[]),
         dcc.Store(id="current-zone-data", data=None),
         dcc.Store(id="selected-file", data=None),
+        dcc.Store(id="selected-room", data=None),
+        dcc.Store(id="has-unsaved-changes", data=False),
         dcc.Interval(id="initial-load", interval=100, max_intervals=1),
         # New Map modal
         create_new_map_modal(),
@@ -364,19 +420,20 @@ def handle_file_click(n_clicks_list: list[int], files: list[str]) -> tuple:
         return no_update, no_update, no_update
 
 
-# Callback: Update map when zone data or Z level changes
+# Callback: Update map when zone data, Z level, or selected room changes
 @callback(
     Output("map-graph", "figure"),
     Input("current-zone-data", "data"),
     Input("z-level-selector", "value"),
+    Input("selected-room", "data"),
 )
-def update_map_with_rooms(zone_data: dict | None, z_level: int) -> dict:
+def update_map_with_rooms(zone_data: dict | None, z_level: int, selected_room: str | None) -> dict:
     """Update the map figure with loaded zone rooms."""
     if not zone_data:
         return create_map_figure(z_level=z_level)
 
     rooms = zone_data.get("rooms", {})
-    return create_map_figure_with_rooms(rooms=rooms, z_level=z_level)
+    return create_map_figure_with_rooms(rooms=rooms, z_level=z_level, selected_room=selected_room)
 
 
 # Callback: Open New Map modal
@@ -468,6 +525,369 @@ def create_new_zone(
 
     # Close modal and clear form
     return False, file_names, "", "", "", ""
+
+
+# Callback: Add new room to current zone
+@callback(
+    Output("current-zone-data", "data", allow_duplicate=True),
+    Output("room-form-feedback", "children"),
+    Output("room-id", "value"),
+    Output("room-name", "value"),
+    Output("room-description", "value"),
+    Output("room-coord-x", "value"),
+    Output("room-coord-y", "value"),
+    Output("room-coord-z", "value"),
+    Output("has-unsaved-changes", "data", allow_duplicate=True),
+    Input("add-room-btn", "n_clicks"),
+    State("current-zone-data", "data"),
+    State("room-id", "value"),
+    State("room-name", "value"),
+    State("room-description", "value"),
+    State("room-coord-x", "value"),
+    State("room-coord-y", "value"),
+    State("room-coord-z", "value"),
+    prevent_initial_call=True,
+)
+def add_room_to_zone(
+    n_clicks: int,
+    zone_data: dict | None,
+    room_id: str,
+    room_name: str,
+    room_description: str,
+    coord_x: int,
+    coord_y: int,
+    coord_z: int,
+) -> tuple:
+    """Add a new room to the current zone."""
+    if not n_clicks:
+        return (no_update,) * 9
+
+    # Validate zone is loaded
+    if not zone_data:
+        feedback = dbc.Alert(
+            "No zone loaded. Create or select a zone first.",
+            color="warning",
+            className="mb-0 py-2",
+        )
+        return (no_update, feedback) + (no_update,) * 7
+
+    # Validate room_id
+    room_id = (room_id or "").strip()
+    if not room_id:
+        feedback = dbc.Alert("Room ID is required.", color="danger", className="mb-0 py-2")
+        return (no_update, feedback) + (no_update,) * 7
+
+    if not re.match(r"^[a-zA-Z][a-zA-Z0-9_]*$", room_id):
+        feedback = dbc.Alert(
+            "Room ID must start with a letter and contain only letters, numbers, underscores.",
+            color="danger",
+            className="mb-0 py-2",
+        )
+        return (no_update, feedback) + (no_update,) * 7
+
+    # Check if room already exists
+    if room_id in zone_data.get("rooms", {}):
+        feedback = dbc.Alert(
+            f"Room '{room_id}' already exists in this zone.",
+            color="warning",
+            className="mb-0 py-2",
+        )
+        return (no_update, feedback) + (no_update,) * 7
+
+    # Validate coordinates
+    try:
+        x = int(coord_x) if coord_x is not None else 0
+        y = int(coord_y) if coord_y is not None else 0
+        z = int(coord_z) if coord_z is not None else 0
+    except (ValueError, TypeError):
+        feedback = dbc.Alert("Coordinates must be integers.", color="danger", className="mb-0 py-2")
+        return (no_update, feedback) + (no_update,) * 7
+
+    # Create the new room
+    new_room = {
+        "id": room_id,
+        "name": (room_name or "").strip() or room_id,
+        "description": (room_description or "").strip(),
+        "coords": [x, y, z],
+        "exits": {},
+        "items": [],
+    }
+
+    # Add to zone data (create a copy to trigger update)
+    updated_zone = dict(zone_data)
+    updated_zone["rooms"] = dict(zone_data.get("rooms", {}))
+    updated_zone["rooms"][room_id] = new_room
+
+    # Success feedback
+    feedback = dbc.Alert(
+        f"Room '{room_id}' added at ({x}, {y}, {z})",
+        color="success",
+        className="mb-0 py-2",
+        duration=3000,
+    )
+
+    # Return updated zone, clear form, and mark unsaved changes
+    return updated_zone, feedback, "", "", "", 0, 0, 0, True
+
+
+# Callback: Clear form and deselect room when New Room button clicked
+@callback(
+    Output("room-form-feedback", "children", allow_duplicate=True),
+    Output("selected-room", "data", allow_duplicate=True),
+    Output("room-id", "value", allow_duplicate=True),
+    Output("room-name", "value", allow_duplicate=True),
+    Output("room-description", "value", allow_duplicate=True),
+    Output("room-coord-x", "value", allow_duplicate=True),
+    Output("room-coord-y", "value", allow_duplicate=True),
+    Output("room-coord-z", "value", allow_duplicate=True),
+    Output("update-room-btn", "disabled", allow_duplicate=True),
+    Output("room-id", "disabled", allow_duplicate=True),
+    Input("new-room-btn", "n_clicks"),
+    prevent_initial_call=True,
+)
+def clear_form_for_new_room(n_clicks: int):
+    """Clear form and deselect room when New Room button is clicked."""
+    if n_clicks:
+        # Clear feedback, deselect room, clear form, disable update, enable room ID
+        return "", None, "", "", "", 0, 0, 0, True, False
+    return (no_update,) * 10
+
+
+# Callback: Handle click on map to select a room
+@callback(
+    Output("selected-room", "data"),
+    Input("map-graph", "clickData"),
+    State("current-zone-data", "data"),
+    prevent_initial_call=True,
+)
+def handle_map_click(click_data: dict | None, zone_data: dict | None) -> str | None:
+    """Select a room when clicked on the map."""
+    if not click_data or not zone_data:
+        return no_update
+
+    # Get clicked point info
+    points = click_data.get("points", [])
+    if not points:
+        return no_update
+
+    point = points[0]
+    # The text field contains the room_id (set in map_view.py)
+    room_id = point.get("text")
+    if room_id and room_id in zone_data.get("rooms", {}):
+        return room_id
+
+    return no_update
+
+
+# Callback: Populate form when a room is selected
+@callback(
+    Output("room-id", "value", allow_duplicate=True),
+    Output("room-name", "value", allow_duplicate=True),
+    Output("room-description", "value", allow_duplicate=True),
+    Output("room-coord-x", "value", allow_duplicate=True),
+    Output("room-coord-y", "value", allow_duplicate=True),
+    Output("room-coord-z", "value", allow_duplicate=True),
+    Output("room-exits-display", "children"),
+    Output("update-room-btn", "disabled"),
+    Output("room-id", "disabled"),
+    Input("selected-room", "data"),
+    State("current-zone-data", "data"),
+    prevent_initial_call=True,
+)
+def populate_room_form(selected_room: str | None, zone_data: dict | None) -> tuple:
+    """Populate the room form when a room is selected."""
+    if not selected_room or not zone_data:
+        # No room selected - disable update, enable room ID editing
+        return (no_update,) * 7 + (True, False)
+
+    rooms = zone_data.get("rooms", {})
+    room = rooms.get(selected_room)
+    if not room:
+        return (no_update,) * 7 + (True, False)
+
+    coords = room.get("coords", [0, 0, 0])
+
+    # Build exits display
+    exits = room.get("exits", {})
+    if exits:
+        exit_items = [
+            html.Div(
+                [
+                    html.Span(direction, className="fw-bold me-2"),
+                    html.I(className="bi bi-arrow-right me-2"),
+                    html.Span(target),
+                ],
+                className="mb-1",
+            )
+            for direction, target in exits.items()
+        ]
+    else:
+        exit_items = [html.Small("No exits defined", className="text-muted")]
+
+    # Room selected - enable update, disable room ID editing (can't change ID)
+    return (
+        room.get("id", selected_room),
+        room.get("name", ""),
+        room.get("description", ""),
+        coords[0] if len(coords) > 0 else 0,
+        coords[1] if len(coords) > 1 else 0,
+        coords[2] if len(coords) > 2 else 0,
+        exit_items,
+        False,  # Enable update button
+        True,  # Disable room ID field (can't change ID of existing room)
+    )
+
+
+# Callback: Update existing room properties
+@callback(
+    Output("current-zone-data", "data", allow_duplicate=True),
+    Output("room-form-feedback", "children", allow_duplicate=True),
+    Output("has-unsaved-changes", "data", allow_duplicate=True),
+    Input("update-room-btn", "n_clicks"),
+    State("selected-room", "data"),
+    State("current-zone-data", "data"),
+    State("room-name", "value"),
+    State("room-description", "value"),
+    State("room-coord-x", "value"),
+    State("room-coord-y", "value"),
+    State("room-coord-z", "value"),
+    prevent_initial_call=True,
+)
+def update_room_properties(
+    n_clicks: int,
+    selected_room: str | None,
+    zone_data: dict | None,
+    room_name: str,
+    room_description: str,
+    coord_x: int,
+    coord_y: int,
+    coord_z: int,
+) -> tuple:
+    """Update an existing room's properties."""
+    if not n_clicks:
+        return no_update, no_update, no_update
+
+    if not selected_room or not zone_data:
+        feedback = dbc.Alert(
+            "No room selected to update.",
+            color="warning",
+            className="mb-0 py-2",
+        )
+        return no_update, feedback, no_update
+
+    rooms = zone_data.get("rooms", {})
+    if selected_room not in rooms:
+        feedback = dbc.Alert(
+            f"Room '{selected_room}' not found.",
+            color="danger",
+            className="mb-0 py-2",
+        )
+        return no_update, feedback, no_update
+
+    # Validate coordinates
+    try:
+        x = int(coord_x) if coord_x is not None else 0
+        y = int(coord_y) if coord_y is not None else 0
+        z = int(coord_z) if coord_z is not None else 0
+    except (ValueError, TypeError):
+        feedback = dbc.Alert(
+            "Coordinates must be integers.",
+            color="danger",
+            className="mb-0 py-2",
+        )
+        return no_update, feedback, no_update
+
+    # Create updated zone data
+    updated_zone = dict(zone_data)
+    updated_zone["rooms"] = dict(zone_data.get("rooms", {}))
+    updated_room = dict(rooms[selected_room])
+
+    # Update room properties
+    updated_room["name"] = (room_name or "").strip() or selected_room
+    updated_room["description"] = (room_description or "").strip()
+    updated_room["coords"] = [x, y, z]
+
+    updated_zone["rooms"][selected_room] = updated_room
+
+    feedback = dbc.Alert(
+        f"Room '{selected_room}' updated.",
+        color="success",
+        className="mb-0 py-2",
+        duration=3000,
+    )
+
+    return updated_zone, feedback, True
+
+
+# Callback: Reset unsaved changes when file is loaded
+@callback(
+    Output("has-unsaved-changes", "data", allow_duplicate=True),
+    Input("selected-file", "data"),
+    prevent_initial_call=True,
+)
+def reset_unsaved_on_file_load(selected_file: str | None) -> bool:
+    """Reset unsaved changes flag when a new file is loaded."""
+    return False
+
+
+# Callback: Update save button and status indicator
+@callback(
+    Output("save-map-btn", "disabled"),
+    Output("status-indicator", "children"),
+    Input("has-unsaved-changes", "data"),
+    Input("selected-file", "data"),
+)
+def update_save_status(has_unsaved: bool, selected_file: str | None) -> tuple:
+    """Update save button state and status indicator."""
+    if not selected_file:
+        return True, [
+            html.I(className="bi bi-circle-fill text-secondary me-2"),
+            "No file loaded",
+        ]
+
+    if has_unsaved:
+        return False, [
+            html.I(className="bi bi-circle-fill text-warning me-2"),
+            f"Unsaved changes: {selected_file}",
+        ]
+
+    return True, [
+        html.I(className="bi bi-circle-fill text-success me-2"),
+        f"Saved: {selected_file}",
+    ]
+
+
+# Callback: Save zone to file
+@callback(
+    Output("has-unsaved-changes", "data", allow_duplicate=True),
+    Output("room-form-feedback", "children", allow_duplicate=True),
+    Input("save-map-btn", "n_clicks"),
+    State("current-zone-data", "data"),
+    State("selected-file", "data"),
+    prevent_initial_call=True,
+)
+def save_zone_to_file(n_clicks: int, zone_data: dict | None, selected_file: str | None) -> tuple:
+    """Save the current zone data to the file."""
+    if not n_clicks or not zone_data or not selected_file:
+        return no_update, no_update
+
+    file_path = DATA_DIR / selected_file
+    try:
+        save_zone_json(zone_data, file_path)
+        feedback = dbc.Alert(
+            f"Saved to {selected_file}",
+            color="success",
+            className="mb-0 py-2",
+            duration=3000,
+        )
+        return False, feedback
+    except Exception as e:
+        feedback = dbc.Alert(
+            f"Error saving: {e}",
+            color="danger",
+            className="mb-0 py-2",
+        )
+        return no_update, feedback
 
 
 def run_app(debug: bool = True, port: int = 8050) -> None:
