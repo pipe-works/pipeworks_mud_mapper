@@ -1,0 +1,17 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  ci:
+    uses: pipe-works/.github/.github/workflows/reusable-python-ci.yml@main
+    with:
+      python-version: '3.12'
+      coverage-threshold: 50
+      run-security: true
+      run-docs: false
+    secrets: inherit

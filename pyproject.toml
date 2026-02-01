@@ -1,0 +1,118 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pipeworks-mud-mapper"
+version = "0.1.0"
+description = "Procedural MUD world mapping and visualization tool"
+readme = "README.md"
+license = {text = "GPL-3.0-or-later"}
+authors = [
+    {name = "AA.Parky", email = "aa.parky@gmail.com"}
+]
+requires-python = ">=3.12"
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Games/Entertainment",
+]
+
+# Runtime dependencies (minimal for Phase 1)
+dependencies = []
+
+[project.optional-dependencies]
+# Development dependencies
+dev = [
+    "pytest>=8.0.0",
+    "pytest-cov>=4.1.0",
+    "ruff>=0.14.0",
+    "mypy>=1.19.0",
+    "pre-commit>=4.5.0",
+    "black==26.1.0",
+    "bandit[toml]>=1.7.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/pipe-works/pipeworks_mud_mapper"
+Repository = "https://github.com/pipe-works/pipeworks_mud_mapper"
+Issues = "https://github.com/pipe-works/pipeworks_mud_mapper/issues"
+
+# =============================================================================
+# Tool Configuration
+# =============================================================================
+
+[tool.black]
+line-length = 100
+target-version = ["py312"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "UP"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = [
+    "N806",  # Allow MockClass naming in tests
+    "F841",  # Allow unused variables in tests
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = "test_*.py"
+python_functions = "test_*"
+addopts = """
+    --cov=src/pipeworks_mud_mapper
+    --cov-report=html
+    --cov-report=xml
+    --cov-report=term-missing
+    --cov-fail-under=50
+"""
+markers = [
+    "slow: Tests that take >5 seconds (deselect with '-m \"not slow\"')",
+    "integration: Integration tests requiring external resources",
+    "unit: Fast unit tests (default)",
+]
+
+[tool.mypy]
+python_version = "3.12"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false  # Start lenient, tighten later
+
+[tool.bandit]
+exclude_dirs = ["tests", "docs", "_working"]
+skips = ["B101"]  # Skip assert_used check (assertions are fine in tests)
+
+[tool.coverage.run]
+source = ["src"]
+omit = [
+    "*/tests/*",
+    "*/__pycache__/*",
+    "*/site-packages/*",
+]
+
+[tool.coverage.report]
+precision = 2
+show_missing = true
+skip_covered = false
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "@abstractmethod",
+]
+
+[tool.setuptools]
+include-package-data = false
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["pipeworks_mud_mapper*"]
+exclude = ["tests*", "docs*"]
