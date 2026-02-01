@@ -2,10 +2,11 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, 'release-please--*']
   pull_request:
     branches: [main]
-  workflow_dispatch:  # Allow manual/automated triggering for release-please
+  workflow_dispatch:  # Allow manual/automated triggering
+  workflow_call:  # Allow being called by other workflows
 
 jobs:
   ci:
