@@ -80,3 +80,6 @@ dmypy.json
 # OS
 .DS_Store
 Thumbs.db
+
+# Claude
+settings.local.json

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pipeworks-mud-mapper"
-version = "0.1.0"
+version = "0.0.1"
 description = "Procedural MUD world mapping and visualization tool"
 readme = "README.md"
 license = {text = "GPL-3.0-or-later"}
@@ -20,8 +20,12 @@ classifiers = [
     "Topic :: Games/Entertainment",
 ]
 
-# Runtime dependencies (minimal for Phase 1)
-dependencies = []
+# Runtime dependencies
+dependencies = [
+    "dash>=2.14",
+    "dash-bootstrap-components>=1.5",
+    "plotly>=5.18",
+]
 
 [project.optional-dependencies]
 # Development dependencies
