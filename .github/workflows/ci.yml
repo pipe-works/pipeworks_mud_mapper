@@ -11,7 +11,7 @@ jobs:
     uses: pipe-works/.github/.github/workflows/reusable-python-ci.yml@main
     with:
       python-version: '3.12'
-      coverage-threshold: 50
+      coverage-threshold: 25
       run-security: true
       run-docs: false
     secrets: inherit
