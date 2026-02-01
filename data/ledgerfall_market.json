@@ -1,0 +1,16 @@
+{
+  "id": "ledgerfall_market",
+  "name": "Ledgerfall Market",
+  "description": "A busy market place.",
+  "spawn_room": "spawn",
+  "rooms": {
+    "spawn": {
+      "id": "spawn",
+      "name": "Starting Room",
+      "description": "An empty room waiting to be defined.",
+      "exits": {},
+      "items": []
+    }
+  },
+  "items": {}
+}
