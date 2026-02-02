@@ -410,3 +410,320 @@ def update_room_properties(
 
     print(f"[DEBUG] update_room_properties: setting has_unsaved=True for room '{selected_room}'")
     return updated_zone, feedback, True
+
+
+# =============================================================================
+# Delete Room Callbacks
+# =============================================================================
+
+
+@callback(
+    Output("delete-room-btn", "disabled"),
+    Input("selected-room", "data"),
+    State("current-zone-data", "data"),
+)
+def update_delete_button_state(selected_room: str | None, zone_data: dict | None) -> bool:
+    """Enable/disable delete button based on selection.
+
+    Delete is disabled when:
+    - No room is selected
+    - Selected room is the spawn room
+
+    Parameters
+    ----------
+    selected_room : str | None
+        Currently selected room ID.
+    zone_data : dict | None
+        Current zone data.
+
+    Returns
+    -------
+    bool
+        True if delete should be disabled.
+    """
+    if not selected_room or not zone_data:
+        return True
+
+    # Can't delete spawn room
+    spawn_room = zone_data.get("spawn_room")
+    if selected_room == spawn_room:
+        return True
+
+    return False
+
+
+@callback(
+    Output("delete-confirm-modal", "is_open", allow_duplicate=True),
+    Output("delete-confirm-body", "children"),
+    Input("delete-room-btn", "n_clicks"),
+    State("selected-room", "data"),
+    State("current-zone-data", "data"),
+    prevent_initial_call=True,
+)
+def open_delete_confirmation(
+    n_clicks: int, selected_room: str | None, zone_data: dict | None
+) -> tuple:
+    """Open delete confirmation dialog with details.
+
+    Shows the room name and how many exits from other rooms will be removed.
+
+    Parameters
+    ----------
+    n_clicks : int
+        Click count for delete button.
+    selected_room : str | None
+        Room to delete.
+    zone_data : dict | None
+        Current zone data.
+
+    Returns
+    -------
+    tuple
+        (modal_open, body_content).
+    """
+    if not n_clicks or not selected_room or not zone_data:
+        return False, ""
+
+    rooms = zone_data.get("rooms", {})
+    room = rooms.get(selected_room, {})
+    room_name = room.get("name", selected_room)
+
+    # Count exits from OTHER rooms that point to this room
+    incoming_exits = []
+    for room_id, other_room in rooms.items():
+        if room_id == selected_room:
+            continue
+        for direction, target in other_room.get("exits", {}).items():
+            if target == selected_room:
+                incoming_exits.append((room_id, direction))
+
+    # Build confirmation message
+    message_parts = [
+        html.P(
+            [
+                "Are you sure you want to delete room ",
+                html.Strong(f"'{room_name}'"),
+                f" ({selected_room})?",
+            ]
+        ),
+    ]
+
+    if incoming_exits:
+        exit_list = [html.Li(f"{room_id} → {direction}") for room_id, direction in incoming_exits]
+        message_parts.append(
+            html.Div(
+                [
+                    html.P(
+                        f"This will also remove {len(incoming_exits)} exit(s) from other rooms:",
+                        className="mb-1 text-warning",
+                    ),
+                    html.Ul(exit_list, className="small mb-0"),
+                ],
+                className="mt-2 p-2 bg-light rounded",
+            )
+        )
+
+    message_parts.append(
+        html.P(
+            [
+                html.I(className="bi bi-info-circle me-1"),
+                "You can undo this action before saving.",
+            ],
+            className="mt-3 mb-0 small text-muted",
+        )
+    )
+
+    return True, message_parts
+
+
+@callback(
+    Output("delete-confirm-modal", "is_open", allow_duplicate=True),
+    Input("delete-cancel-btn", "n_clicks"),
+    prevent_initial_call=True,
+)
+def close_delete_confirmation(n_clicks: int):
+    """Close delete confirmation modal on cancel."""
+    if n_clicks:
+        return False
+    return no_update
+
+
+@callback(
+    Output("current-zone-data", "data", allow_duplicate=True),
+    Output("selected-room", "data", allow_duplicate=True),
+    Output("delete-confirm-modal", "is_open"),
+    Output("delete-undo-data", "data"),
+    Output("undo-delete-container", "style"),
+    Output("has-unsaved-changes", "data", allow_duplicate=True),
+    Output("room-form-feedback", "children", allow_duplicate=True),
+    Input("delete-confirm-btn", "n_clicks"),
+    State("selected-room", "data"),
+    State("current-zone-data", "data"),
+    prevent_initial_call=True,
+)
+def confirm_delete_room(n_clicks: int, selected_room: str | None, zone_data: dict | None) -> tuple:
+    """Delete the room and store undo data.
+
+    Parameters
+    ----------
+    n_clicks : int
+        Click count for confirm button.
+    selected_room : str | None
+        Room to delete.
+    zone_data : dict | None
+        Current zone data.
+
+    Returns
+    -------
+    tuple
+        Updated zone, cleared selection, modal closed, undo data,
+        undo container style, unsaved flag, feedback.
+    """
+    if not n_clicks or not selected_room or not zone_data:
+        return (no_update,) * 7
+
+    rooms = zone_data.get("rooms", {})
+    if selected_room not in rooms:
+        return (no_update,) * 7
+
+    # Store the deleted room for undo
+    deleted_room = dict(rooms[selected_room])
+
+    # Find and store exits from other rooms that point to this room
+    removed_exits = []
+    for room_id, other_room in rooms.items():
+        if room_id == selected_room:
+            continue
+        for direction, target in list(other_room.get("exits", {}).items()):
+            if target == selected_room:
+                removed_exits.append(
+                    {
+                        "room_id": room_id,
+                        "direction": direction,
+                        "target": selected_room,
+                    }
+                )
+
+    # Create undo data
+    undo_data = {
+        "room_id": selected_room,
+        "room_data": deleted_room,
+        "removed_exits": removed_exits,
+    }
+
+    # Create updated zone data
+    updated_zone = dict(zone_data)
+    updated_zone["rooms"] = dict(zone_data.get("rooms", {}))
+
+    # Remove the room
+    del updated_zone["rooms"][selected_room]
+
+    # Remove exits from other rooms that pointed to this room
+    for exit_info in removed_exits:
+        room_id = exit_info["room_id"]
+        direction = exit_info["direction"]
+        if room_id in updated_zone["rooms"]:
+            updated_zone["rooms"][room_id] = dict(updated_zone["rooms"][room_id])
+            updated_zone["rooms"][room_id]["exits"] = dict(
+                updated_zone["rooms"][room_id].get("exits", {})
+            )
+            if direction in updated_zone["rooms"][room_id]["exits"]:
+                del updated_zone["rooms"][room_id]["exits"][direction]
+
+    feedback = dbc.Alert(
+        [
+            html.I(className="bi bi-trash me-2"),
+            f"Room '{selected_room}' deleted.",
+        ],
+        color="warning",
+        className="mb-0 py-2",
+        duration=5000,
+    )
+
+    print(f"[DEBUG] confirm_delete_room: deleted room '{selected_room}'")
+
+    return (
+        updated_zone,  # current-zone-data
+        None,  # selected-room (clear selection)
+        False,  # delete-confirm-modal (close)
+        undo_data,  # delete-undo-data
+        {"display": "block"},  # undo-delete-container (show)
+        True,  # has-unsaved-changes
+        feedback,  # room-form-feedback
+    )
+
+
+@callback(
+    Output("current-zone-data", "data", allow_duplicate=True),
+    Output("delete-undo-data", "data", allow_duplicate=True),
+    Output("undo-delete-container", "style", allow_duplicate=True),
+    Output("room-form-feedback", "children", allow_duplicate=True),
+    Input("undo-delete-btn", "n_clicks"),
+    State("delete-undo-data", "data"),
+    State("current-zone-data", "data"),
+    prevent_initial_call=True,
+)
+def undo_delete_room(n_clicks: int, undo_data: dict | None, zone_data: dict | None) -> tuple:
+    """Restore a deleted room from undo data.
+
+    Parameters
+    ----------
+    n_clicks : int
+        Click count for undo button.
+    undo_data : dict | None
+        Stored undo data with room and exit info.
+    zone_data : dict | None
+        Current zone data.
+
+    Returns
+    -------
+    tuple
+        Updated zone, cleared undo data, hidden undo container, feedback.
+    """
+    if not n_clicks or not undo_data or not zone_data:
+        return (no_update,) * 4
+
+    room_id = undo_data.get("room_id")
+    room_data = undo_data.get("room_data")
+    removed_exits = undo_data.get("removed_exits", [])
+
+    if not room_id or not room_data:
+        return (no_update,) * 4
+
+    # Create updated zone data
+    updated_zone = dict(zone_data)
+    updated_zone["rooms"] = dict(zone_data.get("rooms", {}))
+
+    # Restore the room
+    updated_zone["rooms"][room_id] = room_data
+
+    # Restore exits from other rooms
+    for exit_info in removed_exits:
+        other_room_id = exit_info["room_id"]
+        direction = exit_info["direction"]
+        target = exit_info["target"]
+        if other_room_id in updated_zone["rooms"]:
+            updated_zone["rooms"][other_room_id] = dict(updated_zone["rooms"][other_room_id])
+            updated_zone["rooms"][other_room_id]["exits"] = dict(
+                updated_zone["rooms"][other_room_id].get("exits", {})
+            )
+            updated_zone["rooms"][other_room_id]["exits"][direction] = target
+
+    feedback = dbc.Alert(
+        [
+            html.I(className="bi bi-arrow-counterclockwise me-2"),
+            f"Room '{room_id}' restored.",
+        ],
+        color="success",
+        className="mb-0 py-2",
+        duration=3000,
+    )
+
+    print(f"[DEBUG] undo_delete_room: restored room '{room_id}'")
+
+    return (
+        updated_zone,  # current-zone-data
+        None,  # delete-undo-data (clear)
+        {"display": "none"},  # undo-delete-container (hide)
+        feedback,  # room-form-feedback
+    )

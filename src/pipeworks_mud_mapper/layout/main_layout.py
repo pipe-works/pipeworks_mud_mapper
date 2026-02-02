@@ -31,6 +31,12 @@ The layout includes hidden dcc.Store components for application state:
 - ``selected-file``: Currently selected file name
 - ``selected-room``: Currently selected room ID
 - ``has-unsaved-changes``: Boolean flag for save status
+- ``delete-undo-data``: Undo data for room deletion (room + removed exits)
+
+Modal Dialogs
+-------------
+- ``new-map-modal``: Create new map file
+- ``delete-confirm-modal``: Confirm room deletion
 
 See Also
 --------
@@ -86,12 +92,42 @@ def create_app_layout() -> dbc.Container:
             dcc.Store(id="selected-file", data=None),  # Selected file name
             dcc.Store(id="selected-room", data=None),  # Selected room ID
             dcc.Store(id="has-unsaved-changes", data=False),  # Unsaved flag
+            dcc.Store(id="delete-undo-data", data=None),  # Undo data for delete
             # Interval to trigger initial file load
             dcc.Interval(id="initial-load", interval=100, max_intervals=1),
             # -----------------------------------------------------------------
             # Modal Dialogs
             # -----------------------------------------------------------------
             create_new_map_modal(),
+            # Delete confirmation modal
+            dbc.Modal(
+                [
+                    dbc.ModalHeader(
+                        dbc.ModalTitle(
+                            [html.I(className="bi bi-exclamation-triangle me-2"), "Confirm Delete"]
+                        ),
+                        close_button=True,
+                    ),
+                    dbc.ModalBody(id="delete-confirm-body"),
+                    dbc.ModalFooter(
+                        [
+                            dbc.Button(
+                                "Cancel",
+                                id="delete-cancel-btn",
+                                color="secondary",
+                                outline=True,
+                            ),
+                            dbc.Button(
+                                [html.I(className="bi bi-trash me-2"), "Delete"],
+                                id="delete-confirm-btn",
+                                color="danger",
+                            ),
+                        ]
+                    ),
+                ],
+                id="delete-confirm-modal",
+                is_open=False,
+            ),
             # -----------------------------------------------------------------
             # Header Row
             # -----------------------------------------------------------------

@@ -59,7 +59,10 @@ from pipeworks_mud_mapper.callbacks.map_callbacks import (
 from pipeworks_mud_mapper.callbacks.room_callbacks import (
     add_room_to_zone,
     clear_form_for_new_room,
+    confirm_delete_room,
     populate_room_form,
+    undo_delete_room,
+    update_delete_button_state,
     update_room_properties,
 )
 
@@ -983,3 +986,186 @@ class TestCallbackIntegration:
             zone_data=updated_zone,
         )
         assert "N" in form_result[6]  # exit_values
+
+
+# =============================================================================
+# Delete Room Tests
+# =============================================================================
+
+
+class TestDeleteRoomCallbacks:
+    """Tests for room deletion callbacks."""
+
+    @pytest.fixture
+    def zone_with_exits(self) -> dict:
+        """Create a zone with connected rooms for delete testing."""
+        return {
+            "id": "test_zone",
+            "name": "Test Zone",
+            "spawn_room": "spawn",
+            "rooms": {
+                "spawn": {
+                    "id": "spawn",
+                    "name": "Spawn Room",
+                    "description": "Starting room.",
+                    "coords": [0, 0, 0],
+                    "exits": {"north": "hallway"},
+                    "items": [],
+                },
+                "hallway": {
+                    "id": "hallway",
+                    "name": "Hallway",
+                    "description": "A long hallway.",
+                    "coords": [0, 5, 0],
+                    "exits": {"south": "spawn", "north": "exit_room"},
+                    "items": [],
+                },
+                "exit_room": {
+                    "id": "exit_room",
+                    "name": "Exit Room",
+                    "description": "The exit.",
+                    "coords": [0, 10, 0],
+                    "exits": {"south": "hallway"},
+                    "items": [],
+                },
+            },
+        }
+
+    def test_delete_button_disabled_no_selection(self):
+        """Delete button should be disabled when no room is selected."""
+        result = update_delete_button_state(
+            selected_room=None,
+            zone_data={"spawn_room": "spawn", "rooms": {}},
+        )
+        assert result is True  # Disabled
+
+    def test_delete_button_disabled_for_spawn(self, zone_with_exits):
+        """Delete button should be disabled for spawn room."""
+        result = update_delete_button_state(
+            selected_room="spawn",
+            zone_data=zone_with_exits,
+        )
+        assert result is True  # Disabled - can't delete spawn
+
+    def test_delete_button_enabled_for_non_spawn(self, zone_with_exits):
+        """Delete button should be enabled for non-spawn rooms."""
+        result = update_delete_button_state(
+            selected_room="hallway",
+            zone_data=zone_with_exits,
+        )
+        assert result is False  # Enabled
+
+    def test_confirm_delete_removes_room(self, zone_with_exits):
+        """Confirming delete should remove the room from zone data."""
+        result = confirm_delete_room(
+            n_clicks=1,
+            selected_room="exit_room",
+            zone_data=zone_with_exits,
+        )
+        updated_zone = result[0]
+        selected_room = result[1]
+        undo_data = result[3]
+
+        # Room should be deleted
+        assert "exit_room" not in updated_zone["rooms"]
+
+        # Selection should be cleared
+        assert selected_room is None
+
+        # Undo data should be stored
+        assert undo_data is not None
+        assert undo_data["room_id"] == "exit_room"
+
+    def test_confirm_delete_removes_incoming_exits(self, zone_with_exits):
+        """Deleting a room should remove exits from other rooms pointing to it."""
+        result = confirm_delete_room(
+            n_clicks=1,
+            selected_room="hallway",
+            zone_data=zone_with_exits,
+        )
+        updated_zone = result[0]
+        undo_data = result[3]
+
+        # Hallway should be deleted
+        assert "hallway" not in updated_zone["rooms"]
+
+        # Exit from spawn to hallway should be removed
+        assert "north" not in updated_zone["rooms"]["spawn"]["exits"]
+
+        # Exit from exit_room to hallway should be removed
+        assert "south" not in updated_zone["rooms"]["exit_room"]["exits"]
+
+        # Undo data should contain the removed exits
+        assert len(undo_data["removed_exits"]) == 2
+
+    def test_confirm_delete_no_click(self, zone_with_exits):
+        """No deletion should happen without a click."""
+        result = confirm_delete_room(
+            n_clicks=0,
+            selected_room="hallway",
+            zone_data=zone_with_exits,
+        )
+        # All outputs should be no_update
+        assert result == (no_update,) * 7
+
+    def test_undo_delete_restores_room(self, zone_with_exits):
+        """Undo should restore the deleted room."""
+        # First delete a room
+        delete_result = confirm_delete_room(
+            n_clicks=1,
+            selected_room="exit_room",
+            zone_data=zone_with_exits,
+        )
+        updated_zone = delete_result[0]
+        undo_data = delete_result[3]
+
+        # Verify it's deleted
+        assert "exit_room" not in updated_zone["rooms"]
+
+        # Now undo
+        undo_result = undo_delete_room(
+            n_clicks=1,
+            undo_data=undo_data,
+            zone_data=updated_zone,
+        )
+        restored_zone = undo_result[0]
+
+        # Room should be restored
+        assert "exit_room" in restored_zone["rooms"]
+        assert restored_zone["rooms"]["exit_room"]["name"] == "Exit Room"
+
+    def test_undo_delete_restores_exits(self, zone_with_exits):
+        """Undo should restore exits from other rooms."""
+        # Delete hallway (which has incoming exits from spawn and exit_room)
+        delete_result = confirm_delete_room(
+            n_clicks=1,
+            selected_room="hallway",
+            zone_data=zone_with_exits,
+        )
+        updated_zone = delete_result[0]
+        undo_data = delete_result[3]
+
+        # Verify exits are removed
+        assert "north" not in updated_zone["rooms"]["spawn"]["exits"]
+        assert "south" not in updated_zone["rooms"]["exit_room"]["exits"]
+
+        # Now undo
+        undo_result = undo_delete_room(
+            n_clicks=1,
+            undo_data=undo_data,
+            zone_data=updated_zone,
+        )
+        restored_zone = undo_result[0]
+
+        # Exits should be restored
+        assert restored_zone["rooms"]["spawn"]["exits"]["north"] == "hallway"
+        assert restored_zone["rooms"]["exit_room"]["exits"]["south"] == "hallway"
+
+    def test_undo_delete_no_undo_data(self, zone_with_exits):
+        """Undo should do nothing without undo data."""
+        result = undo_delete_room(
+            n_clicks=1,
+            undo_data=None,
+            zone_data=zone_with_exits,
+        )
+        assert result == (no_update,) * 4

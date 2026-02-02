@@ -49,6 +49,9 @@ Component IDs
 - ``room-coord-x``, ``room-coord-y``, ``room-coord-z``: Coordinate inputs
 - ``add-room-btn``: Button to add new room to zone
 - ``update-room-btn``: Button to update existing room
+- ``delete-room-btn``: Button to delete selected room (with confirmation)
+- ``undo-delete-btn``: Button to undo last room deletion
+- ``undo-delete-container``: Container for undo button (hidden/shown)
 - ``exit-checkboxes``: Checklist for exit directions (N/E/S/W/U/D)
 - ``exit-feedback``: Container for exit status display
 - ``ollama-server-url``: Input for Ollama server URL
@@ -213,6 +216,29 @@ def create_properties_panel() -> dbc.Card:
                                 width=6,
                             ),
                         ],
+                        className="mb-2",
+                    ),
+                    # Delete button (separate row, danger color)
+                    dbc.Button(
+                        [html.I(className="bi bi-trash me-2"), "Delete Room"],
+                        id="delete-room-btn",
+                        color="danger",
+                        outline=True,
+                        size="sm",
+                        className="w-100 mb-3",
+                        disabled=True,
+                    ),
+                    # Undo delete button (hidden by default)
+                    html.Div(
+                        dbc.Button(
+                            [html.I(className="bi bi-arrow-counterclockwise me-2"), "Undo Delete"],
+                            id="undo-delete-btn",
+                            color="warning",
+                            size="sm",
+                            className="w-100",
+                        ),
+                        id="undo-delete-container",
+                        style={"display": "none"},
                         className="mb-3",
                     ),
                     html.Hr(),
