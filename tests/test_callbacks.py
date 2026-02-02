@@ -64,7 +64,6 @@ from pipeworks_mud_mapper.callbacks.room_callbacks import (
     update_room_properties,
 )
 
-
 # =============================================================================
 # Fixtures
 # =============================================================================
@@ -481,9 +480,20 @@ class TestRoomCallbacks:
         """clear_form_for_new_room should reset all form fields."""
         result = clear_form_for_new_room(n_clicks=1)
         # Should return cleared values
-        feedback, selected, room_id, name, desc, x, y, z, update_btn, id_disabled, exits, exit_fb = (
-            result
-        )
+        (
+            feedback,
+            selected,
+            room_id,
+            name,
+            desc,
+            x,
+            y,
+            z,
+            update_btn,
+            id_disabled,
+            exits,
+            exit_fb,
+        ) = result
         assert selected is None
         assert room_id == ""
         assert name == ""
