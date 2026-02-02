@@ -153,15 +153,21 @@ def render_file_list(files: list[str], selected_file: str | None) -> list:
     Output("selected-file", "data"),
     Output("current-zone-data", "data"),
     Output("current-zone", "children"),
+    Output("has-unsaved-changes", "data", allow_duplicate=True),
     Input({"type": "file-item", "filename": ALL}, "n_clicks"),
     State("zone-files-store", "data"),
+    State("selected-file", "data"),
     prevent_initial_call=True,
 )
-def handle_file_click(n_clicks_list: list[int], files: list[str]) -> tuple:
+def handle_file_click(
+    n_clicks_list: list[int], files: list[str], current_file: str | None
+) -> tuple:
     """Load map data when a file is clicked in the browser.
 
     Uses Dash pattern-matching callbacks to detect which file was clicked
     from the dynamic file list. Loads the map JSON file.
+
+    Also resets has-unsaved-changes to False when loading a new file.
 
     Parameters
     ----------
@@ -169,24 +175,30 @@ def handle_file_click(n_clicks_list: list[int], files: list[str]) -> tuple:
         Click counts for all file items (pattern-matching input).
     files : list[str]
         List of file names from zone-files-store.
+    current_file : str | None
+        Currently selected file (to detect re-clicks on same file).
 
     Returns
     -------
     tuple
-        (selected_file, zone_data, zone_display) or no_update tuple.
+        (selected_file, zone_data, zone_display, has_unsaved) or no_update tuple.
     """
     # Check if any file was actually clicked
     if not any(n_clicks_list):
-        return no_update, no_update, no_update
+        return no_update, no_update, no_update, no_update
 
     # Get the triggered file from callback context
     triggered = ctx.triggered_id
     if not triggered or not isinstance(triggered, dict):
-        return no_update, no_update, no_update
+        return no_update, no_update, no_update, no_update
 
     filename = triggered.get("filename")
     if not filename:
-        return no_update, no_update, no_update
+        return no_update, no_update, no_update, no_update
+
+    # If clicking the same file that's already loaded, don't reload
+    if filename == current_file:
+        return no_update, no_update, no_update, no_update
 
     # Load the map file using zone_service
     file_path = MAPS_DIR / filename
@@ -195,10 +207,11 @@ def handle_file_click(n_clicks_list: list[int], files: list[str]) -> tuple:
         # Convert to dict for Dash storage
         zone_data = map_file.to_dict_with_list_coords()
         zone_name = zone_data.get("name", filename)
-        return filename, zone_data, f"Zone: {zone_name}"
+        # Reset unsaved changes when loading a new file
+        return filename, zone_data, f"Zone: {zone_name}", False
     except Exception as e:
         print(f"Error loading map: {e}")
-        return no_update, no_update, no_update
+        return no_update, no_update, no_update, no_update
 
 
 # =============================================================================
@@ -351,27 +364,6 @@ def create_new_map(
 # =============================================================================
 # Save/Export/Status Callbacks
 # =============================================================================
-
-
-@callback(
-    Output("has-unsaved-changes", "data", allow_duplicate=True),
-    Input("selected-file", "data"),
-    prevent_initial_call=True,
-)
-def reset_unsaved_on_file_load(selected_file: str | None) -> bool:
-    """Reset unsaved changes flag when a new file is loaded.
-
-    Parameters
-    ----------
-    selected_file : str | None
-        Newly selected file name.
-
-    Returns
-    -------
-    bool
-        False to indicate no unsaved changes.
-    """
-    return False
 
 
 @callback(

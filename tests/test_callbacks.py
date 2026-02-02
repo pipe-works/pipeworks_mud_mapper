@@ -49,7 +49,6 @@ from pipeworks_mud_mapper.callbacks.file_callbacks import (
     load_map_files_list,
     open_new_map_modal,
     render_file_list,
-    reset_unsaved_on_file_load,
     save_map_to_file,
     update_save_status,
 )
@@ -322,7 +321,7 @@ class TestMapCallbacks:
 
     def test_handle_map_click_empty_points(self, simple_zone_data):
         """handle_map_click should return no_update when no points clicked."""
-        click_data = {"points": []}
+        click_data: dict = {"points": []}
         result = handle_map_click(click_data=click_data, zone_data=simple_zone_data)
         assert result is no_update
 
@@ -668,8 +667,12 @@ class TestFileCallbacks:
 
     def test_handle_file_click_no_clicks(self):
         """handle_file_click should return no_update when nothing clicked."""
-        result = handle_file_click(n_clicks_list=[0, 0], files=["a.map.json", "b.map.json"])
-        assert result == (no_update, no_update, no_update)
+        result = handle_file_click(
+            n_clicks_list=[0, 0],
+            files=["a.map.json", "b.map.json"],
+            current_file=None,
+        )
+        assert result == (no_update, no_update, no_update, no_update)
 
     def test_open_new_map_modal(self):
         """open_new_map_modal should return True when clicked."""
@@ -770,11 +773,6 @@ class TestFileCallbacks:
 
         assert result[0] is no_update  # Modal stays open
         assert result[2] is not no_update  # feedback about duplicate
-
-    def test_reset_unsaved_on_file_load(self):
-        """reset_unsaved_on_file_load should return False."""
-        result = reset_unsaved_on_file_load(selected_file="test.map.json")
-        assert result is False
 
     def test_update_save_status_no_file(self):
         """update_save_status should show no file loaded state."""
