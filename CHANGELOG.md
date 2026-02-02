@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.6](https://github.com/pipe-works/pipeworks_mud_mapper/compare/pipeworks-mud-mapper-v0.0.5...pipeworks-mud-mapper-v0.0.6) (2026-02-02)
+
+
+### Documentation
+
+* improve README with badges and cleaner structure ([5028a13](https://github.com/pipe-works/pipeworks_mud_mapper/commit/5028a13e59c13a4c6cc44a19ea3ee7f1874ba76d))
+
 ## [0.0.5](https://github.com/pipe-works/pipeworks_mud_mapper/compare/pipeworks-mud-mapper-v0.0.4...pipeworks-mud-mapper-v0.0.5) (2026-02-02)
 
 
