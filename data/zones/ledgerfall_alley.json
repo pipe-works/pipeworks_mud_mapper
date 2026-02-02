@@ -7,7 +7,7 @@
     "spawn": {
       "id": "spawn",
       "name": "Starting Room",
-      "description": "To the East is an old broken door hanging ajar on its hinges.",
+      "description": "A sliver of dust-filled sunbeams pierces through the warped wood planks of the door, casting elongated shadows across the stone floor. The air hangs thick with the scent of decay – musty earth and the faintest trace of mildew - an unsettling harmony against the silence of the room.  \n\nTo the East a broken door creaks slightly in the stale air as if protesting at your touch.",
       "exits": {
         "east": "broken_door",
         "west": "ledgerfall_market"

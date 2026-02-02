@@ -408,4 +408,5 @@ def update_room_properties(
         duration=3000,
     )
 
+    print(f"[DEBUG] update_room_properties: setting has_unsaved=True for room '{selected_room}'")
     return updated_zone, feedback, True

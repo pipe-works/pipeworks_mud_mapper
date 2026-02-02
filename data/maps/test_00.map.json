@@ -1,0 +1,21 @@
+{
+  "id": "test_00",
+  "name": "Test 00",
+  "description": "Just testing",
+  "spawn_room": "spawn",
+  "rooms": {
+    "spawn": {
+      "id": "spawn",
+      "name": "Spawn Room",
+      "description": "",
+      "coords": [
+        0,
+        0,
+        0
+      ],
+      "exits": {},
+      "items": []
+    }
+  },
+  "items": {}
+}

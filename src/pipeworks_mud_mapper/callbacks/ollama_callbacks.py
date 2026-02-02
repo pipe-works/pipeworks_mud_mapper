@@ -350,6 +350,7 @@ def send_to_description(
             f"Applied to '{selected_room}'",
         ]
     )
+    print(f"[DEBUG] send_to_description: setting has_unsaved=True for room '{selected_room}'")
     return response_text, updated_zone, True, status
 
 
