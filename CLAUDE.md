@@ -16,6 +16,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 # Install dependencies
 pip install -e ".[dev]"
 
+# Install pre-commit hooks (REQUIRED after cloning)
+pre-commit install
+
 # Run tests
 pytest
 
@@ -29,6 +32,9 @@ ruff check --fix src/ tests/
 
 # Type checking
 mypy src/ --ignore-missing-imports
+
+# Run all pre-commit checks manually
+pre-commit run --all-files
 ```
 
 ## Architecture
@@ -42,8 +48,11 @@ src/pipeworks_mud_mapper/
 ## Development Guidelines
 
 - Follow pipe-works organization coding standards
-- All code must pass pre-commit hooks before committing
+- **Always run `pre-commit install` after cloning** - hooks are not automatic
+- All code must pass pre-commit hooks before committing (ruff, black, mypy, bandit)
+- Run `pre-commit run --all-files` to check before pushing if hooks weren't triggered
 - Write tests for new functionality (50% minimum coverage)
+- Use feature branches and PRs - avoid pushing directly to main
 - Update documentation as needed
 - Determinism is important where applicable (seeded RNG)
 
