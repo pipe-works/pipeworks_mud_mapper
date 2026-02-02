@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.10](https://github.com/pipe-works/pipeworks_mud_mapper/compare/pipeworks-mud-mapper-v0.0.9...pipeworks-mud-mapper-v0.0.10) (2026-02-02)
+
+
+### Features
+
+* add validation UI with report generation ([ccea6b9](https://github.com/pipe-works/pipeworks_mud_mapper/commit/ccea6b9136865f964997fd571b3f250564b0a80b))
+
 ## [0.0.9](https://github.com/pipe-works/pipeworks_mud_mapper/compare/pipeworks-mud-mapper-v0.0.8...pipeworks-mud-mapper-v0.0.9) (2026-02-02)
 
 
