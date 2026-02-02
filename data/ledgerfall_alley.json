@@ -58,7 +58,8 @@
         0
       ],
       "exits": {
-        "east": "dark_hallway"
+        "east": "dark_hallway",
+        "south": "back_door"
       },
       "items": []
     },
@@ -73,6 +74,20 @@
       ],
       "exits": {
         "east": "spawn"
+      },
+      "items": []
+    },
+    "back_door": {
+      "id": "back_door",
+      "name": "Back Door",
+      "description": "This door looks well maintained.",
+      "coords": [
+        0,
+        -10,
+        0
+      ],
+      "exits": {
+        "north": "locked_door"
       },
       "items": []
     }
