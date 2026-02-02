@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.7](https://github.com/pipe-works/pipeworks_mud_mapper/compare/pipeworks-mud-mapper-v0.0.6...pipeworks-mud-mapper-v0.0.7) (2026-02-02)
+
+
+### Features
+
+* add Ollama LLM integration for room descriptions ([#8](https://github.com/pipe-works/pipeworks_mud_mapper/issues/8)) ([35a37a0](https://github.com/pipe-works/pipeworks_mud_mapper/commit/35a37a08c2fef5ab28cda9b3b916e1071c940420))
+
 ## [0.0.6](https://github.com/pipe-works/pipeworks_mud_mapper/compare/pipeworks-mud-mapper-v0.0.5...pipeworks-mud-mapper-v0.0.6) (2026-02-02)
 
 
