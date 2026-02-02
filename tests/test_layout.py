@@ -139,51 +139,34 @@ def get_all_component_ids(component) -> set[str]:
 
 
 class TestActionBar:
-    """Tests for action_bar module."""
+    """Tests for action_bar module.
+
+    Note: Save/Export buttons and status indicator moved to file browser.
+    Action bar now only contains validate placeholder and debug output.
+    """
 
     def test_create_action_bar_returns_div(self):
         """create_action_bar should return an html.Div."""
         result = create_action_bar()
         assert isinstance(result, html.Div)
 
-    def test_create_action_bar_has_save_button(self):
-        """create_action_bar should include save-map-btn."""
+    def test_create_action_bar_has_debug_output(self):
+        """create_action_bar should include debug-btn-state."""
         result = create_action_bar()
-        assert component_has_id(result, "save-map-btn")
-
-    def test_create_action_bar_has_export_button(self):
-        """create_action_bar should include export-zone-btn."""
-        result = create_action_bar()
-        assert component_has_id(result, "export-zone-btn")
-
-    def test_create_action_bar_has_status_indicator(self):
-        """create_action_bar should include status-indicator."""
-        result = create_action_bar()
-        assert component_has_id(result, "status-indicator")
-
-    def test_create_action_bar_buttons_initially_disabled(self):
-        """create_action_bar buttons should start disabled."""
-        result = create_action_bar()
-        save_btn = find_component_by_id(result, "save-map-btn")
-        export_btn = find_component_by_id(result, "export-zone-btn")
-
-        assert save_btn.disabled is True
-        assert export_btn.disabled is True
+        assert component_has_id(result, "debug-btn-state")
 
     def test_create_action_bar_has_validate_button(self):
         """create_action_bar should include validate button (placeholder)."""
         result = create_action_bar()
-        # Validate button doesn't have an ID (placeholder), but should exist
-        # Check that we have at least 3 buttons (Validate, Export, Save)
+        # Should have at least one button (Validate placeholder)
         buttons = [child for child in result.children if isinstance(child, dbc.Button)]
-        assert len(buttons) >= 3
+        assert len(buttons) >= 1
 
-    def test_create_action_bar_status_default_text(self):
-        """create_action_bar status should show 'No file loaded' initially."""
+    def test_create_action_bar_validate_disabled(self):
+        """create_action_bar validate button should be disabled (placeholder)."""
         result = create_action_bar()
-        status = find_component_by_id(result, "status-indicator")
-        # Status children should include "No file loaded" text
-        assert "No file loaded" in str(status.children)
+        buttons = [child for child in result.children if isinstance(child, dbc.Button)]
+        assert buttons[0].disabled is True
 
 
 # =============================================================================
@@ -229,6 +212,36 @@ class TestFileBrowser:
         new_map_btn = find_component_by_id(result, "new-map-btn")
         assert new_map_btn.color == "secondary"
         assert new_map_btn.outline is True
+
+    def test_create_file_browser_has_save_button(self):
+        """create_file_browser should include save-map-btn."""
+        result = create_file_browser()
+        assert component_has_id(result, "save-map-btn")
+
+    def test_create_file_browser_has_export_button(self):
+        """create_file_browser should include export-zone-btn."""
+        result = create_file_browser()
+        assert component_has_id(result, "export-zone-btn")
+
+    def test_create_file_browser_has_status_indicator(self):
+        """create_file_browser should include status-indicator."""
+        result = create_file_browser()
+        assert component_has_id(result, "status-indicator")
+
+    def test_create_file_browser_buttons_initially_disabled(self):
+        """create_file_browser save/export buttons should start disabled."""
+        result = create_file_browser()
+        save_btn = find_component_by_id(result, "save-map-btn")
+        export_btn = find_component_by_id(result, "export-zone-btn")
+
+        assert save_btn.disabled is True
+        assert export_btn.disabled is True
+
+    def test_create_file_browser_status_default_text(self):
+        """create_file_browser status should show 'No file loaded' initially."""
+        result = create_file_browser()
+        status = find_component_by_id(result, "status-indicator")
+        assert "No file loaded" in str(status.children)
 
 
 # =============================================================================
