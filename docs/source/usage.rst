@@ -2,7 +2,27 @@ Usage Guide
 ===========
 
 This guide covers how to use the PipeWorks MUD Mapper to create and edit
-zone files for your MUD world.
+map files for your MUD world.
+
+Two-File Workflow
+-----------------
+
+The mapper distinguishes between two file types:
+
+**Map Files** (``data/maps/*.map.json``)
+    Authoring source files that include coordinates for visual editing.
+    These are your working files. Create and edit maps here.
+
+**Zone Files** (``data/zones/*.json``)
+    Game truth files exported without coordinates. These are what the
+    MUD server consumes. Coordinates are stripped because the game engine
+    operates on topology (connections), not geometry (positions).
+
+Typical workflow::
+
+    1. Create/edit map file  →  data/maps/my_zone.map.json
+    2. Save changes          →  Preserves coordinates for future editing
+    3. Export Zone JSON      →  data/zones/my_zone.json (coords stripped)
 
 Starting the Application
 ------------------------
@@ -23,8 +43,8 @@ Interface Overview
 The mapper has a three-column layout:
 
 **Left Column - File Browser**
-    Lists available zone files in the ``data/`` directory. Click a file to
-    load it. Use "New Map" to create a new zone.
+    Lists available map files from the ``data/maps/`` directory. Click a file
+    to load it. Use "New Map" to create a new map.
 
 **Center Column - Map View**
     Interactive Plotly graph showing rooms as nodes and exits as connecting
@@ -35,8 +55,16 @@ The mapper has a three-column layout:
     Form for editing room properties. Shows room ID, name, description,
     coordinates, and exit checkboxes.
 
-Creating a New Zone
--------------------
+**Bottom - Action Bar**
+    Save and export controls with status indicator:
+
+    - **Validate**: Check map for issues (planned feature)
+    - **Export Zone JSON**: Export game truth file (no coordinates)
+    - **Save Map**: Save authoring file (with coordinates)
+    - **Status**: Shows save state (gray=no file, yellow=unsaved, green=saved)
+
+Creating a New Map
+------------------
 
 1. Click the **New Map** button in the file browser
 2. Enter a **Zone ID** (lowercase, no spaces, e.g., ``my_dungeon``)
@@ -44,8 +72,8 @@ Creating a New Zone
 4. Optionally add a **Description**
 5. Click **Create**
 
-The new zone file is saved to the ``data/`` directory and appears in the
-file browser. Click it to load and start editing.
+The new map file is saved to ``data/maps/`` and appears in the file browser.
+Click it to load and start editing.
 
 Adding Rooms
 ------------
@@ -94,17 +122,29 @@ Exits connect rooms together. The mapper creates bidirectional exits by default.
 To create one-way exits, add the exit, then select the target room and
 uncheck the reverse direction.
 
-Saving Changes
---------------
+Saving and Exporting
+--------------------
+
+**Saving Maps**
 
 Changes are tracked but not automatically saved. The status indicator at
 the bottom shows:
 
 - **Gray dot**: No file loaded
-- **Yellow dot**: Unsaved changes
-- **Green dot**: All changes saved
+- **Yellow dot**: Unsaved changes (Save enabled, Export disabled)
+- **Green dot**: All changes saved (Save disabled, Export enabled)
 
-Click **Save Map** to save changes to the zone file.
+Click **Save Map** to save changes to the map file (``data/maps/*.map.json``).
+
+**Exporting Zone Files**
+
+Once your map is saved, click **Export Zone JSON** to create the game truth file:
+
+- Exported to ``data/zones/{zone_id}.json``
+- Coordinates are stripped (game engine doesn't need them)
+- Room IDs, names, descriptions, and exits are preserved
+
+The exported zone file is what the MUD server consumes.
 
 Keyboard Shortcuts
 ------------------
@@ -132,3 +172,11 @@ Tips and Best Practices
 
 **Incremental Saving**
     Save frequently to avoid losing work. The mapper doesn't auto-save.
+
+**Export When Ready**
+    Export zone files when your map is ready for testing in the MUD server.
+    Keep editing the map file; re-export when you make changes.
+
+**Version Control**
+    Both map files and zone files are JSON and work well with git.
+    Commit map files as your source of truth; zone files are derived.

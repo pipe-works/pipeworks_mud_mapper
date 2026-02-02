@@ -8,11 +8,6 @@
       "id": "spawn",
       "name": "Starting Room",
       "description": "To the East is an old broken door hanging ajar on its hinges.",
-      "coords": [
-        0,
-        0,
-        0
-      ],
       "exits": {
         "east": "broken_door",
         "west": "ledgerfall_market"
@@ -23,11 +18,6 @@
       "id": "broken_door",
       "name": "Broken Door",
       "description": "Skittering sounds can be heard from behind the door.",
-      "coords": [
-        5,
-        0,
-        0
-      ],
       "exits": {
         "west": "spawn",
         "south": "dark_hallway"
@@ -38,11 +28,6 @@
       "id": "dark_hallway",
       "name": "Dark Hallway",
       "description": "A dark hallway. The sound of tiny feet skittering on stone.",
-      "coords": [
-        5,
-        -5,
-        0
-      ],
       "exits": {
         "north": "broken_door"
       },
@@ -52,11 +37,6 @@
       "id": "locked_door",
       "name": "Sturdy Locked Door",
       "description": "You should have brought an Orc.",
-      "coords": [
-        0,
-        -5,
-        0
-      ],
       "exits": {
         "east": "dark_hallway",
         "south": "back_door"
@@ -67,11 +47,6 @@
       "id": "ledgerfall_market",
       "name": "Ledgerfall Market",
       "description": "To the West you see a bustling market place.",
-      "coords": [
-        -5,
-        0,
-        0
-      ],
       "exits": {
         "east": "spawn"
       },
@@ -81,11 +56,6 @@
       "id": "back_door",
       "name": "Back Door",
       "description": "This door looks well maintained.",
-      "coords": [
-        0,
-        -10,
-        0
-      ],
       "exits": {
         "north": "locked_door",
         "south": "quiet_street"
@@ -96,11 +66,6 @@
       "id": "quiet_street",
       "name": "Quiet Street",
       "description": "A suspiciously quite street.",
-      "coords": [
-        0,
-        -15,
-        0
-      ],
       "exits": {
         "north": "back_door",
         "west": "quite_street_west"
@@ -111,11 +76,6 @@
       "id": "quite_street_west",
       "name": "West Quiet Street",
       "description": "A street urchin lurks in the shadows",
-      "coords": [
-        -5,
-        -15,
-        0
-      ],
       "exits": {
         "east": "quiet_street"
       },

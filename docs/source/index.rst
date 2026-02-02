@@ -5,26 +5,48 @@ PipeWorks MUD Mapper Documentation
    :target: https://pipeworks-mud-mapper.readthedocs.io/en/latest/?badge=latest
    :alt: Documentation Status
 
-**PipeWorks MUD Mapper** is a procedural MUD world mapping and visualization tool.
-It provides a visual zone editor for creating and editing MUD (Multi-User Dungeon)
-world files, generating JSON zone files compatible with the PipeWorks MUD Server.
+**PipeWorks MUD Mapper** is a visual authoring tool for creating and editing
+MUD (Multi-User Dungeon) zone files. It provides an interactive map editor
+built with Dash and Plotly, generating JSON zone files compatible with the
+PipeWorks MUD Server.
 
 Features
 --------
 
 * **Visual Map Editor** - Interactive 2D map with Plotly-based rendering
-* **Room Management** - Create, edit, and delete rooms with properties panel
+* **Room Management** - Create, edit, and delete rooms with intuitive form
 * **Exit System** - Bidirectional exit creation with automatic reverse linking
 * **Multi-Level Support** - Z-axis filtering for 3D dungeon visualization
+* **Two-File Workflow** - Separate authoring (with coords) and export (without)
 * **Auto-Layout** - Automatic coordinate assignment from exit definitions
-* **JSON Export** - Save zones as JSON files for MUD server integration
+
+Two-File Workflow
+-----------------
+
+The mapper distinguishes between two file types:
+
+**Map Files** (``data/maps/*.map.json``)
+    Authoring source files that include coordinates for visual editing.
+    These are your working files.
+
+**Zone Files** (``data/zones/*.json``)
+    Game truth files exported without coordinates. These are what the
+    MUD server consumes. Coordinates are stripped because the game engine
+    operates on topology (connections), not geometry (positions).
+
+Workflow::
+
+    Edit map file  →  Save  →  Export Zone JSON
+         ↓              ↓              ↓
+    Visual coords   Preserved    Coords stripped
+    for authoring   for editing  for game server
 
 Quick Start
 -----------
 
 Install the mapper::
 
-    pip install pipeworks-mud-mapper
+    pip install -e ".[dev]"
 
 Run the application::
 
@@ -48,28 +70,25 @@ The mapper uses a 3D Cartesian coordinate system:
 
 The spawn room is typically placed at origin (0, 0, 0).
 
-Zone File Format
-----------------
+Architecture
+------------
 
-Zone files are JSON documents with this structure::
+The mapper follows a modular architecture::
 
-    {
-        "id": "zone_id",
-        "name": "Zone Name",
-        "description": "Description text",
-        "spawn_room": "room_id",
-        "rooms": {
-            "room_id": {
-                "id": "room_id",
-                "name": "Room Name",
-                "description": "Room description",
-                "coords": [x, y, z],
-                "exits": {"direction": "target_room_id"},
-                "items": []
-            }
-        },
-        "items": {}
-    }
+    src/pipeworks_mud_mapper/
+    ├── app.py              # Application entry point
+    ├── layout/             # UI structure (Dash components)
+    ├── callbacks/          # Interactivity (Dash callbacks)
+    ├── services/           # Business logic (pure Python)
+    ├── models/             # Domain models (Pydantic)
+    ├── components/         # Reusable Plotly components
+    └── utils/              # File I/O utilities
+
+This separation enables:
+
+* **Testability** - Services can be tested without Dash
+* **Maintainability** - Clear boundaries between concerns
+* **Extensibility** - New features can be added in isolation
 
 Contents
 --------
