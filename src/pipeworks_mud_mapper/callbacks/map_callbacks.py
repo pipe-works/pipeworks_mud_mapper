@@ -22,6 +22,8 @@ See Also
 - ``components/map_view.py``: Plotly figure creation functions
 """
 
+from typing import Any
+
 from dash import Input, Output, State, callback, no_update
 
 from pipeworks_mud_mapper.components.map_view import (
@@ -36,7 +38,7 @@ from pipeworks_mud_mapper.components.map_view import (
     Input("z-level-selector", "value"),
     Input("selected-room", "data"),
 )
-def update_map_with_rooms(zone_data: dict | None, z_level: int, selected_room: str | None) -> dict:
+def update_map_with_rooms(zone_data: dict | None, z_level: int, selected_room: str | None) -> Any:
     """Update the map figure when zone data, Z-level, or selection changes.
 
     Re-renders the Plotly figure with current rooms filtered to the
@@ -69,7 +71,7 @@ def update_map_with_rooms(zone_data: dict | None, z_level: int, selected_room: s
     State("current-zone-data", "data"),
     prevent_initial_call=True,
 )
-def handle_map_click(click_data: dict | None, zone_data: dict | None) -> str | None:
+def handle_map_click(click_data: dict | None, zone_data: dict | None) -> Any:
     """Select a room when it is clicked on the map.
 
     Extracts the room ID from the clicked point's text field and

@@ -398,6 +398,79 @@ class TestPropertiesPanel:
         assert isinstance(result.children[0], dbc.CardHeader)
         assert "Room Properties" in str(result.children[0].children)
 
+    # =========================================================================
+    # Ollama LLM Section Tests
+    # =========================================================================
+
+    def test_create_properties_panel_has_ollama_server_url(self):
+        """create_properties_panel should include ollama-server-url input."""
+        result = create_properties_panel()
+        assert component_has_id(result, "ollama-server-url")
+
+    def test_create_properties_panel_has_ollama_model_dropdown(self):
+        """create_properties_panel should include ollama-model-dropdown."""
+        result = create_properties_panel()
+        assert component_has_id(result, "ollama-model-dropdown")
+
+    def test_create_properties_panel_has_ollama_refresh_btn(self):
+        """create_properties_panel should include ollama-refresh-models-btn."""
+        result = create_properties_panel()
+        assert component_has_id(result, "ollama-refresh-models-btn")
+
+    def test_create_properties_panel_has_ollama_system_prompt(self):
+        """create_properties_panel should include ollama-system-prompt."""
+        result = create_properties_panel()
+        assert component_has_id(result, "ollama-system-prompt")
+
+    def test_create_properties_panel_has_ollama_user_prompt(self):
+        """create_properties_panel should include ollama-user-prompt."""
+        result = create_properties_panel()
+        assert component_has_id(result, "ollama-user-prompt")
+
+    def test_create_properties_panel_has_ollama_generate_btn(self):
+        """create_properties_panel should include ollama-generate-btn."""
+        result = create_properties_panel()
+        assert component_has_id(result, "ollama-generate-btn")
+
+    def test_create_properties_panel_has_ollama_copy_btn(self):
+        """create_properties_panel should include ollama-copy-btn."""
+        result = create_properties_panel()
+        assert component_has_id(result, "ollama-copy-btn")
+
+    def test_create_properties_panel_has_ollama_response(self):
+        """create_properties_panel should include ollama-response textarea."""
+        result = create_properties_panel()
+        assert component_has_id(result, "ollama-response")
+
+    def test_create_properties_panel_has_ollama_status(self):
+        """create_properties_panel should include ollama-status."""
+        result = create_properties_panel()
+        assert component_has_id(result, "ollama-status")
+
+    def test_create_properties_panel_ollama_server_default(self):
+        """create_properties_panel ollama-server-url should default to localhost."""
+        result = create_properties_panel()
+        server_input = find_component_by_id(result, "ollama-server-url")
+        assert server_input.value == "http://localhost:11434"
+
+    def test_create_properties_panel_ollama_system_prompt_has_default(self):
+        """create_properties_panel ollama-system-prompt should have default text."""
+        result = create_properties_panel()
+        system_prompt = find_component_by_id(result, "ollama-system-prompt")
+        assert "creative writer" in system_prompt.value.lower()
+        assert "MUD" in system_prompt.value
+
+    def test_create_properties_panel_ollama_response_readonly(self):
+        """create_properties_panel ollama-response should be read-only."""
+        result = create_properties_panel()
+        response = find_component_by_id(result, "ollama-response")
+        assert response.readOnly is True
+
+    def test_create_properties_panel_has_ollama_clipboard(self):
+        """create_properties_panel should include ollama-clipboard component."""
+        result = create_properties_panel()
+        assert component_has_id(result, "ollama-clipboard")
+
 
 # =============================================================================
 # Main Layout Tests
@@ -577,6 +650,21 @@ class TestLayoutIntegration:
         for id_ in exit_callback_ids:
             assert id_ in ids, f"Missing ID for exit callbacks: {id_}"
 
+        # IDs used in ollama_callbacks.py
+        ollama_callback_ids = [
+            "ollama-server-url",
+            "ollama-model-dropdown",
+            "ollama-refresh-models-btn",
+            "ollama-system-prompt",
+            "ollama-user-prompt",
+            "ollama-generate-btn",
+            "ollama-copy-btn",
+            "ollama-response",
+            "ollama-status",
+        ]
+        for id_ in ollama_callback_ids:
+            assert id_ in ids, f"Missing ID for ollama callbacks: {id_}"
+
     def test_no_duplicate_ids(self):
         """Layout should not have duplicate component IDs."""
         result = create_app_layout()
@@ -609,8 +697,8 @@ class TestLayoutIntegration:
         result = create_app_layout()
         ids = get_all_component_ids(result)
 
-        # Should have at least 30 IDs (all the stores, inputs, buttons, etc.)
-        assert len(ids) >= 30, f"Only found {len(ids)} IDs, expected at least 30"
+        # Should have at least 39 IDs (all the stores, inputs, buttons, plus Ollama)
+        assert len(ids) >= 39, f"Only found {len(ids)} IDs, expected at least 39"
 
     def test_store_components_are_dcc_store(self):
         """All store components should be dcc.Store instances."""

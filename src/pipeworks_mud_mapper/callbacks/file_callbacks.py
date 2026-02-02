@@ -45,6 +45,7 @@ Component Dependencies
 
 import re
 from pathlib import Path
+from typing import Any
 
 import dash_bootstrap_components as dbc
 from dash import ALL, Input, Output, State, callback, ctx, html, no_update
@@ -233,7 +234,7 @@ def open_new_map_modal(n_clicks: int) -> bool:
     Input("new-map-cancel-btn", "n_clicks"),
     prevent_initial_call=True,
 )
-def close_new_map_modal(n_clicks: int) -> bool:
+def close_new_map_modal(n_clicks: int) -> Any:
     """Close the New Map modal when Cancel is clicked.
 
     Parameters
@@ -501,7 +502,7 @@ def save_map_to_file(n_clicks: int, zone_data: dict | None, selected_file: str |
     State("selected-file", "data"),
     prevent_initial_call=True,
 )
-def export_zone_to_file(n_clicks: int, zone_data: dict | None, selected_file: str | None) -> str:
+def export_zone_to_file(n_clicks: int, zone_data: dict | None, selected_file: str | None) -> Any:
     """Export the current map as a zone file (strips coordinates).
 
     Exports to data/zones/{name}.json, creating the game truth file
