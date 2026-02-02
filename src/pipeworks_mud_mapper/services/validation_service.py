@@ -259,7 +259,7 @@ def validate_exit_consistency(map_file: MapFile) -> list[ValidationWarning]:
                 continue
 
             # Skip if already checked this pair
-            pair = tuple(sorted([room_id, target]))
+            pair: tuple[str, str] = (min(room_id, target), max(room_id, target))
             if pair in checked_pairs:
                 continue
             checked_pairs.add(pair)

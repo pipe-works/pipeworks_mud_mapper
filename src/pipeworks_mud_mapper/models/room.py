@@ -78,7 +78,7 @@ See Also
 - ``goblin_cartography.md`` Section 2.2: The Coordinate Paradox
 """
 
-from typing import Literal
+from typing import Literal, cast
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -479,4 +479,4 @@ class MapRoom(BaseModel):
         data = data.copy()
         if "coords" in data and isinstance(data["coords"], list):
             data["coords"] = Coords.from_list(data["coords"])
-        return cls.model_validate(data)
+        return cast("MapRoom", cls.model_validate(data))

@@ -37,6 +37,8 @@ See Also
 - ``utils/zone_io.py``: Direction constants
 """
 
+from typing import Any
+
 from dash import Input, Output, State, callback, html, no_update
 
 from pipeworks_mud_mapper.utils.zone_io import (
@@ -162,12 +164,7 @@ def handle_exit_changes(
         else:
             # No room in that direction - reject the checkbox
             rejected_directions.append(short_dir)
-            feedback_messages.append(
-                html.Span(
-                    f"⚠️ {short_dir}: no room",
-                    className="text-warning",
-                )
-            )
+            feedback_messages.append(f"⚠️ {short_dir}: no room")
 
     # Update room with new exits
     updated_room["exits"] = updated_exits
@@ -176,6 +173,7 @@ def handle_exit_changes(
     final_checked = [v for v in checked_values if v not in rejected_directions]
 
     # Build feedback display
+    exit_info: list[Any] = []
     if updated_exits:
         exit_info = [
             html.Span(

@@ -69,7 +69,7 @@ See Also
 
 import json
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from pipeworks_mud_mapper.models import Coords, MapFile, MapRoom, Zone
 
@@ -288,7 +288,7 @@ def load_zone(path: Path) -> Zone:
     """
     content = path.read_text(encoding="utf-8")
     data = json.loads(content)
-    return Zone.model_validate(data)
+    return cast(Zone, Zone.model_validate(data))
 
 
 def get_suggested_export_path(map_path: Path) -> Path:

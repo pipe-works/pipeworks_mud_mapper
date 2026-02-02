@@ -27,6 +27,10 @@ Callbacks are organized into functional modules:
     Exit checkbox handling.
     Bidirectional exit management.
 
+**ollama_callbacks**
+    LLM integration via local Ollama server.
+    Model selection, prompt handling, description generation.
+
 Registration
 ------------
 Callbacks are registered when their modules are imported.
@@ -49,6 +53,7 @@ from pipeworks_mud_mapper.callbacks import (
     exit_callbacks,  # noqa: F401
     file_callbacks,  # noqa: F401
     map_callbacks,  # noqa: F401
+    ollama_callbacks,  # noqa: F401
     room_callbacks,  # noqa: F401
 )
 

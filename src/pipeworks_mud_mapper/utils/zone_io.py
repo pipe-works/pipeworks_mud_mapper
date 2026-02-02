@@ -119,6 +119,7 @@ import copy
 import json
 from collections import deque
 from pathlib import Path
+from typing import Any
 
 # =============================================================================
 # Direction Constants
@@ -554,7 +555,7 @@ def save_zone_json(zone_data: dict, file_path: Path) -> None:
         f.write("\n")  # POSIX-compliant trailing newline
 
 
-def load_zone_json(file_path: Path) -> dict:
+def load_zone_json(file_path: Path) -> dict[str, Any]:
     """
     Load zone data from a JSON file.
 
@@ -608,7 +609,8 @@ def load_zone_json(file_path: Path) -> dict:
 
     # Read and parse JSON
     with file_path.open("r", encoding="utf-8") as f:
-        return json.load(f)
+        data: dict[str, Any] = json.load(f)
+        return data
 
 
 def list_zone_files(directory: Path) -> list[Path]:

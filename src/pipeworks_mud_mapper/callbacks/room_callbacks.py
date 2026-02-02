@@ -290,7 +290,7 @@ def populate_room_form(selected_room: str | None, zone_data: dict | None) -> tup
             for direction, target in exits.items()
         ]
     else:
-        exit_info = [html.Small("No exits defined", className="text-muted")]
+        exit_info = [html.Span(html.Small("No exits defined", className="text-muted"))]
 
     # Return populated form (room ID disabled, update enabled)
     return (

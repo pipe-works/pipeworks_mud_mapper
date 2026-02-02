@@ -74,7 +74,7 @@ Zone : Game truth format (no coordinates).
 MapRoom : Room with coordinates.
 """
 
-from typing import Any
+from typing import Any, cast
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
@@ -511,9 +511,9 @@ class MapFile(BaseModel):
                 room_id: MapRoom.from_dict(room_data)
                 for room_id, room_data in data["rooms"].items()
             }
-        return cls.model_validate(data)
+        return cast("MapFile", cls.model_validate(data))
 
-    def to_dict_with_list_coords(self) -> dict:
+    def to_dict_with_list_coords(self) -> dict[str, Any]:
         """Export to dictionary with coords as lists (legacy format).
 
         This method produces output compatible with the current zone_io
@@ -530,7 +530,7 @@ class MapFile(BaseModel):
         >>> data["rooms"]["spawn"]["coords"]
         [0, 0, 0]
         """
-        data = self.model_dump()
+        data: dict[str, Any] = self.model_dump()
         for room_data in data["rooms"].values():
             if "coords" in room_data and isinstance(room_data["coords"], dict):
                 coords = room_data["coords"]

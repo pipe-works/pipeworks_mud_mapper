@@ -1,7 +1,8 @@
 """Properties panel component for the right column.
 
 The properties panel provides the room editing interface, including
-fields for room metadata, coordinates, and exit management.
+fields for room metadata, coordinates, exit management, and LLM-powered
+description generation via Ollama.
 
 Component Structure
 -------------------
@@ -25,6 +26,17 @@ Component Structure
     │ Exits                       │
     │ ☐N ☐E ☐S ☐W ☐U ☐D           │
     │ [Exit status messages]      │
+    │ ─────────────────────────── │
+    │ 🤖 LLM Assistant (Ollama)   │
+    │ Server: [http://...]        │
+    │ Model: [dropdown]           │
+    │ System Prompt:              │
+    │ [________________________]  │
+    │ User Prompt:                │
+    │ [________________________]  │
+    │ [Generate] [Copy]           │
+    │ Response:                   │
+    │ [________________________]  │
     └─────────────────────────────┘
 
 Component IDs
@@ -39,15 +51,25 @@ Component IDs
 - ``update-room-btn``: Button to update existing room
 - ``exit-checkboxes``: Checklist for exit directions (N/E/S/W/U/D)
 - ``exit-feedback``: Container for exit status display
+- ``ollama-server-url``: Input for Ollama server URL
+- ``ollama-model-dropdown``: Dropdown to select Ollama model
+- ``ollama-refresh-models-btn``: Button to refresh model list
+- ``ollama-system-prompt``: Textarea for system prompt
+- ``ollama-user-prompt``: Textarea for user prompt
+- ``ollama-generate-btn``: Button to generate description
+- ``ollama-response``: Textarea for LLM response
+- ``ollama-copy-btn``: Button to copy response to clipboard
+- ``ollama-status``: Status message area
 
 See Also
 --------
 - ``callbacks/room_callbacks.py``: Callbacks for room editing
 - ``callbacks/exit_callbacks.py``: Callbacks for exit management
+- ``callbacks/ollama_callbacks.py``: Callbacks for Ollama LLM integration
 """
 
 import dash_bootstrap_components as dbc
-from dash import html
+from dash import dcc, html
 
 
 def create_properties_panel() -> dbc.Card:
@@ -219,8 +241,147 @@ def create_properties_panel() -> dbc.Card:
                         ],
                         className="mb-3 p-2 bg-light rounded",
                     ),
+                    html.Hr(),
+                    # =========================================================
+                    # Ollama LLM Assistant Section
+                    # =========================================================
+                    html.Div(
+                        [
+                            html.I(className="bi bi-robot me-2"),
+                            html.Strong("LLM Assistant"),
+                            html.Small(" (Ollama)", className="text-muted"),
+                        ],
+                        className="mb-2",
+                    ),
+                    # Server URL input with connection status
+                    dbc.Label("Server URL", html_for="ollama-server-url", size="sm"),
+                    dbc.InputGroup(
+                        [
+                            dbc.Input(
+                                id="ollama-server-url",
+                                type="text",
+                                value="http://localhost:11434",
+                                placeholder="http://localhost:11434",
+                                size="sm",
+                            ),
+                            dbc.Button(
+                                html.I(className="bi bi-arrow-clockwise"),
+                                id="ollama-refresh-models-btn",
+                                color="secondary",
+                                outline=True,
+                                size="sm",
+                                title="Connect and refresh models",
+                            ),
+                        ],
+                        size="sm",
+                    ),
+                    # Connection status indicator
+                    html.Div(
+                        id="ollama-connection-status",
+                        children=html.Small(
+                            [
+                                html.I(className="bi bi-circle text-muted me-1"),
+                                "Not connected",
+                            ],
+                            className="text-muted",
+                        ),
+                        className="mb-2",
+                    ),
+                    # Model dropdown with loading indicator
+                    dbc.Label("Model", html_for="ollama-model-dropdown", size="sm"),
+                    dcc.Loading(
+                        id="ollama-model-loading",
+                        type="dot",
+                        color="#17a2b8",
+                        children=dcc.Dropdown(
+                            id="ollama-model-dropdown",
+                            options=[],
+                            placeholder="Connect to server first",
+                            className="mb-2",
+                            style={"fontSize": "0.875rem"},
+                        ),
+                    ),
+                    # System prompt
+                    dbc.Label("System Prompt", html_for="ollama-system-prompt", size="sm"),
+                    dbc.Textarea(
+                        id="ollama-system-prompt",
+                        value="You are a creative writer for a MUD (text-based adventure game). "
+                        "Write atmospheric, evocative room descriptions. Keep descriptions "
+                        "concise (2-3 sentences). Focus on sensory details and mood.",
+                        className="mb-2",
+                        style={"height": "70px", "fontSize": "0.8rem"},
+                    ),
+                    # User prompt
+                    dbc.Label("User Prompt", html_for="ollama-user-prompt", size="sm"),
+                    dbc.Textarea(
+                        id="ollama-user-prompt",
+                        placeholder="Describe a room called 'The Main Hall'...",
+                        className="mb-2",
+                        style={"height": "60px", "fontSize": "0.8rem"},
+                    ),
+                    # Generate button
+                    dbc.Button(
+                        [
+                            html.I(className="bi bi-magic me-1"),
+                            "Generate",
+                        ],
+                        id="ollama-generate-btn",
+                        color="info",
+                        size="sm",
+                        className="w-100 mb-2",
+                    ),
+                    # Status area
+                    html.Div(
+                        id="ollama-status",
+                        className="small mb-2",
+                    ),
+                    # Response area
+                    dbc.Label("Response", html_for="ollama-response", size="sm"),
+                    dbc.Textarea(
+                        id="ollama-response",
+                        placeholder="Generated description will appear here...",
+                        className="mb-2",
+                        style={"height": "100px", "fontSize": "0.8rem"},
+                        readOnly=True,
+                    ),
+                    # Action buttons row
+                    dbc.Row(
+                        [
+                            dbc.Col(
+                                dbc.Button(
+                                    [
+                                        html.I(className="bi bi-arrow-right-circle me-1"),
+                                        "Send to Description",
+                                    ],
+                                    id="ollama-send-to-description-btn",
+                                    color="success",
+                                    outline=True,
+                                    size="sm",
+                                    className="w-100",
+                                ),
+                                width=8,
+                            ),
+                            dbc.Col(
+                                dcc.Clipboard(
+                                    id="ollama-clipboard",
+                                    target_id="ollama-response",
+                                    title="Copy to clipboard",
+                                    className="btn btn-outline-secondary btn-sm w-100",
+                                    style={"height": "31px"},
+                                ),
+                                width=4,
+                            ),
+                        ],
+                        className="mb-2",
+                    ),
+                    # Clipboard feedback
+                    html.Div(
+                        id="ollama-clipboard-feedback",
+                        className="small",
+                    ),
                 ]
             ),
         ],
         className="h-100",
+        style={"overflowY": "auto"},
     )
