@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.0.9](https://github.com/pipe-works/pipeworks_mud_mapper/compare/pipeworks-mud-mapper-v0.0.8...pipeworks-mud-mapper-v0.0.9) (2026-02-02)
+
+
+### Features
+
+* add delete room functionality with undo ([3be6176](https://github.com/pipe-works/pipeworks_mud_mapper/commit/3be6176b66a1a0ee7faef57f00658ce13636f204))
+
+
+### Documentation
+
+* update documentation for v0.0.8 changes ([ec3d218](https://github.com/pipe-works/pipeworks_mud_mapper/commit/ec3d218b244a560c8076b3f24b465efe888b2e35))
+
 ## [0.0.8](https://github.com/pipe-works/pipeworks_mud_mapper/compare/pipeworks-mud-mapper-v0.0.7...pipeworks-mud-mapper-v0.0.8) (2026-02-02)
 
 
