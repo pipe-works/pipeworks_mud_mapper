@@ -5,12 +5,8 @@ generation from code docstrings. No manual .rst files needed for API docs.
 """
 
 import sys
+import tomllib
 from pathlib import Path
-
-if sys.version_info >= (3, 11):
-    import tomllib
-else:
-    import tomli as tomllib
 
 # Add project root to Python path
 project_root = Path(__file__).parent.parent.parent

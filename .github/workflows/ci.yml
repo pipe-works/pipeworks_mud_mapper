@@ -15,5 +15,5 @@ jobs:
       python-version: '3.12'
       coverage-threshold: 25
       run-security: true
-      run-docs: false
+      run-docs: true
     secrets: inherit
