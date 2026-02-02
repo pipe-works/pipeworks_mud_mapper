@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.0.4](https://github.com/pipe-works/pipeworks_mud_mapper/compare/pipeworks-mud-mapper-v0.0.3...pipeworks-mud-mapper-v0.0.4) (2026-02-02)
+
+
+### Features
+
+* add exit management and Sphinx documentation ([98da84b](https://github.com/pipe-works/pipeworks_mud_mapper/commit/98da84b89f884265c9130d065e7485e6d881b3f5))
+
+
+### Fixes
+
+* remove Python 3.11 compat code and enable docs CI ([6f873a2](https://github.com/pipe-works/pipeworks_mud_mapper/commit/6f873a2a1940135991f37e8f9bf645cc63a7a972))
+
 ## [0.0.3](https://github.com/pipe-works/pipeworks_mud_mapper/compare/pipeworks-mud-mapper-v0.0.2...pipeworks-mud-mapper-v0.0.3) (2026-02-01)
 
 
