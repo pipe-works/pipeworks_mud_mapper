@@ -1,0 +1,113 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://pipe-works.org/schemas/map-file.schema.json",
+  "title": "PipeWorks MUD Map File",
+  "description": "Authoring format for MUD zone maps with coordinates for visualization",
+  "type": "object",
+  "required": ["id", "name", "spawn_room", "rooms"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "JSON Schema reference"
+    },
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[a-z][a-z0-9_]*$",
+      "description": "Unique zone identifier (lowercase letters, numbers, underscores; must start with letter)"
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Human-readable display name"
+    },
+    "description": {
+      "type": "string",
+      "default": "",
+      "description": "Zone description text"
+    },
+    "spawn_room": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Room ID where players enter the zone (must exist in rooms)"
+    },
+    "rooms": {
+      "type": "object",
+      "description": "Map of room ID to room definition",
+      "additionalProperties": {
+        "$ref": "#/$defs/room"
+      }
+    },
+    "items": {
+      "type": "object",
+      "default": {},
+      "description": "Map of item ID to item definition",
+      "additionalProperties": {
+        "type": "object"
+      }
+    }
+  },
+  "$defs": {
+    "direction": {
+      "type": "string",
+      "enum": ["north", "south", "east", "west", "up", "down"],
+      "description": "Valid movement direction"
+    },
+    "coords": {
+      "type": "array",
+      "items": {
+        "type": "integer"
+      },
+      "minItems": 3,
+      "maxItems": 3,
+      "description": "3D coordinates as [x, y, z] where: +X=east, +Y=north, +Z=up"
+    },
+    "room": {
+      "type": "object",
+      "required": ["id", "name", "coords"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "description": "Unique room identifier (must match the key in rooms object)"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Human-readable room name"
+        },
+        "description": {
+          "type": "string",
+          "default": "",
+          "description": "Room description shown to players"
+        },
+        "coords": {
+          "$ref": "#/$defs/coords"
+        },
+        "exits": {
+          "type": "object",
+          "default": {},
+          "description": "Map of direction to target room ID",
+          "propertyNames": {
+            "$ref": "#/$defs/direction"
+          },
+          "additionalProperties": {
+            "type": "string",
+            "description": "Target room ID (can include zone prefix for cross-zone exits, e.g., 'other_zone:room_id')"
+          }
+        },
+        "items": {
+          "type": "array",
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "description": "List of item IDs present in this room"
+        }
+      }
+    }
+  }
+}

@@ -1,4 +1,5 @@
 {
+  "$schema": "../../schemas/map-file.schema.json",
   "id": "ledgerfall_alley",
   "name": "Ledgerfall Alley",
   "description": "A grimy, dark alley.",
