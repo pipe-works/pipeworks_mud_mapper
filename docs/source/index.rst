@@ -18,7 +18,8 @@ Features
 * **Exit System** - Bidirectional exit creation with automatic reverse linking
 * **Multi-Level Support** - Z-axis filtering for 3D dungeon visualization
 * **Two-File Workflow** - Separate authoring (with coords) and export (without)
-* **Auto-Layout** - Automatic coordinate assignment from exit definitions
+* **LLM Integration** - Generate room descriptions using local Ollama server
+* **JSON Schema** - Editor validation support for map files
 
 Two-File Workflow
 -----------------

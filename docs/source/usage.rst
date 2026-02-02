@@ -44,7 +44,12 @@ The mapper has a three-column layout:
 
 **Left Column - File Browser**
     Lists available map files from the ``data/maps/`` directory. Click a file
-    to load it. Use "New Map" to create a new map.
+    to load it. Also contains:
+
+    - **New Map**: Create a new map file
+    - **Save Map**: Save authoring file (with coordinates)
+    - **Export Zone**: Export game truth file (no coordinates)
+    - **Status**: Shows save state (unsaved/saved)
 
 **Center Column - Map View**
     Interactive Plotly graph showing rooms as nodes and exits as connecting
@@ -53,15 +58,8 @@ The mapper has a three-column layout:
 
 **Right Column - Properties Panel**
     Form for editing room properties. Shows room ID, name, description,
-    coordinates, and exit checkboxes.
-
-**Bottom - Action Bar**
-    Save and export controls with status indicator:
-
-    - **Validate**: Check map for issues (planned feature)
-    - **Export Zone JSON**: Export game truth file (no coordinates)
-    - **Save Map**: Save authoring file (with coordinates)
-    - **Status**: Shows save state (gray=no file, yellow=unsaved, green=saved)
+    coordinates, and exit checkboxes. Also includes the Ollama LLM integration
+    section for generating room descriptions.
 
 Creating a New Map
 ------------------
@@ -121,6 +119,36 @@ Exits connect rooms together. The mapper creates bidirectional exits by default.
 
 To create one-way exits, add the exit, then select the target room and
 uncheck the reverse direction.
+
+Generating Descriptions with Ollama
+-----------------------------------
+
+The mapper integrates with a local Ollama server to generate room descriptions
+using LLMs.
+
+**Setup**
+
+1. Install Ollama from https://ollama.ai
+2. Pull a model (e.g., ``ollama pull llama3.2``)
+3. Ensure Ollama is running (default: http://localhost:11434)
+
+**Using the LLM Generator**
+
+1. In the Properties Panel, expand the "LLM Description Generator" section
+2. Enter the Ollama server URL (default: http://localhost:11434)
+3. Click **Refresh Models** to load available models
+4. Select a model from the dropdown
+5. Customize the system prompt (optional) and enter a user prompt
+6. Click **Generate** to create a description
+7. Review the generated text in the response area
+8. Click **Send to Description** to apply it to the selected room
+
+**Tips**
+
+- The system prompt sets the tone and style for generated descriptions
+- The user prompt should describe what you want (e.g., "A dark cellar with cobwebs")
+- You can edit the generated text before sending it to the room
+- Generation marks the room as having unsaved changes
 
 Saving and Exporting
 --------------------

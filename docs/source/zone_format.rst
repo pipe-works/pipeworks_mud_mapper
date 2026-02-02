@@ -36,6 +36,17 @@ Map files are the authoring source and include coordinates for visualization.
 
 **Location:** ``data/maps/``
 
+**JSON Schema:** ``schemas/map-file.schema.json``
+
+A JSON Schema is provided for editor validation and autocomplete. To use it,
+add a ``$schema`` reference to your map file::
+
+    {
+        "$schema": "../../schemas/map-file.schema.json",
+        "id": "my_zone",
+        ...
+    }
+
 Basic Structure
 ^^^^^^^^^^^^^^^
 
