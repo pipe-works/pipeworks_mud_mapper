@@ -65,4 +65,4 @@ See Also
 - Pipe-Works Organization: https://github.com/pipe-works
 """
 
-__version__ = "0.0.6"
+__version__ = "0.0.7"
