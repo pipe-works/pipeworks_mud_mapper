@@ -1,84 +1,64 @@
 """Action bar component for the bottom of the application.
 
-The action bar provides save/export controls and displays the current
-status of the zone file (unsaved changes, etc.).
+The action bar provides status information and debug output. Primary
+action buttons (Save, Export, Validate) are located in the file browser
+for better accessibility.
 
 Component Structure
 -------------------
 ::
 
     ┌───────────────────────────────────────────────────────────────────┐
-    │ [Validate] [Export Zone JSON] [Save Map]         ● Unsaved changes│
+    │                                              [debug-btn-state]    │
     └───────────────────────────────────────────────────────────────────┘
 
 Component IDs
 -------------
-- ``save-map-btn``: Button to save current map to file
-- ``export-zone-btn``: Button to export zone JSON (strips coordinates)
-- ``status-indicator``: Span showing save state (colored dot + message)
+- ``debug-btn-state``: Debug output for button state (hidden in production)
 
-Status Indicator States
------------------------
-- **Gray dot**: No file loaded
-- **Yellow dot**: Unsaved changes exist (save enabled, export disabled)
-- **Green dot**: All changes saved (save disabled, export enabled)
+Notes
+-----
+The action bar was simplified in v0.0.8 after discovering that flexbox
+layout caused visibility issues with dynamically-enabled dbc.Button
+components. Primary action buttons were moved to the file browser
+panel which uses a simple stacked layout.
 
 See Also
 --------
+- ``file_browser.py``: Contains Save, Export, and Validate buttons
 - ``callbacks/file_callbacks.py``: Callbacks for save operations
+- ``callbacks/validation_callbacks.py``: Callbacks for validation
 """
 
-import dash_bootstrap_components as dbc
 from dash import html
 
 
 def create_action_bar() -> html.Div:
-    """Create the bottom action bar with save/export and status controls.
+    """Create the bottom action bar.
 
-    The action bar contains:
-
-    - Validate button (placeholder for Phase 6)
-    - Export Zone JSON button (exports without coordinates)
-    - Save Map button (saves with coordinates)
-    - Status indicator showing current file and save state
+    The action bar provides a consistent footer area. Primary action
+    buttons are located in the file browser panel for better UX.
 
     Returns
     -------
     html.Div
-        Container with action buttons and status indicator.
+        Container with action bar content.
 
     Component IDs
     -------------
-    - ``save-map-btn``: Button to save current map to file
-    - ``export-zone-btn``: Button to export zone JSON
-    - ``status-indicator``: Span showing current status
+    - ``debug-btn-state``: Debug output span (development use)
 
     Notes
     -----
-    - Validate button is placeholder for Phase 6
-    - Export is enabled when file is saved (no unsaved changes)
-    - Save is enabled when there are unsaved changes
-    - Status indicator shows colored dot and message:
-
-      - Gray: No file loaded
-      - Yellow: Unsaved changes
-      - Green: Saved successfully
+    This component was simplified after flexbox issues in v0.0.8.
+    The Save, Export, and Validate buttons now live in file_browser.py.
     """
-    # Action bar now only contains placeholder for future features
-    # Save/Export buttons moved to file browser for better UX
     return html.Div(
         [
-            # Validate button (placeholder for Phase 6)
-            dbc.Button(
-                [html.I(className="bi bi-check-circle me-2"), "Validate Zone"],
-                color="info",
-                outline=True,
-                disabled=True,
-                size="sm",
-            ),
-            # Spacer
+            # Spacer to push debug output to the right
             html.Span(className="flex-grow-1"),
-            # Debug output (hidden in production)
+            # Debug output for development - shows button state
+            # Can be hidden in production via CSS if needed
             html.Span(
                 id="debug-btn-state",
                 children="",

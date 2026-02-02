@@ -1169,3 +1169,164 @@ class TestDeleteRoomCallbacks:
             zone_data=zone_with_exits,
         )
         assert result == (no_update,) * 4
+
+
+# =============================================================================
+# Validation Callback Tests
+# =============================================================================
+
+
+class TestValidationCallbacks:
+    """Tests for validation callbacks.
+
+    These tests verify the validation UI callbacks that run validation
+    checks and display results to the user.
+    """
+
+    @pytest.fixture
+    def zone_with_issues(self) -> dict:
+        """Create a zone with validation issues for testing."""
+        return {
+            "id": "test_zone",
+            "name": "Test Zone",
+            "spawn_room": "spawn",
+            "rooms": {
+                "spawn": {
+                    "id": "spawn",
+                    "name": "Spawn Room",
+                    "description": "Starting room.",
+                    "coords": [0, 0, 0],
+                    "exits": {"north": "room_a"},
+                    "items": [],
+                },
+                "room_a": {
+                    "id": "room_a",
+                    "name": "Room A",
+                    "description": "A room.",
+                    "coords": [0, 5, 0],
+                    "exits": {},  # No return exit (asymmetric)
+                    "items": [],
+                },
+                "orphan": {
+                    "id": "orphan",
+                    "name": "Orphan Room",
+                    "description": "Unreachable room.",
+                    "coords": [10, 10, 0],
+                    "exits": {},  # No exits and unreachable
+                    "items": [],
+                },
+            },
+        }
+
+    def test_update_validate_button_no_file(self):
+        """Validate button should be disabled when no file is selected."""
+        from pipeworks_mud_mapper.callbacks.validation_callbacks import (
+            update_validate_button_state,
+        )
+
+        result = update_validate_button_state(selected_file=None)
+        assert result is True  # Disabled
+
+    def test_update_validate_button_with_file(self):
+        """Validate button should be enabled when file is selected."""
+        from pipeworks_mud_mapper.callbacks.validation_callbacks import (
+            update_validate_button_state,
+        )
+
+        result = update_validate_button_state(selected_file="test.map.json")
+        assert result is False  # Enabled
+
+    def test_run_validation_no_click(self, simple_zone_data):
+        """run_validation should return no_update when not clicked."""
+        from pipeworks_mud_mapper.callbacks.validation_callbacks import run_validation
+
+        result = run_validation(
+            n_clicks=0,
+            zone_data=simple_zone_data,
+            selected_file="test.map.json",
+        )
+        assert result == (no_update, no_update, no_update)
+
+    def test_run_validation_no_data(self):
+        """run_validation should return no_update when no zone data."""
+        from pipeworks_mud_mapper.callbacks.validation_callbacks import run_validation
+
+        result = run_validation(
+            n_clicks=1,
+            zone_data=None,
+            selected_file="test.map.json",
+        )
+        assert result == (no_update, no_update, no_update)
+
+    def test_run_validation_success(self, simple_zone_data, tmp_path):
+        """run_validation should open modal and return report."""
+        from pipeworks_mud_mapper.callbacks.validation_callbacks import run_validation
+
+        # Patch write_validation_report to use temp path
+        with patch(
+            "pipeworks_mud_mapper.callbacks.validation_callbacks.validation_service.write_validation_report"
+        ) as mock_write:
+            mock_write.return_value = str(tmp_path / "test.validation.json")
+
+            result = run_validation(
+                n_clicks=1,
+                zone_data=simple_zone_data,
+                selected_file="test.map.json",
+            )
+
+        modal_open, modal_body, report = result
+
+        # Modal should be open
+        assert modal_open is True
+
+        # Modal body should have content (list of components)
+        assert modal_body is not None
+        assert isinstance(modal_body, list)
+
+        # Report should be a dict with expected structure
+        assert isinstance(report, dict)
+        assert "timestamp" in report
+        assert "map_file" in report
+        assert "summary" in report
+        assert "warnings" in report
+
+    def test_run_validation_with_issues(self, zone_with_issues, tmp_path):
+        """run_validation should detect validation issues."""
+        from pipeworks_mud_mapper.callbacks.validation_callbacks import run_validation
+
+        with patch(
+            "pipeworks_mud_mapper.callbacks.validation_callbacks.validation_service.write_validation_report"
+        ) as mock_write:
+            mock_write.return_value = str(tmp_path / "test.validation.json")
+
+            result = run_validation(
+                n_clicks=1,
+                zone_data=zone_with_issues,
+                selected_file="test.map.json",
+            )
+
+        modal_open, modal_body, report = result
+
+        # Should have warnings
+        assert report["summary"]["total"] > 0
+
+        # Should have unreachable room warning
+        assert any(w["room_id"] == "orphan" for w in report["warnings"])
+
+    def test_close_validation_modal(self):
+        """close_validation_modal should close the modal."""
+        from pipeworks_mud_mapper.callbacks.validation_callbacks import (
+            close_validation_modal,
+        )
+
+        result = close_validation_modal(n_clicks=1)
+        assert result is False  # Modal closed
+
+    def test_close_validation_modal_no_click(self):
+        """close_validation_modal should return no_update without click."""
+        from pipeworks_mud_mapper.callbacks.validation_callbacks import (
+            close_validation_modal,
+        )
+
+        result = close_validation_modal(n_clicks=None)
+        assert result is no_update

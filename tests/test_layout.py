@@ -141,8 +141,9 @@ def get_all_component_ids(component) -> set[str]:
 class TestActionBar:
     """Tests for action_bar module.
 
-    Note: Save/Export buttons and status indicator moved to file browser.
-    Action bar now only contains validate placeholder and debug output.
+    Note: Action bar was simplified in v0.0.8 and v0.0.10. Primary action
+    buttons (Save, Export, Validate) are now in the file browser for better
+    UX. Action bar only contains debug output.
     """
 
     def test_create_action_bar_returns_div(self):
@@ -155,18 +156,10 @@ class TestActionBar:
         result = create_action_bar()
         assert component_has_id(result, "debug-btn-state")
 
-    def test_create_action_bar_has_validate_button(self):
-        """create_action_bar should include validate button (placeholder)."""
+    def test_create_action_bar_has_flex_layout(self):
+        """create_action_bar should use flexbox layout."""
         result = create_action_bar()
-        # Should have at least one button (Validate placeholder)
-        buttons = [child for child in result.children if isinstance(child, dbc.Button)]
-        assert len(buttons) >= 1
-
-    def test_create_action_bar_validate_disabled(self):
-        """create_action_bar validate button should be disabled (placeholder)."""
-        result = create_action_bar()
-        buttons = [child for child in result.children if isinstance(child, dbc.Button)]
-        assert buttons[0].disabled is True
+        assert "d-flex" in result.className
 
 
 # =============================================================================
@@ -229,19 +222,33 @@ class TestFileBrowser:
         assert component_has_id(result, "status-indicator")
 
     def test_create_file_browser_buttons_initially_disabled(self):
-        """create_file_browser save/export buttons should start disabled."""
+        """create_file_browser save/export/validate buttons should start disabled."""
         result = create_file_browser()
         save_btn = find_component_by_id(result, "save-map-btn")
         export_btn = find_component_by_id(result, "export-zone-btn")
+        validate_btn = find_component_by_id(result, "validate-zone-btn")
 
         assert save_btn.disabled is True
         assert export_btn.disabled is True
+        assert validate_btn.disabled is True
 
     def test_create_file_browser_status_default_text(self):
         """create_file_browser status should show 'No file loaded' initially."""
         result = create_file_browser()
         status = find_component_by_id(result, "status-indicator")
         assert "No file loaded" in str(status.children)
+
+    def test_create_file_browser_has_validate_button(self):
+        """create_file_browser should include validate-zone-btn."""
+        result = create_file_browser()
+        assert component_has_id(result, "validate-zone-btn")
+
+    def test_create_file_browser_validate_button_style(self):
+        """create_file_browser validate-zone-btn should be info outline."""
+        result = create_file_browser()
+        validate_btn = find_component_by_id(result, "validate-zone-btn")
+        assert validate_btn.color == "info"
+        assert validate_btn.outline is True
 
 
 # =============================================================================
@@ -560,6 +567,21 @@ class TestMainLayout:
         result = create_app_layout()
         assert component_has_id(result, "new-map-modal")
 
+    def test_create_app_layout_has_validation_results_modal(self):
+        """create_app_layout should include validation-results-modal."""
+        result = create_app_layout()
+        assert component_has_id(result, "validation-results-modal")
+
+    def test_create_app_layout_has_validation_report_store(self):
+        """create_app_layout should include validation-report store."""
+        result = create_app_layout()
+        assert component_has_id(result, "validation-report")
+
+    def test_create_app_layout_has_delete_confirm_modal(self):
+        """create_app_layout should include delete-confirm-modal."""
+        result = create_app_layout()
+        assert component_has_id(result, "delete-confirm-modal")
+
     def test_create_app_layout_stores_have_defaults(self):
         """create_app_layout stores should have appropriate defaults."""
         result = create_app_layout()
@@ -698,6 +720,17 @@ class TestLayoutIntegration:
         for id_ in ollama_callback_ids:
             assert id_ in ids, f"Missing ID for ollama callbacks: {id_}"
 
+        # IDs used in validation_callbacks.py
+        validation_callback_ids = [
+            "validate-zone-btn",
+            "validation-results-modal",
+            "validation-results-body",
+            "validation-report",
+            "validation-close-btn",
+        ]
+        for id_ in validation_callback_ids:
+            assert id_ in ids, f"Missing ID for validation callbacks: {id_}"
+
     def test_no_duplicate_ids(self):
         """Layout should not have duplicate component IDs."""
         result = create_app_layout()
@@ -774,6 +807,7 @@ class TestLayoutIntegration:
             "update-room-btn",
             "save-map-btn",
             "export-zone-btn",
+            "validate-zone-btn",
         ]
 
         for button_id in button_ids:

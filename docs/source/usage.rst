@@ -49,6 +49,7 @@ The mapper has a three-column layout:
     - **New Map**: Create a new map file
     - **Save Map**: Save authoring file (with coordinates)
     - **Export Zone**: Export game truth file (no coordinates)
+    - **Validate Zone**: Check for connectivity and consistency issues
     - **Status**: Shows save state (unsaved/saved)
 
 **Center Column - Map View**
@@ -173,6 +174,53 @@ Once your map is saved, click **Export Zone JSON** to create the game truth file
 - Room IDs, names, descriptions, and exits are preserved
 
 The exported zone file is what the MUD server consumes.
+
+Validating Your Map
+-------------------
+
+The **Validate Zone** button runs comprehensive checks on your map to catch
+common issues before export.
+
+**Validation Categories**
+
+*Connectivity*
+    - **Broken exits**: Exits pointing to non-existent rooms (ERROR)
+    - **Unreachable rooms**: Rooms with no path from spawn (WARNING)
+    - **Dead ends**: Rooms with no exits (INFO)
+
+*Exit Consistency*
+    - **Asymmetric exits**: Room A→B exists but B→A doesn't (INFO)
+    - **Direction mismatch**: Exit says "north" but coordinates suggest "south" (WARNING)
+
+*Language-Direction*
+    - **Vertical naming conflicts**: Room named "Upper Landing" not reached via "up" (INFO)
+
+**Severity Levels**
+
+- **ERROR**: Must be fixed before export (e.g., broken references)
+- **WARNING**: Should be reviewed but may be intentional
+- **INFO**: Informational only (e.g., intentional one-way doors)
+
+**Validation Report**
+
+When you validate, a JSON report is written to ``data/validation/{zone_id}.validation.json``.
+This file contains:
+
+- Timestamp of validation
+- Summary counts by severity
+- Pass/fail status (passes if no errors)
+- Detailed list of all warnings
+
+The report file is useful for CI/CD integration or keeping records.
+
+**Using Validation**
+
+1. Load a map file
+2. Click **Validate Zone** in the file browser
+3. Review the results modal showing any issues
+4. Click on room IDs in the modal to select them on the map
+5. Fix issues and re-validate as needed
+6. Export once validation passes
 
 Keyboard Shortcuts
 ------------------

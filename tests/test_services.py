@@ -570,6 +570,134 @@ class TestValidationService:
         filtered = filter_by_category(warnings, "connectivity")
         assert len(filtered) == 2
 
+    def test_create_validation_report_structure(self, simple_map_file):
+        """create_validation_report should return correct structure."""
+        from pipeworks_mud_mapper.services.validation_service import (
+            create_validation_report,
+        )
+
+        warnings = validate_all(simple_map_file)
+        report = create_validation_report("test.map.json", warnings)
+
+        # Check structure
+        assert "timestamp" in report
+        assert "map_file" in report
+        assert "summary" in report
+        assert "warnings" in report
+
+        # Check summary structure
+        assert "errors" in report["summary"]
+        assert "warnings" in report["summary"]
+        assert "info" in report["summary"]
+        assert "total" in report["summary"]
+        assert "passed" in report["summary"]
+
+        # Check map file name
+        assert report["map_file"] == "test.map.json"
+
+    def test_create_validation_report_counts(self):
+        """create_validation_report should count warnings correctly."""
+        from pipeworks_mud_mapper.services.validation_service import (
+            create_validation_report,
+        )
+
+        warnings = [
+            ValidationWarning(Severity.ERROR, "test", "room", "Error 1"),
+            ValidationWarning(Severity.ERROR, "test", "room", "Error 2"),
+            ValidationWarning(Severity.WARNING, "test", "room", "Warning"),
+            ValidationWarning(Severity.INFO, "test", "room", "Info"),
+        ]
+        report = create_validation_report("test.map.json", warnings)
+
+        assert report["summary"]["errors"] == 2
+        assert report["summary"]["warnings"] == 1
+        assert report["summary"]["info"] == 1
+        assert report["summary"]["total"] == 4
+        assert report["summary"]["passed"] is False  # Has errors
+
+    def test_create_validation_report_passed(self):
+        """create_validation_report should mark passed when no errors."""
+        from pipeworks_mud_mapper.services.validation_service import (
+            create_validation_report,
+        )
+
+        warnings = [
+            ValidationWarning(Severity.WARNING, "test", "room", "Warning"),
+            ValidationWarning(Severity.INFO, "test", "room", "Info"),
+        ]
+        report = create_validation_report("test.map.json", warnings)
+
+        assert report["summary"]["passed"] is True  # No errors
+
+    def test_write_validation_report(self, simple_map_file, temp_dir):
+        """write_validation_report should write report to file."""
+        from pipeworks_mud_mapper.services.validation_service import (
+            write_validation_report,
+        )
+
+        warnings = validate_all(simple_map_file)
+        output_path = write_validation_report(
+            "test.map.json",
+            warnings,
+            output_dir=str(temp_dir / "validation"),
+        )
+
+        # Check file was written
+        import json
+        from pathlib import Path
+
+        path = Path(output_path)
+        assert path.exists()
+        assert path.name == "test.validation.json"
+
+        # Check contents
+        with open(path) as f:
+            report = json.load(f)
+
+        assert report["map_file"] == "test.map.json"
+        assert "summary" in report
+
+    def test_write_validation_report_creates_directory(self, simple_map_file, temp_dir):
+        """write_validation_report should create output directory if needed."""
+        from pipeworks_mud_mapper.services.validation_service import (
+            write_validation_report,
+        )
+
+        output_dir = temp_dir / "new_validation_dir"
+        assert not output_dir.exists()
+
+        write_validation_report(
+            "test.map.json",
+            [],
+            output_dir=str(output_dir),
+        )
+
+        assert output_dir.exists()
+
+    def test_write_validation_report_filename_extraction(self, temp_dir):
+        """write_validation_report should extract base name correctly."""
+        from pathlib import Path
+
+        from pipeworks_mud_mapper.services.validation_service import (
+            write_validation_report,
+        )
+
+        # Test with .map.json extension
+        path1 = write_validation_report(
+            "my_zone.map.json",
+            [],
+            output_dir=str(temp_dir),
+        )
+        assert Path(path1).name == "my_zone.validation.json"
+
+        # Test with .json extension
+        path2 = write_validation_report(
+            "other_zone.json",
+            [],
+            output_dir=str(temp_dir),
+        )
+        assert Path(path2).name == "other_zone.validation.json"
+
 
 # =============================================================================
 # Integration Tests

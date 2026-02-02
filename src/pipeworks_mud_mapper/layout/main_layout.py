@@ -32,11 +32,13 @@ The layout includes hidden dcc.Store components for application state:
 - ``selected-room``: Currently selected room ID
 - ``has-unsaved-changes``: Boolean flag for save status
 - ``delete-undo-data``: Undo data for room deletion (room + removed exits)
+- ``validation-report``: Most recent validation report (dict)
 
 Modal Dialogs
 -------------
 - ``new-map-modal``: Create new map file
 - ``delete-confirm-modal``: Confirm room deletion
+- ``validation-results-modal``: Display validation results
 
 See Also
 --------
@@ -93,6 +95,7 @@ def create_app_layout() -> dbc.Container:
             dcc.Store(id="selected-room", data=None),  # Selected room ID
             dcc.Store(id="has-unsaved-changes", data=False),  # Unsaved flag
             dcc.Store(id="delete-undo-data", data=None),  # Undo data for delete
+            dcc.Store(id="validation-report", data=None),  # Validation report
             # Interval to trigger initial file load
             dcc.Interval(id="initial-load", interval=100, max_intervals=1),
             # -----------------------------------------------------------------
@@ -127,6 +130,35 @@ def create_app_layout() -> dbc.Container:
                 ],
                 id="delete-confirm-modal",
                 is_open=False,
+            ),
+            # Validation results modal - displays validation check results
+            # with summary counts, categorized warnings, and clickable room links
+            dbc.Modal(
+                [
+                    dbc.ModalHeader(
+                        dbc.ModalTitle(
+                            [html.I(className="bi bi-check-circle me-2"), "Validation Results"]
+                        ),
+                        close_button=True,
+                    ),
+                    # Modal body populated by validation_callbacks.run_validation
+                    dbc.ModalBody(id="validation-results-body"),
+                    dbc.ModalFooter(
+                        [
+                            # Close button
+                            dbc.Button(
+                                "Close",
+                                id="validation-close-btn",
+                                color="secondary",
+                                outline=True,
+                            ),
+                        ]
+                    ),
+                ],
+                id="validation-results-modal",
+                is_open=False,
+                size="lg",  # Large modal to show full validation report
+                scrollable=True,  # Allow scrolling for long reports
             ),
             # -----------------------------------------------------------------
             # Header Row

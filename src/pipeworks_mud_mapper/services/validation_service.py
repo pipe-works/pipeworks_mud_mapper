@@ -544,3 +544,166 @@ def filter_by_category(
     >>> conn_issues = filter_by_category(warnings, "connectivity")
     """
     return [w for w in warnings if w.category == category]
+
+
+def create_validation_report(
+    map_file_name: str,
+    warnings: list[ValidationWarning],
+) -> dict:
+    """Create a validation report dictionary.
+
+    Creates a structured report suitable for JSON serialization and
+    display in the UI. The report includes a summary with counts by
+    severity and a pass/fail status based on whether any errors exist.
+
+    Parameters
+    ----------
+    map_file_name : str
+        Name of the map file that was validated.
+    warnings : list[ValidationWarning]
+        List of validation warnings from validate_all().
+
+    Returns
+    -------
+    dict
+        Validation report with the following structure::
+
+            {
+                "timestamp": "2026-02-02T17:00:00Z",
+                "map_file": "ledgerfall_alley.map.json",
+                "summary": {
+                    "errors": 0,
+                    "warnings": 2,
+                    "info": 3,
+                    "total": 5,
+                    "passed": true
+                },
+                "warnings": [
+                    {
+                        "severity": "warning",
+                        "category": "connectivity",
+                        "room_id": "room_1",
+                        "message": "Room is unreachable from spawn"
+                    }
+                ]
+            }
+
+    Examples
+    --------
+    >>> warnings = validate_all(map_file)
+    >>> report = create_validation_report("my_zone.map.json", warnings)
+    >>> if report["summary"]["passed"]:
+    ...     print("Validation passed!")
+    """
+    from datetime import UTC, datetime
+
+    # Count warnings by severity
+    error_count = len([w for w in warnings if w.severity == Severity.ERROR])
+    warning_count = len([w for w in warnings if w.severity == Severity.WARNING])
+    info_count = len([w for w in warnings if w.severity == Severity.INFO])
+
+    # Build the report structure
+    report = {
+        "timestamp": datetime.now(UTC).isoformat(),
+        "map_file": map_file_name,
+        "summary": {
+            "errors": error_count,
+            "warnings": warning_count,
+            "info": info_count,
+            "total": len(warnings),
+            "passed": error_count == 0,  # Pass if no errors (warnings OK)
+        },
+        "warnings": [
+            {
+                "severity": w.severity.value,
+                "category": w.category,
+                "room_id": w.room_id,
+                "message": w.message,
+                "details": w.details,
+            }
+            for w in warnings
+        ],
+    }
+
+    return report
+
+
+def write_validation_report(
+    map_file_name: str,
+    warnings: list[ValidationWarning],
+    output_dir: str | None = None,
+) -> str:
+    """Write a validation report to a JSON file.
+
+    Creates a validation report and writes it to the data/validation/
+    directory. The file is named after the map file with a .validation.json
+    extension.
+
+    Parameters
+    ----------
+    map_file_name : str
+        Name of the map file that was validated (e.g., "my_zone.map.json").
+    warnings : list[ValidationWarning]
+        List of validation warnings from validate_all().
+    output_dir : str, optional
+        Directory to write the report to. Defaults to "data/validation/".
+
+    Returns
+    -------
+    str
+        Absolute path to the written validation report file.
+
+    Raises
+    ------
+    OSError
+        If the output directory cannot be created or the file cannot be written.
+
+    Examples
+    --------
+    >>> warnings = validate_all(map_file)
+    >>> report_path = write_validation_report("my_zone.map.json", warnings)
+    >>> print(f"Report written to: {report_path}")
+
+    Notes
+    -----
+    The validation directory is created if it doesn't exist. Previous
+    validation reports for the same map file are overwritten.
+
+    The report file uses the naming convention:
+    ``{zone_id}.validation.json`` where zone_id is extracted from
+    the map file name (e.g., "my_zone.map.json" -> "my_zone.validation.json").
+    """
+    import json
+    from pathlib import Path
+
+    # Default to data/validation/ directory
+    output_path_dir: Path
+    if output_dir is None:
+        # Find the project data directory relative to the package
+        package_dir = Path(__file__).parent.parent.parent.parent
+        output_path_dir = package_dir / "data" / "validation"
+    else:
+        output_path_dir = Path(output_dir)
+
+    # Ensure the output directory exists
+    output_path_dir.mkdir(parents=True, exist_ok=True)
+
+    # Create the report
+    report = create_validation_report(map_file_name, warnings)
+
+    # Generate output filename from map file name
+    # "my_zone.map.json" -> "my_zone.validation.json"
+    base_name = map_file_name
+    if base_name.endswith(".map.json"):
+        base_name = base_name[:-9]  # Remove ".map.json"
+    elif base_name.endswith(".json"):
+        base_name = base_name[:-5]  # Remove ".json"
+
+    output_filename = f"{base_name}.validation.json"
+    output_path = output_path_dir / output_filename
+
+    # Write the report with pretty formatting
+    with open(output_path, "w", encoding="utf-8") as f:
+        json.dump(report, f, indent=2, ensure_ascii=False)
+
+    return str(output_path.resolve())

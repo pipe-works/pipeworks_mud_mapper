@@ -13,7 +13,23 @@
         0,
         0
       ],
-      "exits": {},
+      "exits": {
+        "east": "small_doorway"
+      },
+      "items": []
+    },
+    "small_doorway": {
+      "id": "small_doorway",
+      "name": "Small Door",
+      "description": "",
+      "coords": [
+        5,
+        0,
+        0
+      ],
+      "exits": {
+        "west": "spawn"
+      },
       "items": []
     }
   },

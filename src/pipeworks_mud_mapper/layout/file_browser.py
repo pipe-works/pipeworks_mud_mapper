@@ -21,6 +21,10 @@ Component IDs
 -------------
 - ``file-list-container``: Container div populated by render_file_list callback
 - ``new-map-btn``: Button that opens the New Map modal
+- ``save-map-btn``: Button to save current map with coordinates
+- ``export-zone-btn``: Button to export zone JSON without coordinates
+- ``validate-zone-btn``: Button to run validation checks on the map
+- ``status-indicator``: Text showing current file state (saved/unsaved)
 
 Notes
 -----
@@ -109,7 +113,19 @@ def create_file_browser() -> dbc.Card:
                         className="w-100 mb-2",
                         disabled=True,
                     ),
-                    # Status indicator
+                    # Validate Zone button - runs validation checks and shows results
+                    # Disabled until a map file is loaded
+                    dbc.Button(
+                        [html.I(className="bi bi-check-circle me-2"), "Validate Zone"],
+                        id="validate-zone-btn",
+                        color="info",
+                        size="sm",
+                        outline=True,
+                        className="w-100 mb-2",
+                        disabled=True,
+                    ),
+                    # Status indicator - shows current file state
+                    # Updated by file_callbacks.update_save_status
                     html.Div(
                         id="status-indicator",
                         children="No file loaded",

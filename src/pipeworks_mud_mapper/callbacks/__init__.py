@@ -31,6 +31,10 @@ Callbacks are organized into functional modules:
     LLM integration via local Ollama server.
     Model selection, prompt handling, description generation.
 
+**validation_callbacks**
+    Map validation checks.
+    Results display and report generation.
+
 Registration
 ------------
 Callbacks are registered when their modules are imported.
@@ -55,6 +59,7 @@ from pipeworks_mud_mapper.callbacks import (
     map_callbacks,  # noqa: F401
     ollama_callbacks,  # noqa: F401
     room_callbacks,  # noqa: F401
+    validation_callbacks,  # noqa: F401
 )
 
 
