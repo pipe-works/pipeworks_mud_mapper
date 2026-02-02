@@ -2,11 +2,21 @@
 
 This module handles:
 
-- Loading zone file list on startup
+- Loading map file list on startup
 - Rendering the file browser list
-- Loading zone data when file is clicked
+- Loading map data when file is clicked
 - New map modal open/close/create
-- Save functionality and status updates
+- Save and export functionality
+- Status updates
+
+Two-File Workflow
+-----------------
+The mapper uses two file types:
+
+- **Map files** (``data/maps/*.map.json``): Authoring source with coordinates
+- **Zone files** (``data/zones/*.json``): Game truth without coordinates
+
+Authors work with map files. Zone files are exported for game server use.
 
 Component Dependencies
 ----------------------
@@ -18,7 +28,8 @@ Component Dependencies
 - ``new-map-btn``: Open new map modal
 - ``new-map-cancel-btn``: Close modal
 - ``new-map-create-btn``: Create new zone
-- ``save-map-btn``: Save current zone
+- ``save-map-btn``: Save current map
+- ``export-zone-btn``: Export zone JSON
 
 **Outputs:**
 - ``zone-files-store``: Updated file list
@@ -38,16 +49,15 @@ from pathlib import Path
 import dash_bootstrap_components as dbc
 from dash import ALL, Input, Output, State, callback, ctx, html, no_update
 
+from pipeworks_mud_mapper.services import zone_service
 from pipeworks_mud_mapper.utils.zone_io import (
-    auto_layout_rooms,
-    create_blank_zone,
-    list_zone_files,
-    load_zone_json,
-    save_zone_json,
+    list_map_files,
 )
 
-# Data directory path
+# Directory paths for two-file workflow
 DATA_DIR = Path(__file__).parent.parent.parent.parent / "data"
+MAPS_DIR = DATA_DIR / "maps"
+ZONES_DIR = DATA_DIR / "zones"
 
 
 # =============================================================================
@@ -60,11 +70,11 @@ DATA_DIR = Path(__file__).parent.parent.parent.parent / "data"
     Input("initial-load", "n_intervals"),
     prevent_initial_call=False,
 )
-def load_zone_files(_: int) -> list[str]:
-    """Load list of zone files from the data directory.
+def load_map_files_list(_: int) -> list[str]:
+    """Load list of map files from the maps directory.
 
     This callback is triggered once on initial page load (via dcc.Interval)
-    and populates the zone-files-store with available zone file names.
+    and populates the zone-files-store with available map file names.
 
     Parameters
     ----------
@@ -74,9 +84,12 @@ def load_zone_files(_: int) -> list[str]:
     Returns
     -------
     list[str]
-        List of zone file names (e.g., ["dungeon.json", "town.json"]).
+        List of map file names (e.g., ["dungeon.map.json", "town.map.json"]).
     """
-    files = list_zone_files(DATA_DIR)
+    # Ensure maps directory exists
+    MAPS_DIR.mkdir(parents=True, exist_ok=True)
+
+    files = list_map_files(MAPS_DIR)
     return [f.name for f in files]
 
 
@@ -88,13 +101,13 @@ def load_zone_files(_: int) -> list[str]:
 def render_file_list(files: list[str], selected_file: str | None) -> list:
     """Render the file list in the browser with clickable items.
 
-    Creates a list of clickable div elements, one for each zone file.
+    Creates a list of clickable div elements, one for each map file.
     The currently selected file is highlighted with different styling.
 
     Parameters
     ----------
     files : list[str]
-        List of zone file names from zone-files-store.
+        List of map file names from zone-files-store.
     selected_file : str | None
         Currently selected file name, or None.
 
@@ -105,7 +118,7 @@ def render_file_list(files: list[str], selected_file: str | None) -> list:
         message if no files found.
     """
     if not files:
-        return [html.Span("No zone files found", className="text-muted fst-italic")]
+        return [html.Span("No map files found", className="text-muted fst-italic")]
 
     items = []
     for filename in files:
@@ -113,11 +126,17 @@ def render_file_list(files: list[str], selected_file: str | None) -> list:
         icon_class = "bi bi-file-earmark-code me-2"
         if is_selected:
             icon_class += " text-primary"
+
+        # Show shorter display name (without .map.json)
+        display_name = filename
+        if filename.endswith(".map.json"):
+            display_name = filename[:-9]  # Remove .map.json
+
         items.append(
             html.Div(
                 [
                     html.I(className=icon_class),
-                    html.Span(filename, className="fw-bold" if is_selected else ""),
+                    html.Span(display_name, className="fw-bold" if is_selected else ""),
                 ],
                 id={"type": "file-item", "filename": filename},
                 className="mb-1 p-1 rounded file-item"
@@ -138,11 +157,10 @@ def render_file_list(files: list[str], selected_file: str | None) -> list:
     prevent_initial_call=True,
 )
 def handle_file_click(n_clicks_list: list[int], files: list[str]) -> tuple:
-    """Load zone data when a file is clicked in the browser.
+    """Load map data when a file is clicked in the browser.
 
     Uses Dash pattern-matching callbacks to detect which file was clicked
-    from the dynamic file list. Loads the zone JSON and applies auto-layout
-    to ensure all rooms have coordinates.
+    from the dynamic file list. Loads the map JSON file.
 
     Parameters
     ----------
@@ -169,16 +187,16 @@ def handle_file_click(n_clicks_list: list[int], files: list[str]) -> tuple:
     if not filename:
         return no_update, no_update, no_update
 
-    # Load the zone file
-    file_path = DATA_DIR / filename
+    # Load the map file using zone_service
+    file_path = MAPS_DIR / filename
     try:
-        zone_data = load_zone_json(file_path)
-        # Auto-layout ensures all rooms have coordinates for display
-        zone_data = auto_layout_rooms(zone_data)
+        map_file = zone_service.load_map_file(file_path)
+        # Convert to dict for Dash storage
+        zone_data = map_file.to_dict_with_list_coords()
         zone_name = zone_data.get("name", filename)
         return filename, zone_data, f"Zone: {zone_name}"
     except Exception as e:
-        print(f"Error loading zone: {e}")
+        print(f"Error loading map: {e}")
         return no_update, no_update, no_update
 
 
@@ -246,15 +264,15 @@ def close_new_map_modal(n_clicks: int) -> bool:
     State("new-zone-description", "value"),
     prevent_initial_call=True,
 )
-def create_new_zone(
+def create_new_map(
     n_clicks: int,
     zone_id: str,
     zone_name: str,
     description: str,
 ) -> tuple:
-    """Create a new zone file when the Create button is clicked.
+    """Create a new map file when the Create button is clicked.
 
-    Validates input, creates the zone data structure, saves to file,
+    Validates input, creates the map file structure, saves to data/maps/,
     and refreshes the file list.
 
     Parameters
@@ -279,7 +297,7 @@ def create_new_zone(
         return no_update, no_update, no_update, no_update, no_update, no_update
 
     # Normalize inputs
-    zone_id = (zone_id or "").strip()
+    zone_id = (zone_id or "").strip().lower()
     zone_name = (zone_name or "").strip()
     description = (description or "").strip()
 
@@ -288,10 +306,10 @@ def create_new_zone(
         feedback = dbc.Alert("Zone ID is required.", color="danger", className="mb-0")
         return no_update, no_update, feedback, no_update, no_update, no_update
 
-    if not re.match(r"^[a-zA-Z][a-zA-Z0-9_]*$", zone_id):
+    if not re.match(r"^[a-z][a-z0-9_]*$", zone_id):
         feedback = dbc.Alert(
             "Zone ID must start with a letter and contain only "
-            "letters, numbers, and underscores.",
+            "lowercase letters, numbers, and underscores.",
             color="danger",
             className="mb-0",
         )
@@ -303,21 +321,26 @@ def create_new_zone(
         return no_update, no_update, feedback, no_update, no_update, no_update
 
     # Check if file already exists
-    file_path = DATA_DIR / f"{zone_id}.json"
+    file_path = MAPS_DIR / f"{zone_id}.map.json"
     if file_path.exists():
         feedback = dbc.Alert(
-            f"A zone with ID '{zone_id}' already exists.",
+            f"A map with ID '{zone_id}' already exists.",
             color="warning",
             className="mb-0",
         )
         return no_update, no_update, feedback, no_update, no_update, no_update
 
-    # Create and save the zone
-    zone_data = create_blank_zone(zone_id, zone_name, description)
-    save_zone_json(zone_data, file_path)
+    # Create and save the map file using zone_service
+    map_file = zone_service.create_new_map_file(
+        zone_id=zone_id,
+        name=zone_name,
+        spawn_room_name="Spawn Room",
+        description=description,
+    )
+    zone_service.save_map_file(map_file, file_path)
 
     # Refresh file list
-    files = list_zone_files(DATA_DIR)
+    files = list_map_files(MAPS_DIR)
     file_names = [f.name for f in files]
 
     # Close modal and clear form
@@ -325,7 +348,7 @@ def create_new_zone(
 
 
 # =============================================================================
-# Save/Status Callbacks
+# Save/Export/Status Callbacks
 # =============================================================================
 
 
@@ -352,18 +375,19 @@ def reset_unsaved_on_file_load(selected_file: str | None) -> bool:
 
 @callback(
     Output("save-map-btn", "disabled"),
+    Output("export-zone-btn", "disabled"),
     Output("status-indicator", "children"),
     Input("has-unsaved-changes", "data"),
     Input("selected-file", "data"),
 )
 def update_save_status(has_unsaved: bool, selected_file: str | None) -> tuple:
-    """Update save button state and status indicator.
+    """Update save/export button state and status indicator.
 
     Shows appropriate status based on current state:
 
-    - No file loaded: gray dot, disabled save
-    - Unsaved changes: yellow dot, enabled save
-    - All saved: green dot, disabled save
+    - No file loaded: gray dot, disabled buttons
+    - Unsaved changes: yellow dot, enabled save, disabled export
+    - All saved: green dot, disabled save, enabled export
 
     Parameters
     ----------
@@ -375,24 +399,41 @@ def update_save_status(has_unsaved: bool, selected_file: str | None) -> tuple:
     Returns
     -------
     tuple
-        (save_disabled, status_children).
+        (save_disabled, export_disabled, status_children).
     """
     if not selected_file:
-        return True, [
-            html.I(className="bi bi-circle-fill text-secondary me-2"),
-            "No file loaded",
-        ]
+        return (
+            True,
+            True,
+            [
+                html.I(className="bi bi-circle-fill text-secondary me-2"),
+                "No file loaded",
+            ],
+        )
+
+    # Display name without .map.json
+    display_name = selected_file
+    if selected_file.endswith(".map.json"):
+        display_name = selected_file[:-9]
 
     if has_unsaved:
-        return False, [
-            html.I(className="bi bi-circle-fill text-warning me-2"),
-            f"Unsaved changes: {selected_file}",
-        ]
+        return (
+            False,
+            True,
+            [
+                html.I(className="bi bi-circle-fill text-warning me-2"),
+                f"Unsaved changes: {display_name}",
+            ],
+        )
 
-    return True, [
-        html.I(className="bi bi-circle-fill text-success me-2"),
-        f"Saved: {selected_file}",
-    ]
+    return (
+        True,
+        False,
+        [
+            html.I(className="bi bi-circle-fill text-success me-2"),
+            f"Saved: {display_name}",
+        ],
+    )
 
 
 @callback(
@@ -403,15 +444,15 @@ def update_save_status(has_unsaved: bool, selected_file: str | None) -> tuple:
     State("selected-file", "data"),
     prevent_initial_call=True,
 )
-def save_zone_to_file(n_clicks: int, zone_data: dict | None, selected_file: str | None) -> tuple:
-    """Save the current zone data to the file.
+def save_map_to_file(n_clicks: int, zone_data: dict | None, selected_file: str | None) -> tuple:
+    """Save the current map data to the file.
 
     Parameters
     ----------
     n_clicks : int
         Click count for Save button.
     zone_data : dict | None
-        Current zone data to save.
+        Current map data to save.
     selected_file : str | None
         Target file name.
 
@@ -425,11 +466,20 @@ def save_zone_to_file(n_clicks: int, zone_data: dict | None, selected_file: str 
     if not n_clicks or not zone_data or not selected_file:
         return no_update, no_update
 
-    file_path = DATA_DIR / selected_file
+    file_path = MAPS_DIR / selected_file
     try:
-        save_zone_json(zone_data, file_path)
+        # Convert dict to MapFile and save
+        from pipeworks_mud_mapper.models import MapFile
+
+        map_file = MapFile.from_dict(zone_data)
+        zone_service.save_map_file(map_file, file_path)
+
+        display_name = selected_file
+        if selected_file.endswith(".map.json"):
+            display_name = selected_file[:-9]
+
         feedback = dbc.Alert(
-            f"Saved to {selected_file}",
+            f"Saved: {display_name}",
             color="success",
             className="mb-0 py-2",
             duration=3000,
@@ -442,3 +492,63 @@ def save_zone_to_file(n_clicks: int, zone_data: dict | None, selected_file: str 
             className="mb-0 py-2",
         )
         return no_update, feedback
+
+
+@callback(
+    Output("room-form-feedback", "children", allow_duplicate=True),
+    Input("export-zone-btn", "n_clicks"),
+    State("current-zone-data", "data"),
+    State("selected-file", "data"),
+    prevent_initial_call=True,
+)
+def export_zone_to_file(n_clicks: int, zone_data: dict | None, selected_file: str | None) -> str:
+    """Export the current map as a zone file (strips coordinates).
+
+    Exports to data/zones/{name}.json, creating the game truth file
+    that the MUD server consumes.
+
+    Parameters
+    ----------
+    n_clicks : int
+        Click count for Export button.
+    zone_data : dict | None
+        Current map data to export.
+    selected_file : str | None
+        Source file name (used to derive export name).
+
+    Returns
+    -------
+    str
+        Feedback alert component.
+    """
+    if not n_clicks or not zone_data or not selected_file:
+        return no_update
+
+    # Derive export path from map file name
+    map_path = MAPS_DIR / selected_file
+    export_path = zone_service.get_suggested_export_path(map_path)
+
+    try:
+        # Ensure zones directory exists
+        ZONES_DIR.mkdir(parents=True, exist_ok=True)
+
+        # Convert dict to MapFile and export
+        from pipeworks_mud_mapper.models import MapFile
+
+        map_file = MapFile.from_dict(zone_data)
+        zone_service.export_zone(map_file, export_path)
+
+        feedback = dbc.Alert(
+            f"Exported: {export_path.name} (coordinates stripped)",
+            color="info",
+            className="mb-0 py-2",
+            duration=4000,
+        )
+        return feedback
+    except Exception as e:
+        feedback = dbc.Alert(
+            f"Error exporting: {e}",
+            color="danger",
+            className="mb-0 py-2",
+        )
+        return feedback

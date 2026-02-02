@@ -14,13 +14,14 @@ Component Structure
 Component IDs
 -------------
 - ``save-map-btn``: Button to save current map to file
+- ``export-zone-btn``: Button to export zone JSON (strips coordinates)
 - ``status-indicator``: Span showing save state (colored dot + message)
 
 Status Indicator States
 -----------------------
 - **Gray dot**: No file loaded
-- **Yellow dot**: Unsaved changes exist
-- **Green dot**: All changes saved
+- **Yellow dot**: Unsaved changes exist (save enabled, export disabled)
+- **Green dot**: All changes saved (save disabled, export enabled)
 
 See Also
 --------
@@ -32,13 +33,13 @@ from dash import html
 
 
 def create_action_bar() -> html.Div:
-    """Create the bottom action bar with save and status controls.
+    """Create the bottom action bar with save/export and status controls.
 
     The action bar contains:
 
-    - Validate button (currently disabled/placeholder)
-    - Export button (currently disabled/placeholder)
-    - Save Map button (enabled when unsaved changes exist)
+    - Validate button (placeholder for Phase 6)
+    - Export Zone JSON button (exports without coordinates)
+    - Save Map button (saves with coordinates)
     - Status indicator showing current file and save state
 
     Returns
@@ -48,13 +49,15 @@ def create_action_bar() -> html.Div:
 
     Component IDs
     -------------
-    - ``save-map-btn``: Button to save current zone to file
+    - ``save-map-btn``: Button to save current map to file
+    - ``export-zone-btn``: Button to export zone JSON
     - ``status-indicator``: Span showing current status
 
     Notes
     -----
-    - Validate and Export buttons are placeholders for future features
-    - Save button is disabled when no changes or no file loaded
+    - Validate button is placeholder for Phase 6
+    - Export is enabled when file is saved (no unsaved changes)
+    - Save is enabled when there are unsaved changes
     - Status indicator shows colored dot and message:
 
       - Gray: No file loaded
@@ -71,9 +74,10 @@ def create_action_bar() -> html.Div:
                 className="me-2",
                 disabled=True,
             ),
-            # Export button (placeholder)
+            # Export button
             dbc.Button(
                 [html.I(className="bi bi-download me-2"), "Export Zone JSON"],
+                id="export-zone-btn",
                 color="primary",
                 outline=True,
                 className="me-2",

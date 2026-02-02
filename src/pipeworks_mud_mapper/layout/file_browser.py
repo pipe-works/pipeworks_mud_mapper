@@ -1,6 +1,6 @@
 """File browser component for the left column.
 
-The file browser displays available zone files from the data directory
+The file browser displays available map files from the data/maps/ directory
 and allows users to load them or create new maps.
 
 Component Structure
@@ -10,9 +10,9 @@ Component Structure
     ┌─────────────────────┐
     │   File Browser      │  <- CardHeader
     ├─────────────────────┤
-    │ 📁 data/            │  <- Folder icon
-    │   ├── zone1.json    │  <- Dynamic file list
-    │   └── zone2.json    │     (rendered by callback)
+    │ 📁 maps/            │  <- Folder icon
+    │   ├── zone1         │  <- Dynamic file list
+    │   └── zone2         │     (rendered by callback)
     │ ──────────────────  │
     │ [+ New Map]         │  <- New Map button
     └─────────────────────┘
@@ -21,6 +21,14 @@ Component IDs
 -------------
 - ``file-list-container``: Container div populated by render_file_list callback
 - ``new-map-btn``: Button that opens the New Map modal
+
+Notes
+-----
+Files are stored as ``*.map.json`` but displayed without the extension.
+The two-file workflow separates:
+
+- Map files (data/maps/*.map.json) - authoring with coordinates
+- Zone files (data/zones/*.json) - game truth without coordinates
 
 See Also
 --------
@@ -67,7 +75,7 @@ def create_file_browser() -> dbc.Card:
                     html.Div(
                         [
                             html.I(className="bi bi-folder-fill me-2 text-warning"),
-                            html.Span("data/"),
+                            html.Span("maps/"),
                         ],
                         className="mb-2",
                     ),

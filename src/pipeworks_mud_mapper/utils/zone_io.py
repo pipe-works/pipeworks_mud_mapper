@@ -666,6 +666,52 @@ def list_zone_files(directory: Path) -> list[Path]:
     return sorted(directory.glob("*.json"))
 
 
+def list_map_files(directory: Path) -> list[Path]:
+    """
+    List all .map.json map files in a directory.
+
+    Scans the specified directory for map files (*.map.json) and returns
+    them sorted alphabetically by filename. Does not recurse into
+    subdirectories.
+
+    Parameters
+    ----------
+    directory : Path
+        Path to the directory to scan (typically data/maps/).
+
+    Returns
+    -------
+    list[Path]
+        List of Path objects for each .map.json file found, sorted by name.
+        Returns empty list if directory doesn't exist or contains no
+        map files.
+
+    Examples
+    --------
+    List map files::
+
+        >>> from pathlib import Path
+        >>> files = list_map_files(Path("data/maps"))
+        >>> for f in files:
+        ...     print(f.name)
+        dungeon.map.json
+        forest.map.json
+
+    Notes
+    -----
+    - Only files ending with .map.json are returned
+    - Use list_zone_files() for zone files (*.json without .map)
+    - Map files contain coordinates for authoring
+    - Zone files are game truth without coordinates
+    """
+    directory = Path(directory)
+
+    if not directory.exists():
+        return []
+
+    return sorted(directory.glob("*.map.json"))
+
+
 # =============================================================================
 # Auto-Layout Functions
 # =============================================================================

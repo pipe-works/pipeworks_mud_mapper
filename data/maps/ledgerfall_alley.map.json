@@ -87,7 +87,22 @@
         0
       ],
       "exits": {
-        "north": "locked_door"
+        "north": "locked_door",
+        "south": "quiet_street"
+      },
+      "items": []
+    },
+    "quiet_street": {
+      "id": "quiet_street",
+      "name": "Quiet Street",
+      "description": "A suspiciously quite street.",
+      "coords": [
+        0,
+        -15,
+        0
+      ],
+      "exits": {
+        "north": "back_door"
       },
       "items": []
     }
