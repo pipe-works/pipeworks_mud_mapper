@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.0.5](https://github.com/pipe-works/pipeworks_mud_mapper/compare/pipeworks-mud-mapper-v0.0.4...pipeworks-mud-mapper-v0.0.5) (2026-02-02)
+
+
+### Features
+
+* implement two-file workflow (Phase 5) ([6b39800](https://github.com/pipe-works/pipeworks_mud_mapper/commit/6b398008af020d90ab58a51153fe7de1dc820621))
+* **models:** add Pydantic domain models for two-file workflow ([911a9f4](https://github.com/pipe-works/pipeworks_mud_mapper/commit/911a9f44b5ee1b4063c6d7921cb588ef1dd5ed1c))
+* **services:** add service layer for business logic ([605ba39](https://github.com/pipe-works/pipeworks_mud_mapper/commit/605ba3933f4c5db6a42ef5d703e4936ce6be447a))
+
+
+### Documentation
+
+* update documentation for two-file workflow and architecture ([5d5cfbd](https://github.com/pipe-works/pipeworks_mud_mapper/commit/5d5cfbd2d0e5fe1a5d040d2f3e47550606c8117a))
+
+
+### Internal Changes
+
+* extract callbacks from app.py (Phase 4) ([52e3ef9](https://github.com/pipe-works/pipeworks_mud_mapper/commit/52e3ef95dd628080832c61173352769d393a4d6b))
+* extract layout components from app.py (Phase 3) ([ac30b96](https://github.com/pipe-works/pipeworks_mud_mapper/commit/ac30b961e110e72918c3c4923818bc6f5dc7f03c))
+
 ## [0.0.4](https://github.com/pipe-works/pipeworks_mud_mapper/compare/pipeworks-mud-mapper-v0.0.3...pipeworks-mud-mapper-v0.0.4) (2026-02-02)
 
 
