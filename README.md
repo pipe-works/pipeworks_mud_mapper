@@ -1,27 +1,53 @@
 # PipeWorks MUD Mapper
 
-Visual authoring tool for creating and editing MUD zone files. Part of the pipe-works ecosystem.
+> A visual authoring tool for creating and editing MUD zone files with an interactive map editor.
 
-[![Documentation Status](https://readthedocs.org/projects/pipeworks-mud-mapper/badge/?version=latest)](https://pipeworks-mud-mapper.readthedocs.io/en/latest/?badge=latest)
+[![CI](https://github.com/pipe-works/pipeworks_mud_mapper/actions/workflows/ci.yml/badge.svg)](https://github.com/pipe-works/pipeworks_mud_mapper/actions/workflows/ci.yml)
+[![Documentation](https://readthedocs.org/projects/pipeworks-mud-mapper/badge/?version=latest)](https://pipeworks-mud-mapper.readthedocs.io/en/latest/?badge=latest)
+[![codecov](https://codecov.io/gh/pipe-works/pipeworks_mud_mapper/branch/main/graph/badge.svg)](https://codecov.io/gh/pipe-works/pipeworks_mud_mapper)
+[![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
+[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+[![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 
-## Overview
+---
 
-**PipeWorks MUD Mapper** provides an interactive map editor built with Dash and Plotly for creating MUD (Multi-User Dungeon) zone files. It generates JSON zone files compatible with the PipeWorks MUD Server.
+## What is PipeWorks MUD Mapper?
 
-### Features
+An interactive map editor built with Dash and Plotly for creating MUD (Multi-User Dungeon) zone files. It generates JSON zone files compatible with the [PipeWorks MUD Server](https://github.com/pipe-works/pipeworks_mud_server).
+
+**Features:**
 
 - **Visual Map Editor** - Interactive 2D map with Plotly-based rendering
-- **Room Management** - Create, edit, and delete rooms with intuitive form
+- **Room Management** - Create, edit, and delete rooms with intuitive forms
 - **Exit System** - Bidirectional exit creation with automatic reverse linking
 - **Multi-Level Support** - Z-axis filtering for 3D dungeon visualization
 - **Two-File Workflow** - Separate authoring (with coords) and export (without)
 
-### Two-File Workflow
+---
 
-The mapper uses two file types:
+## Quick Start
 
-- **Map Files** (`data/maps/*.map.json`) - Authoring source with coordinates for visual editing
-- **Zone Files** (`data/zones/*.json`) - Game truth without coordinates for MUD server
+```bash
+# Install
+pip install -e ".[dev]"
+
+# Run
+python -m pipeworks_mud_mapper
+```
+
+Open http://127.0.0.1:8050 in your browser.
+
+---
+
+## Two-File Workflow
+
+The mapper distinguishes between authoring files and game files:
+
+| File Type | Location | Purpose |
+|-----------|----------|---------|
+| **Map Files** | `data/maps/*.map.json` | Authoring source with coordinates |
+| **Zone Files** | `data/zones/*.json` | Game truth without coordinates |
 
 ```
 Edit map file  →  Save  →  Export Zone JSON
@@ -30,39 +56,20 @@ Visual coords   Preserved    Coords stripped
 for authoring   for editing  for game server
 ```
 
-## Installation
+Zone files are what the MUD server consumes. Coordinates are stripped because the game engine operates on topology (connections), not geometry (positions).
 
-```bash
-pip install -e ".[dev]"
-```
+---
 
-## Usage
-
-Run the application:
-
-```bash
-python -m pipeworks_mud_mapper
-```
-
-Or from code:
-
-```python
-from pipeworks_mud_mapper.app import run_app
-run_app(debug=True, port=8050)
-```
-
-Then open http://127.0.0.1:8050 in your browser.
-
-### Interface
+## Interface
 
 The mapper has a three-column layout:
 
 | Column | Purpose |
 |--------|---------|
-| Left | File browser - load maps from `data/maps/` |
-| Center | Interactive map view with Z-level selector |
-| Right | Properties panel for room editing |
-| Bottom | Action bar with Save/Export and status |
+| **Left** | File browser - load maps from `data/maps/` |
+| **Center** | Interactive map view with Z-level selector |
+| **Right** | Properties panel for room editing |
+| **Bottom** | Action bar with Save/Export and status |
 
 ### Creating a Zone
 
@@ -73,9 +80,17 @@ The mapper has a three-column layout:
 5. **Save Map** to preserve your work
 6. **Export Zone JSON** when ready for the MUD server
 
+---
+
 ## Documentation
 
-Full documentation: https://pipeworks-mud-mapper.readthedocs.io/
+Full documentation: **[pipeworks-mud-mapper.readthedocs.io](https://pipeworks-mud-mapper.readthedocs.io/)**
+
+- [Usage Guide](https://pipeworks-mud-mapper.readthedocs.io/en/latest/usage.html)
+- [File Formats](https://pipeworks-mud-mapper.readthedocs.io/en/latest/zone_format.html)
+- [API Reference](https://pipeworks-mud-mapper.readthedocs.io/en/latest/autoapi/index.html)
+
+---
 
 ## Development
 
@@ -83,39 +98,38 @@ Full documentation: https://pipeworks-mud-mapper.readthedocs.io/
 # Install dev dependencies
 pip install -e ".[dev]"
 
-# Install pre-commit hooks
-pre-commit install
-
 # Run tests
 pytest
 
-# Run linting
+# Lint and format
 ruff check src/ tests/
-black --check src/ tests/
-
-# Format code
 black src/ tests/
-ruff check --fix src/ tests/
 ```
 
 ### Architecture
 
 ```
 src/pipeworks_mud_mapper/
-├── app.py              # Application entry point
+├── app.py              # Application entry point (~120 lines)
+├── models/             # Domain models (Pydantic)
+├── services/           # Business logic (pure Python, no Dash)
 ├── layout/             # UI structure (Dash components)
 ├── callbacks/          # Interactivity (Dash callbacks)
-├── services/           # Business logic (pure Python)
-├── models/             # Domain models (Pydantic)
 ├── components/         # Reusable Plotly components
 └── utils/              # File I/O utilities
 ```
+
+The architecture separates concerns for testability: services contain all business logic and can be tested without Dash.
+
+---
 
 ## License
 
 GPL-3.0-or-later. See [LICENSE](LICENSE) for details.
 
+---
+
 ## Related Projects
 
-- [pipeworks_mud_server](https://github.com/pipe-works/pipeworks_mud_server) - The Undertaking MUD server
-- [pipe-works](https://github.com/pipe-works/pipe-works) - Main project hub
+- **[pipeworks_mud_server](https://github.com/pipe-works/pipeworks_mud_server)** - The Undertaking MUD server
+- **[pipe-works](https://github.com/pipe-works/pipe-works)** - Main project hub
