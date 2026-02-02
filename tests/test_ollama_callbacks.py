@@ -9,7 +9,8 @@ Tests are grouped by callback function:
 
 - **TestRefreshOllamaModels**: Model list fetching from server
 - **TestGenerateDescription**: LLM text generation
-- **TestHandleCopyClick**: Clipboard feedback handling
+- **TestSendToDescription**: Sending response to room description
+- **TestHandleClipboardCopy**: Clipboard feedback handling
 
 Design Notes
 ------------
@@ -31,12 +32,13 @@ from unittest.mock import MagicMock, patch
 
 import httpx
 import pytest
-from dash import html, no_update
+from dash import no_update
 
 from pipeworks_mud_mapper.callbacks.ollama_callbacks import (
     generate_description,
-    handle_copy_click,
+    handle_clipboard_copy,
     refresh_ollama_models,
+    send_to_description,
 )
 
 # =============================================================================
@@ -79,22 +81,23 @@ class TestRefreshOllamaModels:
     def test_no_clicks_returns_no_update(self):
         """Should return no_update when button not clicked."""
         result = refresh_ollama_models(n_clicks=0, server_url="http://localhost:11434")
-        assert result == (no_update, no_update)
+        assert result == (no_update, no_update, no_update)
 
     def test_none_clicks_returns_no_update(self):
         """Should return no_update when n_clicks is None."""
         result = refresh_ollama_models(n_clicks=None, server_url="http://localhost:11434")
-        assert result == (no_update, no_update)
+        assert result == (no_update, no_update, no_update)
 
     def test_empty_server_url(self):
         """Should return warning when server URL is empty."""
-        options, status = refresh_ollama_models(n_clicks=1, server_url="")
+        options, status, placeholder = refresh_ollama_models(n_clicks=1, server_url="")
         assert options == []
         assert "Please enter a server URL" in str(status)
+        assert "Enter server URL" in placeholder
 
     def test_none_server_url(self):
         """Should return warning when server URL is None."""
-        options, status = refresh_ollama_models(n_clicks=1, server_url=None)
+        options, status, placeholder = refresh_ollama_models(n_clicks=1, server_url=None)
         assert options == []
         assert "Please enter a server URL" in str(status)
 
@@ -107,13 +110,17 @@ class TestRefreshOllamaModels:
         with patch("pipeworks_mud_mapper.callbacks.ollama_callbacks.httpx.Client") as mock_client:
             mock_client.return_value.__enter__.return_value.get.return_value = mock_response
 
-            options, status = refresh_ollama_models(n_clicks=1, server_url="http://localhost:11434")
+            options, status, placeholder = refresh_ollama_models(
+                n_clicks=1, server_url="http://localhost:11434"
+            )
 
         assert len(options) == 3
         assert options[0]["value"] == "llama3.2:latest"
         assert options[1]["value"] == "mistral:7b"
         assert options[2]["value"] == "codellama:13b"
-        assert "Found 3 model(s)" in str(status)
+        assert "Connected" in str(status)
+        assert "3 model" in str(status)
+        assert placeholder == "Select a model"
 
     def test_successful_fetch_normalizes_url(self, mock_models_response):
         """Should strip trailing slash from server URL."""
@@ -131,7 +138,7 @@ class TestRefreshOllamaModels:
             mock_instance.get.assert_called_once_with("http://localhost:11434/api/tags")
 
     def test_empty_models_list(self):
-        """Should return warning when no models found."""
+        """Should show connected but no models when list is empty."""
         mock_response = MagicMock()
         mock_response.json.return_value = {"models": []}
         mock_response.raise_for_status = MagicMock()
@@ -139,10 +146,14 @@ class TestRefreshOllamaModels:
         with patch("pipeworks_mud_mapper.callbacks.ollama_callbacks.httpx.Client") as mock_client:
             mock_client.return_value.__enter__.return_value.get.return_value = mock_response
 
-            options, status = refresh_ollama_models(n_clicks=1, server_url="http://localhost:11434")
+            options, status, placeholder = refresh_ollama_models(
+                n_clicks=1, server_url="http://localhost:11434"
+            )
 
         assert options == []
-        assert "No models found" in str(status)
+        assert "Connected" in str(status)
+        assert "no models" in str(status)
+        assert "No models" in placeholder
 
     def test_connection_error(self):
         """Should handle connection refused error."""
@@ -151,10 +162,13 @@ class TestRefreshOllamaModels:
                 "Connection refused"
             )
 
-            options, status = refresh_ollama_models(n_clicks=1, server_url="http://localhost:11434")
+            options, status, placeholder = refresh_ollama_models(
+                n_clicks=1, server_url="http://localhost:11434"
+            )
 
         assert options == []
-        assert "Cannot connect to server" in str(status)
+        assert "Not connected" in str(status)
+        assert "Connection failed" in placeholder
 
     def test_http_status_error(self):
         """Should handle HTTP error responses."""
@@ -166,10 +180,13 @@ class TestRefreshOllamaModels:
                 "Server error", request=MagicMock(), response=mock_response
             )
 
-            options, status = refresh_ollama_models(n_clicks=1, server_url="http://localhost:11434")
+            options, status, placeholder = refresh_ollama_models(
+                n_clicks=1, server_url="http://localhost:11434"
+            )
 
         assert options == []
-        assert "Server error: 500" in str(status)
+        assert "Not connected" in str(status)
+        assert "HTTP 500" in str(status)
 
     def test_generic_exception(self):
         """Should handle unexpected exceptions gracefully."""
@@ -178,10 +195,40 @@ class TestRefreshOllamaModels:
                 "Unexpected error occurred"
             )
 
-            options, status = refresh_ollama_models(n_clicks=1, server_url="http://localhost:11434")
+            options, status, placeholder = refresh_ollama_models(
+                n_clicks=1, server_url="http://localhost:11434"
+            )
 
         assert options == []
         assert "Error:" in str(status)
+
+    def test_connection_status_shows_green_on_success(self, mock_models_response):
+        """Should show green success indicator when connected."""
+        mock_response = MagicMock()
+        mock_response.json.return_value = mock_models_response
+        mock_response.raise_for_status = MagicMock()
+
+        with patch("pipeworks_mud_mapper.callbacks.ollama_callbacks.httpx.Client") as mock_client:
+            mock_client.return_value.__enter__.return_value.get.return_value = mock_response
+
+            options, status, placeholder = refresh_ollama_models(
+                n_clicks=1, server_url="http://localhost:11434"
+            )
+
+        assert "text-success" in str(status)
+
+    def test_connection_status_shows_red_on_failure(self):
+        """Should show red error indicator when connection fails."""
+        with patch("pipeworks_mud_mapper.callbacks.ollama_callbacks.httpx.Client") as mock_client:
+            mock_client.return_value.__enter__.return_value.get.side_effect = httpx.ConnectError(
+                "Connection refused"
+            )
+
+            options, status, placeholder = refresh_ollama_models(
+                n_clicks=1, server_url="http://localhost:11434"
+            )
+
+        assert "text-danger" in str(status)
 
 
 # =============================================================================
@@ -402,38 +449,81 @@ class TestGenerateDescription:
 
 
 # =============================================================================
-# Test handle_copy_click
+# Test send_to_description
 # =============================================================================
 
 
-class TestHandleCopyClick:
-    """Tests for the handle_copy_click callback."""
+class TestSendToDescription:
+    """Tests for the send_to_description callback."""
 
     def test_no_clicks_returns_no_update(self):
         """Should return no_update when button not clicked."""
-        result = handle_copy_click(n_clicks=0, response_text="Some text")
+        result = send_to_description(n_clicks=0, response_text="Some text")
+        assert result == (no_update, no_update)
+
+    def test_none_clicks_returns_no_update(self):
+        """Should return no_update when n_clicks is None."""
+        result = send_to_description(n_clicks=None, response_text="Some text")
+        assert result == (no_update, no_update)
+
+    def test_empty_response_text(self):
+        """Should show 'Nothing to send' when response is empty."""
+        description, status = send_to_description(n_clicks=1, response_text="")
+        assert description is no_update
+        assert "Nothing to send" in str(status)
+
+    def test_none_response_text(self):
+        """Should show 'Nothing to send' when response is None."""
+        description, status = send_to_description(n_clicks=1, response_text=None)
+        assert description is no_update
+        assert "Nothing to send" in str(status)
+
+    def test_successful_send(self):
+        """Should return response text and success message."""
+        test_text = "A dark room with stone walls."
+        description, status = send_to_description(n_clicks=1, response_text=test_text)
+        assert description == test_text
+        assert "Sent to description" in str(status)
+
+    def test_sends_full_text(self):
+        """Should send the complete response text."""
+        long_text = "This is a very long description. " * 10
+        description, status = send_to_description(n_clicks=1, response_text=long_text)
+        assert description == long_text
+
+
+# =============================================================================
+# Test handle_clipboard_copy
+# =============================================================================
+
+
+class TestHandleClipboardCopy:
+    """Tests for the handle_clipboard_copy callback."""
+
+    def test_no_clicks_returns_no_update(self):
+        """Should return no_update when clipboard not clicked."""
+        result = handle_clipboard_copy(n_clicks=0, response_text="Some text")
         assert result is no_update
 
     def test_none_clicks_returns_no_update(self):
         """Should return no_update when n_clicks is None."""
-        result = handle_copy_click(n_clicks=None, response_text="Some text")
+        result = handle_clipboard_copy(n_clicks=None, response_text="Some text")
         assert result is no_update
 
     def test_empty_response_text(self):
         """Should show 'Nothing to copy' when response is empty."""
-        result = handle_copy_click(n_clicks=1, response_text="")
+        result = handle_clipboard_copy(n_clicks=1, response_text="")
         assert "Nothing to copy" in str(result)
 
     def test_none_response_text(self):
         """Should show 'Nothing to copy' when response is None."""
-        result = handle_copy_click(n_clicks=1, response_text=None)
+        result = handle_clipboard_copy(n_clicks=1, response_text=None)
         assert "Nothing to copy" in str(result)
 
     def test_successful_copy_feedback(self):
         """Should show success message when text exists."""
-        result = handle_copy_click(n_clicks=1, response_text="Generated description text")
+        result = handle_clipboard_copy(n_clicks=1, response_text="Generated description text")
         assert "Copied to clipboard" in str(result)
-        assert isinstance(result, html.Span)
 
 
 # =============================================================================
@@ -454,7 +544,9 @@ class TestOllamaIntegration:
         with patch("pipeworks_mud_mapper.callbacks.ollama_callbacks.httpx.Client") as mock_client:
             mock_client.return_value.__enter__.return_value.get.return_value = mock_tags_response
 
-            options, status = refresh_ollama_models(n_clicks=1, server_url="http://localhost:11434")
+            options, status, placeholder = refresh_ollama_models(
+                n_clicks=1, server_url="http://localhost:11434"
+            )
 
         assert len(options) == 3
         selected_model = options[0]["value"]
@@ -478,6 +570,30 @@ class TestOllamaIntegration:
         assert "ancient stone hall" in response
         assert disabled is False
 
+    def test_generate_and_send_workflow(self, mock_generate_response):
+        """Test workflow: generate text, then send to description."""
+        # Generate text
+        mock_response = MagicMock()
+        mock_response.json.return_value = mock_generate_response
+        mock_response.raise_for_status = MagicMock()
+
+        with patch("pipeworks_mud_mapper.callbacks.ollama_callbacks.httpx.Client") as mock_client:
+            mock_client.return_value.__enter__.return_value.post.return_value = mock_response
+
+            response, status, disabled = generate_description(
+                n_clicks=1,
+                server_url="http://localhost:11434",
+                model="llama3.2:latest",
+                system_prompt="",
+                user_prompt="Describe a room.",
+            )
+
+        # Send to description
+        description, send_status = send_to_description(n_clicks=1, response_text=response)
+
+        assert description == response
+        assert "Sent to description" in str(send_status)
+
     def test_server_down_recovery(self, mock_models_response):
         """Test that UI recovers gracefully when server comes back up."""
         # First attempt - server down
@@ -486,10 +602,12 @@ class TestOllamaIntegration:
                 "Connection refused"
             )
 
-            options, status = refresh_ollama_models(n_clicks=1, server_url="http://localhost:11434")
+            options, status, placeholder = refresh_ollama_models(
+                n_clicks=1, server_url="http://localhost:11434"
+            )
 
         assert options == []
-        assert "Cannot connect" in str(status)
+        assert "Not connected" in str(status)
 
         # Second attempt - server back up
         mock_response = MagicMock()
@@ -499,10 +617,10 @@ class TestOllamaIntegration:
         with patch("pipeworks_mud_mapper.callbacks.ollama_callbacks.httpx.Client") as mock_client:
             mock_client.return_value.__enter__.return_value.get.return_value = mock_response
 
-            options, status = refresh_ollama_models(
+            options, status, placeholder = refresh_ollama_models(
                 n_clicks=2,  # Second click
                 server_url="http://localhost:11434",
             )
 
         assert len(options) == 3
-        assert "Found 3 model(s)" in str(status)
+        assert "Connected" in str(status)

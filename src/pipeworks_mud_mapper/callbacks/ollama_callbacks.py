@@ -8,19 +8,23 @@ Component Dependencies
 **Inputs:**
 - ``ollama-refresh-models-btn``: Refresh available models
 - ``ollama-generate-btn``: Generate description
-- ``ollama-copy-btn``: Copy response to clipboard
+- ``ollama-send-to-description-btn``: Send response to room description
+- ``ollama-clipboard``: Clipboard copy event
 
 **States:**
 - ``ollama-server-url``: Ollama server URL
 - ``ollama-model-dropdown``: Selected model
 - ``ollama-system-prompt``: System prompt text
 - ``ollama-user-prompt``: User prompt text
+- ``ollama-response``: Generated response text
 
 **Outputs:**
 - ``ollama-model-dropdown``: Updated model options
+- ``ollama-connection-status``: Connection status indicator
 - ``ollama-response``: Generated text
 - ``ollama-status``: Status messages
-- ``ollama-clipboard``: Clipboard content
+- ``ollama-clipboard-feedback``: Clipboard copy feedback
+- ``room-description``: Room description field (via send button)
 
 See Also
 --------
@@ -36,7 +40,8 @@ OLLAMA_TIMEOUT = 60.0
 
 @callback(
     Output("ollama-model-dropdown", "options"),
-    Output("ollama-status", "children"),
+    Output("ollama-connection-status", "children"),
+    Output("ollama-model-dropdown", "placeholder"),
     Input("ollama-refresh-models-btn", "n_clicks"),
     State("ollama-server-url", "value"),
     prevent_initial_call=True,
@@ -57,13 +62,20 @@ def refresh_ollama_models(n_clicks: int, server_url: str) -> tuple:
     Returns
     -------
     tuple
-        (model_options, status_message)
+        (model_options, connection_status, placeholder)
     """
     if not n_clicks:
-        return no_update, no_update
+        return no_update, no_update, no_update
 
     if not server_url:
-        return [], html.Span("Please enter a server URL", className="text-warning")
+        status = html.Small(
+            [
+                html.I(className="bi bi-exclamation-circle text-warning me-1"),
+                "Please enter a server URL",
+            ],
+            className="text-warning",
+        )
+        return [], status, "Enter server URL first"
 
     # Normalize URL
     server_url = server_url.rstrip("/")
@@ -76,45 +88,59 @@ def refresh_ollama_models(n_clicks: int, server_url: str) -> tuple:
 
         models = data.get("models", [])
         if not models:
-            return [], html.Span("No models found on server", className="text-warning")
+            status = html.Small(
+                [
+                    html.I(className="bi bi-check-circle text-success me-1"),
+                    "Connected - no models installed",
+                ],
+                className="text-warning",
+            )
+            return [], status, "No models available"
 
         # Build dropdown options
         options = [{"label": m["name"], "value": m["name"]} for m in models]
 
-        status = html.Span(
+        status = html.Small(
             [
-                html.I(className="bi bi-check-circle text-success me-1"),
-                f"Found {len(models)} model(s)",
-            ]
+                html.I(className="bi bi-check-circle-fill text-success me-1"),
+                f"Connected ({len(models)} model{'s' if len(models) != 1 else ''})",
+            ],
+            className="text-success",
         )
-        return options, status
+        return options, status, "Select a model"
 
     except httpx.ConnectError:
-        return [], html.Span(
+        status = html.Small(
             [
-                html.I(className="bi bi-x-circle text-danger me-1"),
-                "Cannot connect to server",
-            ]
+                html.I(className="bi bi-x-circle-fill text-danger me-1"),
+                "Not connected - cannot reach server",
+            ],
+            className="text-danger",
         )
+        return [], status, "Connection failed"
     except httpx.HTTPStatusError as e:
-        return [], html.Span(
+        status = html.Small(
             [
-                html.I(className="bi bi-x-circle text-danger me-1"),
-                f"Server error: {e.response.status_code}",
-            ]
+                html.I(className="bi bi-x-circle-fill text-danger me-1"),
+                f"Not connected - HTTP {e.response.status_code}",
+            ],
+            className="text-danger",
         )
+        return [], status, "Connection failed"
     except Exception as e:
-        return [], html.Span(
+        status = html.Small(
             [
-                html.I(className="bi bi-x-circle text-danger me-1"),
-                f"Error: {str(e)[:50]}",
-            ]
+                html.I(className="bi bi-x-circle-fill text-danger me-1"),
+                f"Error: {str(e)[:30]}",
+            ],
+            className="text-danger",
         )
+        return [], status, "Connection failed"
 
 
 @callback(
     Output("ollama-response", "value"),
-    Output("ollama-status", "children", allow_duplicate=True),
+    Output("ollama-status", "children"),
     Output("ollama-generate-btn", "disabled"),
     Input("ollama-generate-btn", "n_clicks"),
     State("ollama-server-url", "value"),
@@ -248,38 +274,73 @@ def generate_description(
 
 
 @callback(
+    Output("room-description", "value", allow_duplicate=True),
     Output("ollama-status", "children", allow_duplicate=True),
-    Input("ollama-copy-btn", "n_clicks"),
+    Input("ollama-send-to-description-btn", "n_clicks"),
     State("ollama-response", "value"),
     prevent_initial_call=True,
 )
-def handle_copy_click(n_clicks: int, response_text: str):
-    """Show feedback when copy button is clicked.
-
-    Note: Actual clipboard functionality is handled by dcc.Clipboard
-    component. This callback just shows a status message.
+def send_to_description(n_clicks: int, response_text: str):
+    """Send the generated response to the room description field.
 
     Parameters
     ----------
     n_clicks : int
-        Click count for the copy button.
+        Click count for the send button.
+    response_text : str
+        Current response text.
+
+    Returns
+    -------
+    tuple
+        (description_value, status_message)
+    """
+    if not n_clicks:
+        return no_update, no_update
+
+    if not response_text:
+        return no_update, html.Span("Nothing to send", className="text-muted")
+
+    status = html.Span(
+        [
+            html.I(className="bi bi-check-circle text-success me-1"),
+            "Sent to description field",
+        ]
+    )
+    return response_text, status
+
+
+@callback(
+    Output("ollama-clipboard-feedback", "children"),
+    Input("ollama-clipboard", "n_clicks"),
+    State("ollama-response", "value"),
+    prevent_initial_call=True,
+)
+def handle_clipboard_copy(n_clicks: int, response_text: str):
+    """Show feedback when clipboard copy happens.
+
+    Parameters
+    ----------
+    n_clicks : int
+        Click count for the clipboard component.
     response_text : str
         Current response text.
 
     Returns
     -------
     html component
-        Status message.
+        Feedback message.
     """
     if not n_clicks:
         return no_update
 
     if not response_text:
-        return html.Span("Nothing to copy", className="text-muted")
+        return html.Small("Nothing to copy", className="text-muted")
 
-    return html.Span(
+    return html.Small(
         [
             html.I(className="bi bi-clipboard-check text-success me-1"),
-            "Copied to clipboard!",
-        ]
+            "Copied to clipboard",
+        ],
+        className="text-success",
     )

@@ -253,7 +253,7 @@ def create_properties_panel() -> dbc.Card:
                         ],
                         className="mb-2",
                     ),
-                    # Server URL input
+                    # Server URL input with connection status
                     dbc.Label("Server URL", html_for="ollama-server-url", size="sm"),
                     dbc.InputGroup(
                         [
@@ -270,20 +270,36 @@ def create_properties_panel() -> dbc.Card:
                                 color="secondary",
                                 outline=True,
                                 size="sm",
-                                title="Refresh models",
+                                title="Connect and refresh models",
                             ),
                         ],
-                        className="mb-2",
                         size="sm",
                     ),
-                    # Model dropdown
-                    dbc.Label("Model", html_for="ollama-model-dropdown", size="sm"),
-                    dcc.Dropdown(
-                        id="ollama-model-dropdown",
-                        options=[],
-                        placeholder="Select a model (click refresh)",
+                    # Connection status indicator
+                    html.Div(
+                        id="ollama-connection-status",
+                        children=html.Small(
+                            [
+                                html.I(className="bi bi-circle text-muted me-1"),
+                                "Not connected",
+                            ],
+                            className="text-muted",
+                        ),
                         className="mb-2",
-                        style={"fontSize": "0.875rem"},
+                    ),
+                    # Model dropdown with loading indicator
+                    dbc.Label("Model", html_for="ollama-model-dropdown", size="sm"),
+                    dcc.Loading(
+                        id="ollama-model-loading",
+                        type="dot",
+                        color="#17a2b8",
+                        children=dcc.Dropdown(
+                            id="ollama-model-dropdown",
+                            options=[],
+                            placeholder="Connect to server first",
+                            className="mb-2",
+                            style={"fontSize": "0.875rem"},
+                        ),
                     ),
                     # System prompt
                     dbc.Label("System Prompt", html_for="ollama-system-prompt", size="sm"),
@@ -303,38 +319,16 @@ def create_properties_panel() -> dbc.Card:
                         className="mb-2",
                         style={"height": "60px", "fontSize": "0.8rem"},
                     ),
-                    # Generate button and status
-                    dbc.Row(
+                    # Generate button
+                    dbc.Button(
                         [
-                            dbc.Col(
-                                dbc.Button(
-                                    [
-                                        html.I(className="bi bi-magic me-1"),
-                                        "Generate",
-                                    ],
-                                    id="ollama-generate-btn",
-                                    color="info",
-                                    size="sm",
-                                    className="w-100",
-                                ),
-                                width=6,
-                            ),
-                            dbc.Col(
-                                dbc.Button(
-                                    [
-                                        html.I(className="bi bi-clipboard me-1"),
-                                        "Copy",
-                                    ],
-                                    id="ollama-copy-btn",
-                                    color="secondary",
-                                    outline=True,
-                                    size="sm",
-                                    className="w-100",
-                                ),
-                                width=6,
-                            ),
+                            html.I(className="bi bi-magic me-1"),
+                            "Generate",
                         ],
-                        className="mb-2",
+                        id="ollama-generate-btn",
+                        color="info",
+                        size="sm",
+                        className="w-100 mb-2",
                     ),
                     # Status area
                     html.Div(
@@ -350,11 +344,40 @@ def create_properties_panel() -> dbc.Card:
                         style={"height": "100px", "fontSize": "0.8rem"},
                         readOnly=True,
                     ),
-                    # Hidden store for clipboard functionality
-                    dcc.Clipboard(
-                        id="ollama-clipboard",
-                        target_id="ollama-response",
-                        style={"display": "none"},
+                    # Action buttons row
+                    dbc.Row(
+                        [
+                            dbc.Col(
+                                dbc.Button(
+                                    [
+                                        html.I(className="bi bi-arrow-right-circle me-1"),
+                                        "Send to Description",
+                                    ],
+                                    id="ollama-send-to-description-btn",
+                                    color="success",
+                                    outline=True,
+                                    size="sm",
+                                    className="w-100",
+                                ),
+                                width=8,
+                            ),
+                            dbc.Col(
+                                dcc.Clipboard(
+                                    id="ollama-clipboard",
+                                    target_id="ollama-response",
+                                    title="Copy to clipboard",
+                                    className="btn btn-outline-secondary btn-sm w-100",
+                                    style={"height": "31px"},
+                                ),
+                                width=4,
+                            ),
+                        ],
+                        className="mb-2",
+                    ),
+                    # Clipboard feedback
+                    html.Div(
+                        id="ollama-clipboard-feedback",
+                        className="small",
                     ),
                 ]
             ),

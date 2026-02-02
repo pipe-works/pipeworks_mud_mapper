@@ -432,11 +432,6 @@ class TestPropertiesPanel:
         result = create_properties_panel()
         assert component_has_id(result, "ollama-generate-btn")
 
-    def test_create_properties_panel_has_ollama_copy_btn(self):
-        """create_properties_panel should include ollama-copy-btn."""
-        result = create_properties_panel()
-        assert component_has_id(result, "ollama-copy-btn")
-
     def test_create_properties_panel_has_ollama_response(self):
         """create_properties_panel should include ollama-response textarea."""
         result = create_properties_panel()
@@ -446,6 +441,21 @@ class TestPropertiesPanel:
         """create_properties_panel should include ollama-status."""
         result = create_properties_panel()
         assert component_has_id(result, "ollama-status")
+
+    def test_create_properties_panel_has_ollama_connection_status(self):
+        """create_properties_panel should include ollama-connection-status."""
+        result = create_properties_panel()
+        assert component_has_id(result, "ollama-connection-status")
+
+    def test_create_properties_panel_has_ollama_send_to_description_btn(self):
+        """create_properties_panel should include ollama-send-to-description-btn."""
+        result = create_properties_panel()
+        assert component_has_id(result, "ollama-send-to-description-btn")
+
+    def test_create_properties_panel_has_ollama_clipboard_feedback(self):
+        """create_properties_panel should include ollama-clipboard-feedback."""
+        result = create_properties_panel()
+        assert component_has_id(result, "ollama-clipboard-feedback")
 
     def test_create_properties_panel_ollama_server_default(self):
         """create_properties_panel ollama-server-url should default to localhost."""
@@ -470,6 +480,13 @@ class TestPropertiesPanel:
         """create_properties_panel should include ollama-clipboard component."""
         result = create_properties_panel()
         assert component_has_id(result, "ollama-clipboard")
+
+    def test_create_properties_panel_ollama_connection_default_not_connected(self):
+        """create_properties_panel connection status should default to not connected."""
+        result = create_properties_panel()
+        connection_status = find_component_by_id(result, "ollama-connection-status")
+        # Check the children contain "Not connected" text
+        assert connection_status is not None
 
 
 # =============================================================================
@@ -655,12 +672,15 @@ class TestLayoutIntegration:
             "ollama-server-url",
             "ollama-model-dropdown",
             "ollama-refresh-models-btn",
+            "ollama-connection-status",
             "ollama-system-prompt",
             "ollama-user-prompt",
             "ollama-generate-btn",
-            "ollama-copy-btn",
             "ollama-response",
             "ollama-status",
+            "ollama-send-to-description-btn",
+            "ollama-clipboard",
+            "ollama-clipboard-feedback",
         ]
         for id_ in ollama_callback_ids:
             assert id_ in ids, f"Missing ID for ollama callbacks: {id_}"
@@ -697,8 +717,8 @@ class TestLayoutIntegration:
         result = create_app_layout()
         ids = get_all_component_ids(result)
 
-        # Should have at least 39 IDs (all the stores, inputs, buttons, plus Ollama)
-        assert len(ids) >= 39, f"Only found {len(ids)} IDs, expected at least 39"
+        # Should have at least 41 IDs (all the stores, inputs, buttons, plus Ollama)
+        assert len(ids) >= 41, f"Only found {len(ids)} IDs, expected at least 41"
 
     def test_store_components_are_dcc_store(self):
         """All store components should be dcc.Store instances."""
