@@ -537,19 +537,13 @@ class TestFindRoomInDirection:
         }
 
         # From locked_door, east should find dark_hallway
-        result = find_room_in_direction(
-            rooms, (0, -5, 0), "east", exclude_room="locked_door"
-        )
+        result = find_room_in_direction(rooms, (0, -5, 0), "east", exclude_room="locked_door")
         assert result == "dark_hallway"
 
         # From locked_door, north should find spawn
-        result = find_room_in_direction(
-            rooms, (0, -5, 0), "north", exclude_room="locked_door"
-        )
+        result = find_room_in_direction(rooms, (0, -5, 0), "north", exclude_room="locked_door")
         assert result == "spawn"
 
         # From locked_door, south should find nothing
-        result = find_room_in_direction(
-            rooms, (0, -5, 0), "south", exclude_room="locked_door"
-        )
+        result = find_room_in_direction(rooms, (0, -5, 0), "south", exclude_room="locked_door")
         assert result is None
