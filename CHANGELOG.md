@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.0.8](https://github.com/pipe-works/pipeworks_mud_mapper/compare/pipeworks-mud-mapper-v0.0.7...pipeworks-mud-mapper-v0.0.8) (2026-02-02)
+
+
+### Features
+
+* add JSON Schema for map files ([ca61c7b](https://github.com/pipe-works/pipeworks_mud_mapper/commit/ca61c7b46e172238a2387d985fe324c828f148d7))
+
+
+### Fixes
+
+* enable save button when sending LLM text to room description ([d5b09fe](https://github.com/pipe-works/pipeworks_mud_mapper/commit/d5b09fe9fda62ee551b579110db4b4d0caad7167))
+* prevent has_unsaved reset when file list re-renders ([5fa7acb](https://github.com/pipe-works/pipeworks_mud_mapper/commit/5fa7acb9e93471369cddaaac187677fee839fd31))
+* resolve save/export button disappearing in flexbox layout ([4dd66d2](https://github.com/pipe-works/pipeworks_mud_mapper/commit/4dd66d20e721f8abedd0c41b0acd631f89859bd9))
+
 ## [0.0.7](https://github.com/pipe-works/pipeworks_mud_mapper/compare/pipeworks-mud-mapper-v0.0.6...pipeworks-mud-mapper-v0.0.7) (2026-02-02)
 
 
