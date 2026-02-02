@@ -275,13 +275,25 @@ def generate_description(
 
 @callback(
     Output("room-description", "value", allow_duplicate=True),
+    Output("current-zone-data", "data", allow_duplicate=True),
+    Output("has-unsaved-changes", "data", allow_duplicate=True),
     Output("ollama-status", "children", allow_duplicate=True),
     Input("ollama-send-to-description-btn", "n_clicks"),
     State("ollama-response", "value"),
+    State("selected-room", "data"),
+    State("current-zone-data", "data"),
     prevent_initial_call=True,
 )
-def send_to_description(n_clicks: int, response_text: str):
+def send_to_description(
+    n_clicks: int,
+    response_text: str,
+    selected_room: str | None,
+    zone_data: dict | None,
+):
     """Send the generated response to the room description field.
+
+    Also updates the zone data directly so the change is immediately
+    reflected in the save state.
 
     Parameters
     ----------
@@ -289,25 +301,56 @@ def send_to_description(n_clicks: int, response_text: str):
         Click count for the send button.
     response_text : str
         Current response text.
+    selected_room : str | None
+        Currently selected room ID.
+    zone_data : dict | None
+        Current zone data.
 
     Returns
     -------
     tuple
-        (description_value, status_message)
+        (description_value, zone_data, has_unsaved, status_message)
     """
     if not n_clicks:
-        return no_update, no_update
+        return no_update, no_update, no_update, no_update
 
     if not response_text:
-        return no_update, html.Span("Nothing to send", className="text-muted")
+        return no_update, no_update, no_update, html.Span("Nothing to send", className="text-muted")
+
+    # If no room is selected, just update the form field
+    if not selected_room or not zone_data:
+        status = html.Span(
+            [
+                html.I(className="bi bi-info-circle text-info me-1"),
+                "Sent to form (select a room to apply)",
+            ]
+        )
+        return response_text, no_update, no_update, status
+
+    # Update zone data directly
+    rooms = zone_data.get("rooms", {})
+    if selected_room not in rooms:
+        return (
+            response_text,
+            no_update,
+            no_update,
+            html.Span("Room not found in zone", className="text-warning"),
+        )
+
+    # Create updated zone data (copies for Dash reactivity)
+    updated_zone = dict(zone_data)
+    updated_zone["rooms"] = dict(zone_data.get("rooms", {}))
+    updated_room = dict(rooms[selected_room])
+    updated_room["description"] = response_text.strip()
+    updated_zone["rooms"][selected_room] = updated_room
 
     status = html.Span(
         [
             html.I(className="bi bi-check-circle text-success me-1"),
-            "Sent to description field",
+            f"Applied to '{selected_room}'",
         ]
     )
-    return response_text, status
+    return response_text, updated_zone, True, status
 
 
 @callback(

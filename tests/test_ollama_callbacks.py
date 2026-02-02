@@ -456,40 +456,128 @@ class TestGenerateDescription:
 class TestSendToDescription:
     """Tests for the send_to_description callback."""
 
-    def test_no_clicks_returns_no_update(self):
+    @pytest.fixture
+    def sample_zone_data(self):
+        """Create sample zone data for testing."""
+        return {
+            "id": "test",
+            "name": "Test Zone",
+            "spawn_room": "spawn",
+            "rooms": {
+                "spawn": {
+                    "id": "spawn",
+                    "name": "Spawn Room",
+                    "description": "Original description",
+                    "coords": [0, 0, 0],
+                    "exits": {},
+                    "items": [],
+                }
+            },
+            "items": {},
+        }
+
+    def test_no_clicks_returns_no_update(self, sample_zone_data):
         """Should return no_update when button not clicked."""
-        result = send_to_description(n_clicks=0, response_text="Some text")
-        assert result == (no_update, no_update)
+        result = send_to_description(
+            n_clicks=0,
+            response_text="Some text",
+            selected_room="spawn",
+            zone_data=sample_zone_data,
+        )
+        assert result == (no_update, no_update, no_update, no_update)
 
-    def test_none_clicks_returns_no_update(self):
+    def test_none_clicks_returns_no_update(self, sample_zone_data):
         """Should return no_update when n_clicks is None."""
-        result = send_to_description(n_clicks=None, response_text="Some text")
-        assert result == (no_update, no_update)
+        result = send_to_description(
+            n_clicks=None,
+            response_text="Some text",
+            selected_room="spawn",
+            zone_data=sample_zone_data,
+        )
+        assert result == (no_update, no_update, no_update, no_update)
 
-    def test_empty_response_text(self):
+    def test_empty_response_text(self, sample_zone_data):
         """Should show 'Nothing to send' when response is empty."""
-        description, status = send_to_description(n_clicks=1, response_text="")
+        description, zone, unsaved, status = send_to_description(
+            n_clicks=1,
+            response_text="",
+            selected_room="spawn",
+            zone_data=sample_zone_data,
+        )
         assert description is no_update
+        assert zone is no_update
+        assert unsaved is no_update
         assert "Nothing to send" in str(status)
 
-    def test_none_response_text(self):
+    def test_none_response_text(self, sample_zone_data):
         """Should show 'Nothing to send' when response is None."""
-        description, status = send_to_description(n_clicks=1, response_text=None)
+        description, zone, unsaved, status = send_to_description(
+            n_clicks=1,
+            response_text=None,
+            selected_room="spawn",
+            zone_data=sample_zone_data,
+        )
         assert description is no_update
         assert "Nothing to send" in str(status)
 
-    def test_successful_send(self):
-        """Should return response text and success message."""
+    def test_no_room_selected_updates_form_only(self):
+        """Should update form but not zone when no room selected."""
         test_text = "A dark room with stone walls."
-        description, status = send_to_description(n_clicks=1, response_text=test_text)
+        description, zone, unsaved, status = send_to_description(
+            n_clicks=1,
+            response_text=test_text,
+            selected_room=None,
+            zone_data=None,
+        )
         assert description == test_text
-        assert "Sent to description" in str(status)
+        assert zone is no_update
+        assert unsaved is no_update
+        assert "select a room" in str(status).lower()
 
-    def test_sends_full_text(self):
-        """Should send the complete response text."""
-        long_text = "This is a very long description. " * 10
-        description, status = send_to_description(n_clicks=1, response_text=long_text)
-        assert description == long_text
+    def test_successful_send_updates_zone(self, sample_zone_data):
+        """Should update zone data when room is selected."""
+        test_text = "A new description for the room."
+        description, zone, unsaved, status = send_to_description(
+            n_clicks=1,
+            response_text=test_text,
+            selected_room="spawn",
+            zone_data=sample_zone_data,
+        )
+        assert description == test_text
+        assert zone is not no_update
+        assert zone["rooms"]["spawn"]["description"] == test_text
+        assert unsaved is True
+        assert "Applied" in str(status)
+
+    def test_room_not_found(self, sample_zone_data):
+        """Should handle room not found in zone."""
+        test_text = "A new description."
+        description, zone, unsaved, status = send_to_description(
+            n_clicks=1,
+            response_text=test_text,
+            selected_room="nonexistent",
+            zone_data=sample_zone_data,
+        )
+        assert description == test_text
+        assert zone is no_update
+        assert "not found" in str(status).lower()
+
+    def test_does_not_mutate_original_zone(self, sample_zone_data):
+        """Should create new zone dict, not mutate original."""
+        original_description = sample_zone_data["rooms"]["spawn"]["description"]
+        test_text = "New description"
+
+        description, zone, unsaved, status = send_to_description(
+            n_clicks=1,
+            response_text=test_text,
+            selected_room="spawn",
+            zone_data=sample_zone_data,
+        )
+
+        # Original should be unchanged
+        assert sample_zone_data["rooms"]["spawn"]["description"] == original_description
+        # New zone should have updated description
+        assert zone["rooms"]["spawn"]["description"] == test_text
 
 
 # =============================================================================
@@ -588,11 +676,16 @@ class TestOllamaIntegration:
                 user_prompt="Describe a room.",
             )
 
-        # Send to description
-        description, send_status = send_to_description(n_clicks=1, response_text=response)
+        # Send to description (without room selection - just updates form field)
+        description, zone, unsaved, send_status = send_to_description(
+            n_clicks=1,
+            response_text=response,
+            selected_room=None,
+            zone_data=None,
+        )
 
         assert description == response
-        assert "Sent to description" in str(send_status)
+        assert "Sent to form" in str(send_status)
 
     def test_server_down_recovery(self, mock_models_response):
         """Test that UI recovers gracefully when server comes back up."""
