@@ -89,6 +89,31 @@ def create_file_browser() -> dbc.Card:
                         color="secondary",
                         size="sm",
                         outline=True,
+                        className="w-100 mb-2",
+                    ),
+                    # Save Map button
+                    dbc.Button(
+                        [html.I(className="bi bi-save me-2"), "Save Map"],
+                        id="save-map-btn",
+                        color="success",
+                        size="sm",
+                        className="w-100 mb-2",
+                        disabled=True,
+                    ),
+                    # Export Zone JSON button
+                    dbc.Button(
+                        [html.I(className="bi bi-download me-2"), "Export Zone"],
+                        id="export-zone-btn",
+                        color="primary",
+                        size="sm",
+                        className="w-100 mb-2",
+                        disabled=True,
+                    ),
+                    # Status indicator
+                    html.Div(
+                        id="status-indicator",
+                        children="No file loaded",
+                        className="text-muted small text-center mt-2",
                     ),
                 ],
                 className="font-monospace small",

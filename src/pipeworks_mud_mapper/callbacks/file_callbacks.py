@@ -183,21 +183,29 @@ def handle_file_click(
     tuple
         (selected_file, zone_data, zone_display, has_unsaved) or no_update tuple.
     """
-    # Check if any file was actually clicked
+    # Check if any file was actually clicked (before accessing ctx)
     if not any(n_clicks_list):
+        print("[DEBUG] handle_file_click: no clicks, returning no_update")
         return no_update, no_update, no_update, no_update
+
+    # Debug logging (only after confirming there was a click)
+    print(f"[DEBUG] handle_file_click: n_clicks={n_clicks_list}, current={current_file}")
+    print(f"[DEBUG] handle_file_click: triggered_id={ctx.triggered_id}")
 
     # Get the triggered file from callback context
     triggered = ctx.triggered_id
     if not triggered or not isinstance(triggered, dict):
+        print("[DEBUG] handle_file_click: no valid trigger, returning no_update")
         return no_update, no_update, no_update, no_update
 
     filename = triggered.get("filename")
     if not filename:
+        print("[DEBUG] handle_file_click: no filename in trigger, returning no_update")
         return no_update, no_update, no_update, no_update
 
     # If clicking the same file that's already loaded, don't reload
     if filename == current_file:
+        print(f"[DEBUG] handle_file_click: same file {filename}, returning no_update")
         return no_update, no_update, no_update, no_update
 
     # Load the map file using zone_service
@@ -370,6 +378,7 @@ def create_new_map(
     Output("save-map-btn", "disabled"),
     Output("export-zone-btn", "disabled"),
     Output("status-indicator", "children"),
+    Output("debug-btn-state", "children"),
     Input("has-unsaved-changes", "data"),
     Input("selected-file", "data"),
 )
@@ -378,9 +387,9 @@ def update_save_status(has_unsaved: bool, selected_file: str | None) -> tuple:
 
     Shows appropriate status based on current state:
 
-    - No file loaded: gray dot, disabled buttons
-    - Unsaved changes: yellow dot, enabled save, disabled export
-    - All saved: green dot, disabled save, enabled export
+    - No file loaded: disabled buttons
+    - Unsaved changes: enabled save, disabled export
+    - All saved: disabled save, enabled export
 
     Parameters
     ----------
@@ -392,17 +401,13 @@ def update_save_status(has_unsaved: bool, selected_file: str | None) -> tuple:
     Returns
     -------
     tuple
-        (save_disabled, export_disabled, status_children).
+        (save_disabled, export_disabled, status_text, debug_text).
     """
+    print(f"[DEBUG] update_save_status: has_unsaved={has_unsaved}, file={selected_file}")
+
     if not selected_file:
-        return (
-            True,
-            True,
-            [
-                html.I(className="bi bi-circle-fill text-secondary me-2"),
-                "No file loaded",
-            ],
-        )
+        print("[DEBUG] update_save_status: no file loaded")
+        return True, True, "No file loaded", "no-file"
 
     # Display name without .map.json
     display_name = selected_file
@@ -410,23 +415,11 @@ def update_save_status(has_unsaved: bool, selected_file: str | None) -> tuple:
         display_name = selected_file[:-9]
 
     if has_unsaved:
-        return (
-            False,
-            True,
-            [
-                html.I(className="bi bi-circle-fill text-warning me-2"),
-                f"Unsaved changes: {display_name}",
-            ],
-        )
+        print("[DEBUG] update_save_status: unsaved changes - save=ENABLED")
+        return False, True, f"Unsaved: {display_name}", "unsaved"
 
-    return (
-        True,
-        False,
-        [
-            html.I(className="bi bi-circle-fill text-success me-2"),
-            f"Saved: {display_name}",
-        ],
-    )
+    print("[DEBUG] update_save_status: saved - export=ENABLED")
+    return True, False, f"Saved: {display_name}", "saved"
 
 
 @callback(

@@ -64,42 +64,26 @@ def create_action_bar() -> html.Div:
       - Yellow: Unsaved changes
       - Green: Saved successfully
     """
+    # Action bar now only contains placeholder for future features
+    # Save/Export buttons moved to file browser for better UX
     return html.Div(
         [
-            # Validate button (placeholder)
+            # Validate button (placeholder for Phase 6)
             dbc.Button(
-                [html.I(className="bi bi-check-circle me-2"), "Validate"],
+                [html.I(className="bi bi-check-circle me-2"), "Validate Zone"],
                 color="info",
                 outline=True,
-                className="me-2",
                 disabled=True,
+                size="sm",
             ),
-            # Export button
-            dbc.Button(
-                [html.I(className="bi bi-download me-2"), "Export Zone JSON"],
-                id="export-zone-btn",
-                color="primary",
-                outline=True,
-                className="me-2",
-                disabled=True,
-            ),
-            # Save button
-            dbc.Button(
-                [html.I(className="bi bi-save me-2"), "Save Map"],
-                id="save-map-btn",
-                color="success",
-                outline=True,
-                disabled=True,
-            ),
-            # Status indicator (pushed to right with ms-auto)
+            # Spacer
+            html.Span(className="flex-grow-1"),
+            # Debug output (hidden in production)
             html.Span(
-                id="status-indicator",
-                children=[
-                    html.I(className="bi bi-circle-fill text-secondary me-2"),
-                    "No file loaded",
-                ],
-                className="ms-auto text-muted",
+                id="debug-btn-state",
+                children="",
+                className="small text-muted",
             ),
         ],
-        className="d-flex align-items-center p-3 bg-light border-top",
+        className="d-flex align-items-center p-2 bg-light border-top",
     )

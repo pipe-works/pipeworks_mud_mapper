@@ -776,33 +776,33 @@ class TestFileCallbacks:
 
     def test_update_save_status_no_file(self):
         """update_save_status should show no file loaded state."""
-        save_disabled, export_disabled, status = update_save_status(
+        save_disabled, export_disabled, status, debug = update_save_status(
             has_unsaved=False,
             selected_file=None,
         )
         assert save_disabled is True
         assert export_disabled is True
-        assert "No file loaded" in str(status)
+        assert "No file loaded" in status
 
     def test_update_save_status_unsaved(self):
         """update_save_status should enable save when unsaved changes."""
-        save_disabled, export_disabled, status = update_save_status(
+        save_disabled, export_disabled, status, debug = update_save_status(
             has_unsaved=True,
             selected_file="test.map.json",
         )
         assert save_disabled is False  # Save enabled
         assert export_disabled is True  # Export disabled until saved
-        assert "Unsaved" in str(status)
+        assert "Unsaved" in status
 
     def test_update_save_status_saved(self):
         """update_save_status should enable export when all saved."""
-        save_disabled, export_disabled, status = update_save_status(
+        save_disabled, export_disabled, status, debug = update_save_status(
             has_unsaved=False,
             selected_file="test.map.json",
         )
         assert save_disabled is True  # Save disabled (nothing to save)
         assert export_disabled is False  # Export enabled
-        assert "Saved" in str(status)
+        assert "Saved" in status
 
     def test_save_map_to_file_no_click(self, simple_zone_data):
         """save_map_to_file should return no_update when not clicked."""
