@@ -37,6 +37,21 @@ dev = [
     "pre-commit>=4.5.0",
     "black==26.1.0",
     "bandit[toml]>=1.7.0",
+    # Documentation dependencies (also in docs/requirements.txt for ReadTheDocs)
+    "sphinx>=7.0",
+    "sphinx-rtd-theme>=2.0",
+    "sphinx-autoapi>=3.0",
+    "sphinx-autodoc-typehints>=2.0",
+    "myst-parser>=3.0",
+]
+
+# Documentation only (lighter install for RTD)
+docs = [
+    "sphinx>=7.0",
+    "sphinx-rtd-theme>=2.0",
+    "sphinx-autoapi>=3.0",
+    "sphinx-autodoc-typehints>=2.0",
+    "myst-parser>=3.0",
 ]
 
 [project.urls]

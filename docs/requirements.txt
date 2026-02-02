@@ -1,0 +1,9 @@
+# Sphinx documentation dependencies
+sphinx>=7.0
+sphinx-rtd-theme>=2.0
+sphinx-autoapi>=3.0
+sphinx-autodoc-typehints>=2.0
+myst-parser>=3.0
+
+# For reading pyproject.toml in Python < 3.11
+tomli>=2.0; python_version < "3.11"

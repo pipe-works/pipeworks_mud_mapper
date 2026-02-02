@@ -6,8 +6,14 @@ from pathlib import Path
 import pytest
 
 from pipeworks_mud_mapper.utils.zone_io import (
+    DIRECTION_OFFSETS,
+    DIRECTION_SHORT,
+    OPPOSITE_DIRECTION,
+    SHORT_TO_DIRECTION,
     auto_layout_rooms,
     create_blank_zone,
+    find_room_by_coords,
+    find_room_in_direction,
     list_zone_files,
     load_zone_json,
     save_zone_json,
@@ -304,3 +310,246 @@ class TestAutoLayoutRooms:
         auto_layout_rooms(zone)
 
         assert "coords" not in zone["rooms"]["spawn"]
+
+
+class TestDirectionMappings:
+    """Tests for direction mapping constants."""
+
+    def test_direction_offsets_has_six_directions(self) -> None:
+        """DIRECTION_OFFSETS should have all 6 cardinal directions."""
+        assert len(DIRECTION_OFFSETS) == 6
+        assert set(DIRECTION_OFFSETS.keys()) == {
+            "north",
+            "south",
+            "east",
+            "west",
+            "up",
+            "down",
+        }
+
+    def test_direction_short_maps_all_directions(self) -> None:
+        """DIRECTION_SHORT should map all directions to short labels."""
+        assert DIRECTION_SHORT["north"] == "N"
+        assert DIRECTION_SHORT["south"] == "S"
+        assert DIRECTION_SHORT["east"] == "E"
+        assert DIRECTION_SHORT["west"] == "W"
+        assert DIRECTION_SHORT["up"] == "U"
+        assert DIRECTION_SHORT["down"] == "D"
+
+    def test_short_to_direction_is_reverse_mapping(self) -> None:
+        """SHORT_TO_DIRECTION should be reverse of DIRECTION_SHORT."""
+        for direction, short in DIRECTION_SHORT.items():
+            assert SHORT_TO_DIRECTION[short] == direction
+
+    def test_opposite_direction_maps_all_directions(self) -> None:
+        """OPPOSITE_DIRECTION should map all directions to their opposites."""
+        assert OPPOSITE_DIRECTION["north"] == "south"
+        assert OPPOSITE_DIRECTION["south"] == "north"
+        assert OPPOSITE_DIRECTION["east"] == "west"
+        assert OPPOSITE_DIRECTION["west"] == "east"
+        assert OPPOSITE_DIRECTION["up"] == "down"
+        assert OPPOSITE_DIRECTION["down"] == "up"
+
+    def test_opposite_direction_is_symmetric(self) -> None:
+        """Applying opposite twice should return original direction."""
+        for direction in DIRECTION_OFFSETS:
+            opposite = OPPOSITE_DIRECTION[direction]
+            assert OPPOSITE_DIRECTION[opposite] == direction
+
+
+class TestFindRoomByCoords:
+    """Tests for find_room_by_coords function."""
+
+    def test_finds_room_at_coordinates(self) -> None:
+        """Should find room matching given coordinates."""
+        rooms = {
+            "room_a": {"coords": [0, 0, 0]},
+            "room_b": {"coords": [5, -5, 0]},
+            "room_c": {"coords": [1, 2, 3]},
+        }
+
+        result = find_room_by_coords(rooms, (5, -5, 0))
+
+        assert result == "room_b"
+
+    def test_returns_none_when_no_match(self) -> None:
+        """Should return None when no room at coordinates."""
+        rooms = {
+            "room_a": {"coords": [0, 0, 0]},
+            "room_b": {"coords": [5, 0, 0]},
+        }
+
+        result = find_room_by_coords(rooms, (10, 10, 10))
+
+        assert result is None
+
+    def test_accepts_list_coordinates(self) -> None:
+        """Should accept coordinates as list."""
+        rooms = {
+            "room_a": {"coords": [3, 4, 5]},
+        }
+
+        result = find_room_by_coords(rooms, [3, 4, 5])
+
+        assert result == "room_a"
+
+    def test_empty_rooms_returns_none(self) -> None:
+        """Should return None for empty rooms dict."""
+        result = find_room_by_coords({}, (0, 0, 0))
+
+        assert result is None
+
+    def test_room_without_coords_skipped(self) -> None:
+        """Rooms without coords key should use default [0,0,0]."""
+        rooms = {
+            "room_no_coords": {},
+            "room_at_origin": {"coords": [0, 0, 0]},
+        }
+
+        # Both should match origin, but room_no_coords comes first alphabetically
+        result = find_room_by_coords(rooms, (0, 0, 0))
+
+        # Should find one of them (dict ordering)
+        assert result in ["room_no_coords", "room_at_origin"]
+
+
+class TestFindRoomInDirection:
+    """Tests for find_room_in_direction function."""
+
+    def test_finds_room_to_east(self) -> None:
+        """Should find room that is east (higher x, same y/z)."""
+        rooms = {
+            "origin": {"coords": [0, 0, 0]},
+            "east_room": {"coords": [5, 0, 0]},
+        }
+
+        result = find_room_in_direction(rooms, (0, 0, 0), "east", exclude_room="origin")
+
+        assert result == "east_room"
+
+    def test_finds_room_to_north(self) -> None:
+        """Should find room that is north (higher y, same x/z)."""
+        rooms = {
+            "origin": {"coords": [0, 0, 0]},
+            "north_room": {"coords": [0, 10, 0]},
+        }
+
+        result = find_room_in_direction(rooms, (0, 0, 0), "north", exclude_room="origin")
+
+        assert result == "north_room"
+
+    def test_finds_nearest_room(self) -> None:
+        """Should find the nearest room when multiple exist in direction."""
+        rooms = {
+            "origin": {"coords": [0, 0, 0]},
+            "near_east": {"coords": [3, 0, 0]},
+            "far_east": {"coords": [10, 0, 0]},
+        }
+
+        result = find_room_in_direction(rooms, (0, 0, 0), "east", exclude_room="origin")
+
+        assert result == "near_east"
+
+    def test_returns_none_when_no_room_in_direction(self) -> None:
+        """Should return None when no room exists in that direction."""
+        rooms = {
+            "origin": {"coords": [0, 0, 0]},
+            "west_room": {"coords": [-5, 0, 0]},
+        }
+
+        result = find_room_in_direction(rooms, (0, 0, 0), "east", exclude_room="origin")
+
+        assert result is None
+
+    def test_ignores_rooms_on_different_z_level(self) -> None:
+        """Horizontal directions should only find rooms on same z-level."""
+        rooms = {
+            "origin": {"coords": [0, 0, 0]},
+            "east_different_z": {"coords": [5, 0, 1]},
+        }
+
+        result = find_room_in_direction(rooms, (0, 0, 0), "east", exclude_room="origin")
+
+        assert result is None
+
+    def test_finds_room_up(self) -> None:
+        """Should find room that is up (higher z, same x/y)."""
+        rooms = {
+            "ground": {"coords": [0, 0, 0]},
+            "upstairs": {"coords": [0, 0, 1]},
+        }
+
+        result = find_room_in_direction(rooms, (0, 0, 0), "up", exclude_room="ground")
+
+        assert result == "upstairs"
+
+    def test_finds_room_down(self) -> None:
+        """Should find room that is down (lower z, same x/y)."""
+        rooms = {
+            "ground": {"coords": [0, 0, 0]},
+            "basement": {"coords": [0, 0, -1]},
+        }
+
+        result = find_room_in_direction(rooms, (0, 0, 0), "down", exclude_room="ground")
+
+        assert result == "basement"
+
+    def test_excludes_specified_room(self) -> None:
+        """Should not return the excluded room."""
+        rooms = {
+            "origin": {"coords": [0, 0, 0]},
+        }
+
+        result = find_room_in_direction(rooms, (0, 0, 0), "east", exclude_room="origin")
+
+        assert result is None
+
+    def test_invalid_direction_returns_none(self) -> None:
+        """Should return None for invalid direction."""
+        rooms = {
+            "origin": {"coords": [0, 0, 0]},
+            "other": {"coords": [5, 0, 0]},
+        }
+
+        result = find_room_in_direction(rooms, (0, 0, 0), "invalid")
+
+        assert result is None
+
+    def test_diagonal_room_not_found(self) -> None:
+        """Should not find rooms that are diagonal (both x and y differ)."""
+        rooms = {
+            "origin": {"coords": [0, 0, 0]},
+            "diagonal": {"coords": [5, 5, 0]},
+        }
+
+        result = find_room_in_direction(rooms, (0, 0, 0), "east", exclude_room="origin")
+
+        assert result is None
+
+    def test_ledgerfall_alley_layout(self) -> None:
+        """Should work with the ledgerfall_alley room layout."""
+        # Reproduce the actual test data layout
+        rooms = {
+            "spawn": {"coords": [0, 0, 0]},
+            "broken_door": {"coords": [5, 0, 0]},
+            "locked_door": {"coords": [0, -5, 0]},
+            "dark_hallway": {"coords": [5, -5, 0]},
+        }
+
+        # From locked_door, east should find dark_hallway
+        result = find_room_in_direction(
+            rooms, (0, -5, 0), "east", exclude_room="locked_door"
+        )
+        assert result == "dark_hallway"
+
+        # From locked_door, north should find spawn
+        result = find_room_in_direction(
+            rooms, (0, -5, 0), "north", exclude_room="locked_door"
+        )
+        assert result == "spawn"
+
+        # From locked_door, south should find nothing
+        result = find_room_in_direction(
+            rooms, (0, -5, 0), "south", exclude_room="locked_door"
+        )
+        assert result is None

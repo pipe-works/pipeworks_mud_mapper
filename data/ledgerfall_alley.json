@@ -8,7 +8,10 @@
       "id": "spawn",
       "name": "Starting Room",
       "description": "To the East is an old broken door hanging ajar on its hinges.",
-      "exits": {},
+      "exits": {
+        "east": "broken_door",
+        "west": "ledgerfall_market"
+      },
       "items": [],
       "coords": [
         0,
@@ -25,7 +28,10 @@
         0,
         0
       ],
-      "exits": {},
+      "exits": {
+        "west": "spawn",
+        "south": "dark_hallway"
+      },
       "items": []
     },
     "dark_hallway": {
@@ -37,7 +43,37 @@
         -5,
         0
       ],
-      "exits": {},
+      "exits": {
+        "north": "broken_door"
+      },
+      "items": []
+    },
+    "locked_door": {
+      "id": "locked_door",
+      "name": "Sturdy Locked Door",
+      "description": "You should have brought an Orc.",
+      "coords": [
+        0,
+        -5,
+        0
+      ],
+      "exits": {
+        "east": "dark_hallway"
+      },
+      "items": []
+    },
+    "ledgerfall_market": {
+      "id": "ledgerfall_market",
+      "name": "Ledgerfall Market",
+      "description": "To the West you see a bustling market place.",
+      "coords": [
+        -5,
+        0,
+        0
+      ],
+      "exits": {
+        "east": "spawn"
+      },
       "items": []
     }
   },
