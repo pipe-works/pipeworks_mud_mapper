@@ -82,6 +82,7 @@ from pipeworks_mud_mapper.layout.ollama_panel import (
     DEFAULT_NUM_CTX,
     DEFAULT_NUM_PREDICT,
     DEFAULT_SEED,
+    DEFAULT_TARGET_WORDS,
     DEFAULT_TEMPERATURE,
     DEFAULT_TOP_K,
     DEFAULT_TOP_P,
@@ -311,6 +312,7 @@ class TestGenerateDescription:
             num_ctx=DEFAULT_NUM_CTX,
             num_predict=DEFAULT_NUM_PREDICT,
             template_id="__custom__",
+            target_words=DEFAULT_TARGET_WORDS,
         )
         # Now returns 3 values: (response, status, generation_info)
         assert result == (no_update, no_update, no_update)
@@ -330,6 +332,7 @@ class TestGenerateDescription:
             num_ctx=DEFAULT_NUM_CTX,
             num_predict=DEFAULT_NUM_PREDICT,
             template_id="__custom__",
+            target_words=DEFAULT_TARGET_WORDS,
         )
         assert response == ""
         assert "Please enter a server URL" in str(status)
@@ -350,6 +353,7 @@ class TestGenerateDescription:
             num_ctx=DEFAULT_NUM_CTX,
             num_predict=DEFAULT_NUM_PREDICT,
             template_id="__custom__",
+            target_words=DEFAULT_TARGET_WORDS,
         )
         assert response == ""
         assert "Please select a model" in str(status)
@@ -370,6 +374,7 @@ class TestGenerateDescription:
             num_ctx=DEFAULT_NUM_CTX,
             num_predict=DEFAULT_NUM_PREDICT,
             template_id="__custom__",
+            target_words=DEFAULT_TARGET_WORDS,
         )
         assert response == ""
         assert "Please select a model" in str(status)
@@ -390,6 +395,7 @@ class TestGenerateDescription:
             num_ctx=DEFAULT_NUM_CTX,
             num_predict=DEFAULT_NUM_PREDICT,
             template_id="__custom__",
+            target_words=DEFAULT_TARGET_WORDS,
         )
         assert response == ""
         assert "Please enter a user prompt" in str(status)
@@ -417,6 +423,7 @@ class TestGenerateDescription:
                 num_ctx=DEFAULT_NUM_CTX,
                 num_predict=DEFAULT_NUM_PREDICT,
                 template_id="__custom__",
+                target_words=DEFAULT_TARGET_WORDS,
             )
 
         assert "ancient stone hall" in response
@@ -450,6 +457,7 @@ class TestGenerateDescription:
                 num_ctx=DEFAULT_NUM_CTX,
                 num_predict=DEFAULT_NUM_PREDICT,
                 template_id="__custom__",
+                target_words=DEFAULT_TARGET_WORDS,
             )
 
         assert response != ""
@@ -487,6 +495,7 @@ class TestGenerateDescription:
                 num_ctx=DEFAULT_NUM_CTX,
                 num_predict=DEFAULT_NUM_PREDICT,
                 template_id="ledgerfall_goblin",
+                target_words=DEFAULT_TARGET_WORDS,
             )
 
         # Verify messages array has both system and user messages
@@ -525,6 +534,7 @@ class TestGenerateDescription:
                 num_ctx=DEFAULT_NUM_CTX,
                 num_predict=DEFAULT_NUM_PREDICT,
                 template_id="__custom__",
+                target_words=DEFAULT_TARGET_WORDS,
             )
 
         assert response == ""
@@ -551,6 +561,7 @@ class TestGenerateDescription:
                 num_ctx=DEFAULT_NUM_CTX,
                 num_predict=DEFAULT_NUM_PREDICT,
                 template_id="__custom__",
+                target_words=DEFAULT_TARGET_WORDS,
             )
 
         assert response == ""
@@ -577,6 +588,7 @@ class TestGenerateDescription:
                 num_ctx=DEFAULT_NUM_CTX,
                 num_predict=DEFAULT_NUM_PREDICT,
                 template_id="__custom__",
+                target_words=DEFAULT_TARGET_WORDS,
             )
 
         assert response == ""
@@ -606,6 +618,7 @@ class TestGenerateDescription:
                 num_ctx=DEFAULT_NUM_CTX,
                 num_predict=DEFAULT_NUM_PREDICT,
                 template_id="__custom__",
+                target_words=DEFAULT_TARGET_WORDS,
             )
 
         assert response == ""
@@ -896,6 +909,7 @@ class TestOllamaIntegration:
                 num_ctx=DEFAULT_NUM_CTX,
                 num_predict=DEFAULT_NUM_PREDICT,
                 template_id="__custom__",
+                target_words=DEFAULT_TARGET_WORDS,
             )
 
         assert "ancient stone hall" in response
@@ -924,6 +938,7 @@ class TestOllamaIntegration:
                 num_ctx=DEFAULT_NUM_CTX,
                 num_predict=DEFAULT_NUM_PREDICT,
                 template_id="__custom__",
+                target_words=DEFAULT_TARGET_WORDS,
             )
 
         # Send to description (without room selection - just updates form field)
@@ -1099,13 +1114,13 @@ class TestHandleTemplateSelection:
 
     def test_no_selection_returns_no_update(self):
         """Should return no_update when nothing selected."""
-        result = handle_template_selection(template_id=None)
+        result = handle_template_selection(template_id=None, target_words=300)
         assert result == (no_update, no_update, no_update, no_update, no_update)
 
     def test_custom_mode_enables_editing(self):
         """Should enable editing when 'Custom' is selected."""
         prompt, read_only, is_open, chevron, status = handle_template_selection(
-            template_id="__custom__"
+            template_id="__custom__", target_words=300
         )
 
         # Custom mode should be editable
@@ -1137,7 +1152,7 @@ class TestHandleTemplateSelection:
             mock_compile.return_value = "Compiled system prompt"
 
             prompt, read_only, is_open, chevron, status = handle_template_selection(
-                template_id="test_template"
+                template_id="test_template", target_words=300
             )
 
         # Template mode should be read-only
@@ -1155,7 +1170,7 @@ class TestHandleTemplateSelection:
             mock_load.return_value = None
 
             prompt, read_only, is_open, chevron, status = handle_template_selection(
-                template_id="nonexistent"
+                template_id="nonexistent", target_words=300
             )
 
         # Should not update prompt when template missing
@@ -1264,6 +1279,7 @@ class TestGenerateDescriptionWithParameters:
                 num_ctx=2048,
                 num_predict=256,
                 template_id="__custom__",
+                target_words=200,
             )
 
         # Verify the API call included options
@@ -1302,6 +1318,7 @@ class TestGenerateDescriptionWithParameters:
                 num_ctx=None,
                 num_predict=None,
                 template_id=None,
+                target_words=None,
             )
 
         # Verify defaults were used
@@ -1340,6 +1357,7 @@ class TestGenerateDescriptionWithParameters:
                 num_ctx=4096,
                 num_predict=512,
                 template_id="__custom__",
+                target_words=DEFAULT_TARGET_WORDS,
             )
 
         call_args = mock_instance.post.call_args
@@ -1375,6 +1393,7 @@ class TestGenerateDescriptionWithParameters:
                 num_ctx=4096,
                 num_predict=512,
                 template_id="__custom__",
+                target_words=DEFAULT_TARGET_WORDS,
             )
 
         call_args = mock_instance.post.call_args
@@ -1408,6 +1427,7 @@ class TestGenerateDescriptionWithParameters:
                 num_ctx=4096,
                 num_predict=512,
                 template_id="__custom__",
+                target_words=DEFAULT_TARGET_WORDS,
             )
 
         # Status should mention the seed for reproducibility
@@ -1625,6 +1645,7 @@ class TestSeedIsolation:
                 num_ctx=4096,
                 num_predict=512,
                 template_id="__custom__",
+                target_words=DEFAULT_TARGET_WORDS,
             )
 
         # After the call, global random state should still produce expected values
@@ -1668,6 +1689,7 @@ class TestSeedIsolation:
                     num_ctx=4096,
                     num_predict=512,
                     template_id="__custom__",
+                    target_words=DEFAULT_TARGET_WORDS,
                 )
 
         # Global state should still produce expected value
@@ -1704,7 +1726,7 @@ class TestHandleTemplateSelectionNewBehavior:
             mock_compile.return_value = "Compiled system prompt"
 
             prompt, read_only, is_open, chevron, status = handle_template_selection(
-                template_id="test_template"
+                template_id="test_template", target_words=300
             )
 
         # Template mode should keep collapse CLOSED (is_open=False)
@@ -1714,7 +1736,7 @@ class TestHandleTemplateSelectionNewBehavior:
     def test_custom_mode_opens_collapse(self):
         """Should open collapse when 'Custom' mode selected."""
         prompt, read_only, is_open, chevron, status = handle_template_selection(
-            template_id="__custom__"
+            template_id="__custom__", target_words=300
         )
 
         # Custom mode should open collapse for editing

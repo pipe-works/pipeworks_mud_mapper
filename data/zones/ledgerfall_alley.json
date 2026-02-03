@@ -6,8 +6,8 @@
   "rooms": {
     "spawn": {
       "id": "spawn",
-      "name": "Starting Room",
-      "description": "A sliver of dust-filled sunbeams pierces through the warped wood planks of the door, casting elongated shadows across the stone floor. The air hangs thick with the scent of decay – musty earth and the faintest trace of mildew - an unsettling harmony against the silence of the room.  \n\nTo the East a broken door creaks slightly in the stale air as if protesting at your touch.",
+      "name": "A Quiet Alley",
+      "description": "The air hangs thick with a mixture of smoke and grease, clinging to your clothes like old coins. A faint scent of rust clings to the cobblestones beneath you, a testament to years of grinding carts and hurried feet. The alley is narrow, barely wide enough for two goblins to pass each other without brushing elbows. The chipped paint on the walls peels away in strips, revealing a network of cracks that whisper tales of forgotten winters and leaky gutters. \n\nTo your west, Ledgerfall Market bursts with noise: voices are loud, haggling merchants push their wares, coins clink against each other as prices change hands. It's a cacophony of trade, a symphony of bargains; you can barely make out the words above the din. To the east, an old door hangs ajar.  Dust motes dance in the thin beams of sunlight that pierce through the grime-covered gaps in the wood frame. The door itself creaks with each breath of wind that rushes in from somewhere beneath it. \n\nThe silence on your right is almost tangible. It presses against you, a strange weight that makes you feel like every sound must be amplified by some unseen force.   It's only broken by the occasional drip of water from an unsealed window or the squeak of someone moving along the length of the alley. A single coin flips from one hand to the other, landing with a soft clink in the dust-laden air. \n\nThe alley itself feels oddly cold; even when the air hangs thick and heavy with fumes.  It's as if the space is holding its breath, waiting for something to happen. You take a step forward, the uneven cobblestones under your feet sending up flecks of grime.",
       "exits": {
         "east": "broken_door",
         "west": "ledgerfall_market"
@@ -19,27 +19,7 @@
       "name": "Broken Door",
       "description": "Skittering sounds can be heard from behind the door.",
       "exits": {
-        "west": "spawn",
-        "south": "dark_hallway"
-      },
-      "items": []
-    },
-    "dark_hallway": {
-      "id": "dark_hallway",
-      "name": "Dark Hallway",
-      "description": "A dark hallway. The sound of tiny feet skittering on stone.",
-      "exits": {
-        "north": "broken_door"
-      },
-      "items": []
-    },
-    "locked_door": {
-      "id": "locked_door",
-      "name": "Sturdy Locked Door",
-      "description": "You should have brought an Orc.",
-      "exits": {
-        "east": "dark_hallway",
-        "south": "back_door"
+        "west": "spawn"
       },
       "items": []
     },
@@ -49,35 +29,6 @@
       "description": "To the West you see a bustling market place.",
       "exits": {
         "east": "spawn"
-      },
-      "items": []
-    },
-    "back_door": {
-      "id": "back_door",
-      "name": "Back Door",
-      "description": "This door looks well maintained.",
-      "exits": {
-        "north": "locked_door",
-        "south": "quiet_street"
-      },
-      "items": []
-    },
-    "quiet_street": {
-      "id": "quiet_street",
-      "name": "Quiet Street",
-      "description": "A suspiciously quite street.",
-      "exits": {
-        "north": "back_door",
-        "west": "quite_street_west"
-      },
-      "items": []
-    },
-    "quite_street_west": {
-      "id": "quite_street_west",
-      "name": "West Quiet Street",
-      "description": "A street urchin lurks in the shadows",
-      "exits": {
-        "east": "quiet_street"
       },
       "items": []
     }

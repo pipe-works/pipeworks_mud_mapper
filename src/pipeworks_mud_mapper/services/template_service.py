@@ -231,7 +231,7 @@ def load_template(template_id: str) -> OllamaTemplate | None:
 # =============================================================================
 
 
-def compile_system_prompt(template: OllamaTemplate) -> str:
+def compile_system_prompt(template: OllamaTemplate, target_words: int = 300) -> str:
     """Compile a template into a system prompt string.
 
     Combines the universal Core Rules with theme-specific guidance,
@@ -242,6 +242,10 @@ def compile_system_prompt(template: OllamaTemplate) -> str:
     ----------
     template : OllamaTemplate
         The template to compile.
+    target_words : int, optional
+        Target word count for the generated description. The compiled
+        prompt will include a range (approximately 67%-117% of target)
+        to give the LLM flexibility. Default is 300.
 
     Returns
     -------
@@ -254,6 +258,11 @@ def compile_system_prompt(template: OllamaTemplate) -> str:
     >>> prompt = compile_system_prompt(template)
     >>> print(prompt[:50])
     You are a Game Master describing a single room...
+
+    >>> # With custom word count
+    >>> prompt = compile_system_prompt(template, target_words=150)
+    >>> "100-175 words" in prompt
+    True
     """
     # Build the prompt in sections - each section is a line or block of text
     # that will be joined with newlines at the end. Empty strings create
@@ -419,7 +428,10 @@ def compile_system_prompt(template: OllamaTemplate) -> str:
     )
     sections.append("")
     sections.append(f"Write a room description for {template.theme.name.split(',')[0]}:")
-    sections.append("- 200-350 words (aim for ~300)")
+    # Calculate word count range: approximately 67%-117% of target for flexibility
+    words_low = int(target_words * 0.67)
+    words_high = int(target_words * 1.17)
+    sections.append(f"- {words_low}-{words_high} words (aim for ~{target_words})")
     sections.append("- Present tense, second person (you/your)")
     sections.append("- Sensory: focus on what you see, hear, smell, feel, taste")
     sections.append("- Atmospheric: capture the mood of the room")

@@ -132,6 +132,7 @@ from pipeworks_mud_mapper.layout.ollama_panel import (
     DEFAULT_NUM_CTX,
     DEFAULT_NUM_PREDICT,
     DEFAULT_SEED,
+    DEFAULT_TARGET_WORDS,
     DEFAULT_TEMPERATURE,
     DEFAULT_TOP_K,
     DEFAULT_TOP_P,
@@ -297,8 +298,9 @@ def refresh_ollama_models(n_clicks: int, server_url: str) -> tuple:
     State("ollama-top-p", "value"),
     State("ollama-num-ctx", "value"),
     State("ollama-num-predict", "value"),
-    # Template ID for metadata tracking
+    # Template ID and target words for metadata tracking
     State("ollama-template-dropdown", "value"),
+    State("ollama-target-words", "value"),
     prevent_initial_call=True,
     running=[
         # Disable the button during generation
@@ -340,6 +342,7 @@ def generate_description(
     num_ctx: int | None,
     num_predict: int | None,
     template_id: str | None,
+    target_words: int | None,
 ) -> tuple:
     """Generate a room description using Ollama.
 
@@ -467,6 +470,7 @@ def generate_description(
     top_p = top_p if top_p is not None else DEFAULT_TOP_P
     num_ctx = num_ctx if num_ctx is not None else DEFAULT_NUM_CTX
     num_predict = num_predict if num_predict is not None else DEFAULT_NUM_PREDICT
+    target_words = target_words if target_words is not None else DEFAULT_TARGET_WORDS
 
     # =========================================================================
     # Handle Seed Value
@@ -592,6 +596,8 @@ def generate_description(
             "top_p": float(top_p),
             "num_ctx": int(num_ctx),
             "num_predict": int(num_predict),
+            # Target word count used in system prompt compilation
+            "target_words": int(target_words),
             # Prompts - stored in full for exact reproducibility
             "system_prompt": system_prompt or "",
             "user_prompt": user_prompt,
@@ -946,12 +952,14 @@ def load_template_options(n_clicks: int) -> list[dict]:
     Output("ollama-system-prompt-chevron", "className"),
     Output("ollama-status", "children", allow_duplicate=True),
     Input("ollama-template-dropdown", "value"),
+    Input("ollama-target-words", "value"),
     prevent_initial_call=True,
 )
-def handle_template_selection(template_id: str | None) -> tuple:
-    """Handle template selection from the dropdown.
+def handle_template_selection(template_id: str | None, target_words: int | None) -> tuple:
+    """Handle template selection and target word count changes.
 
-    When a template is selected, compiles it into a system prompt
+    When a template is selected or target words change, compiles the
+    template into a system prompt with the specified word count guidance
     and updates the display. The system prompt becomes read-only
     when using a template, editable when "Custom" is selected.
 
@@ -963,12 +971,18 @@ def handle_template_selection(template_id: str | None) -> tuple:
     ----------
     template_id : str | None
         The selected template ID, or "__custom__" for manual editing.
+    target_words : int | None
+        Target word count for generated descriptions. If None, defaults
+        to DEFAULT_TARGET_WORDS (300).
 
     Returns
     -------
     tuple
         (system_prompt, read_only, collapse_open, chevron_class, status_message)
     """
+    # Apply default if target_words is None
+    if target_words is None:
+        target_words = DEFAULT_TARGET_WORDS
     # Import here to avoid circular imports - template_service imports models
     # which could potentially import callbacks in the future
     from pipeworks_mud_mapper.services import template_service
@@ -1007,7 +1021,8 @@ def handle_template_selection(template_id: str | None) -> tuple:
 
     # Compile the template JSON into a comprehensive system prompt string
     # This combines Core Rules + theme + voice + constraints + examples
-    system_prompt = template_service.compile_system_prompt(template)
+    # The target_words parameter controls the word count guidance in the prompt
+    system_prompt = template_service.compile_system_prompt(template, target_words=target_words)
 
     status = html.Span(
         [

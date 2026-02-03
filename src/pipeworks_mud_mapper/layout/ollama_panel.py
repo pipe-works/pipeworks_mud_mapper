@@ -137,6 +137,9 @@ DEFAULT_NUM_CTX = 4096
 #: Default max tokens to generate (512 is good for room descriptions)
 DEFAULT_NUM_PREDICT = 512
 
+#: Default target word count for generated descriptions
+DEFAULT_TARGET_WORDS = 300
+
 
 def create_ollama_panel() -> dbc.Card:
     """Create the Ollama LLM Assistant panel component.
@@ -621,6 +624,84 @@ def create_ollama_panel() -> dbc.Card:
                                                     width=6,
                                                 ),
                                             ],
+                                        ),
+                                        # =============================================
+                                        # Target Words Row (with explanatory note)
+                                        # =============================================
+                                        dbc.Row(
+                                            [
+                                                # Target Words: Guides LLM on desired output length
+                                                dbc.Col(
+                                                    [
+                                                        dbc.Label(
+                                                            [
+                                                                "Target Words ",
+                                                                html.Small(
+                                                                    "(for template)",
+                                                                    className="text-muted",
+                                                                ),
+                                                            ],
+                                                            html_for="ollama-target-words",
+                                                            size="sm",
+                                                        ),
+                                                        dbc.Input(
+                                                            id="ollama-target-words",
+                                                            type="number",
+                                                            value=DEFAULT_TARGET_WORDS,
+                                                            min=50,
+                                                            max=500,
+                                                            step=50,
+                                                            size="sm",
+                                                        ),
+                                                        html.Small(
+                                                            "50-500: Guides LLM output length",
+                                                            className="text-muted",
+                                                            style={"fontSize": "0.65rem"},
+                                                        ),
+                                                    ],
+                                                    width=6,
+                                                ),
+                                                # Explanatory note about token/word relationship
+                                                dbc.Col(
+                                                    [
+                                                        html.Div(
+                                                            [
+                                                                html.I(
+                                                                    className=(
+                                                                        "bi bi-info-circle "
+                                                                        "text-info me-1"
+                                                                    )
+                                                                ),
+                                                                html.Strong(
+                                                                    "Tokens vs Words",
+                                                                    className="small",
+                                                                ),
+                                                            ],
+                                                            className="mb-1",
+                                                        ),
+                                                        html.Small(
+                                                            [
+                                                                "1 word ≈ 1.3-1.5 tokens. ",
+                                                                "For 300 words, set ",
+                                                                "Max Tokens to ~450+. ",
+                                                                "If too low, output is ",
+                                                                "truncated mid-sentence.",
+                                                            ],
+                                                            className="text-muted",
+                                                            style={
+                                                                "fontSize": "0.65rem",
+                                                                "lineHeight": "1.3",
+                                                            },
+                                                        ),
+                                                    ],
+                                                    width=6,
+                                                    className=(
+                                                        "d-flex flex-column "
+                                                        "justify-content-center"
+                                                    ),
+                                                ),
+                                            ],
+                                            className="mt-2",
                                         ),
                                     ],
                                     className="py-2",

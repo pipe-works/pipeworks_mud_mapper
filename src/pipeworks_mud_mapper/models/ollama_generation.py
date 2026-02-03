@@ -315,6 +315,13 @@ class OllamaGenerationInfo(BaseModel):
         description="Maximum number of tokens to generate",
     )
 
+    target_words: int = Field(
+        default=300,
+        ge=50,
+        le=500,
+        description="Target word count used in system prompt compilation",
+    )
+
     # =========================================================================
     # Prompt Content
     # =========================================================================

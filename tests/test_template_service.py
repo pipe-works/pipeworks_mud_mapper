@@ -410,8 +410,23 @@ class TestCompileSystemPrompt:
         result = compile_system_prompt(sample_template)
 
         assert "YOUR TASK" in result
-        assert "200-350 words" in result
+        # Default target_words=300 produces "201-351 words (aim for ~300)"
+        assert "words (aim for ~300)" in result
         assert "Begin your description now" in result
+
+    def test_custom_target_words(self, sample_template):
+        """Should use custom target word count in task instructions."""
+        result = compile_system_prompt(sample_template, target_words=150)
+
+        # target_words=150 produces low=100, high=175
+        assert "100-175 words (aim for ~150)" in result
+
+    def test_target_words_calculation(self, sample_template):
+        """Should calculate word count range as 67%-117% of target."""
+        result = compile_system_prompt(sample_template, target_words=200)
+
+        # target_words=200: low=134 (200*0.67), high=234 (200*1.17)
+        assert "134-234 words (aim for ~200)" in result
 
     def test_handles_empty_optional_fields(self, minimal_template_data):
         """Should handle templates with empty optional fields."""
