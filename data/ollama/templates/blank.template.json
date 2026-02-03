@@ -1,0 +1,59 @@
+{
+  "template_name": "[YOUR TEMPLATE NAME HERE]",
+  "template_id": "[your_template_id_here]",
+  "version": "1.0.0",
+  "description": "[Brief description of when/why to use this template. When would an author pick this instead of another?]",
+
+  "theme": {
+    "name": "[The thematic world. E.g., 'A 1960s Moscow apartment building' or 'A space station in the Andromeda galaxy']",
+    "tone": "[Primary emotional register. E.g., 'tense, paranoid, mundane' or 'wonder, isolation, wonder']",
+    "era": "[Time period if relevant. Can be 'timeless' or 'undefined' if not applicable]",
+    "aesthetic": "[Visual/sensory flavor. What does this world *smell* and *sound* like? E.g., 'cigarette smoke, typewriters, cold hallways' or 'hum of life support, viewscreens, the ache of distance']"
+  },
+
+  "voice_guidance": {
+    "style": "[How the GM speaks in this world. Are they a spy reporting dead-pan facts? A ship AI? A beat cop? E.g., 'as if writing a classified report' or 'with the weariness of someone who's seen too much']",
+    "register": "[Formal, casual, arch, matter-of-fact, technical, poetic? E.g., 'formal and terse' or 'casual and irreverent']",
+    "keyword_include": [
+      "[5-10 thematic words/concepts to weave in when fitting]",
+      "[These should evoke the world without being mechanical]",
+      "[E.g., 'surveillance', 'protocol', 'weather' for Cold War]",
+      "[E.g., 'decompression', 'viewport', 'silence' for space]",
+      "[This is your sandbox—what does this world obsess over?]"
+    ],
+    "keyword_exclude": [
+      "[5-10 words/concepts to avoid]",
+      "[What would break immersion in this world?]",
+      "[E.g., 'whimsy', 'destiny', 'magic' for realistic spy fiction]",
+      "[E.g., 'decay', 'rust', 'failure' for utopian sci-fi]"
+    ]
+  },
+
+  "craft_constraints": {
+    "multi_part_spaces": "[Specific guidance for describing wide/complex spaces in YOUR theme. Does your world have markets? Long hallways? Do they feel crowded or empty? How do you describe the middle without narrating the ends? Reference the architecture guide above for the formula.]",
+
+    "locked_things_approach": "[How does your theme handle resistance/barriers? Is a locked door dramatic or mundane? A puzzle or just an obstacle? What sensory metaphors fit? E.g., 'In spy fiction, describe locks as simple mechanical facts, not drama. In fantasy, use more metaphorical resistance.']",
+
+    "silence_tone": "[What does silence feel like in your world when nothing happens? Is it ominous? Peaceful? Suspicious? E.g., 'In a space station, silence is wrong—the hum should be constant. Absence of it is alarming.']",
+
+    "exit_hints": "[How to whisper about directions without narrating destinations. What sensory cues fit your theme? E.g., 'Spy fiction: detect movement, sounds of activity, the pressure of being watched. Space: air currents, hum shifts, viewport glow directions.']"
+  },
+
+  "examples": {
+    "good_crossroads": "[A 2-3 sentence example of describing a choice point correctly in your theme. Show the model what you want.]",
+
+    "bad_crossroads": "[A 2-3 sentence example of a common mistake in your theme. Show the model what NOT to do.]",
+
+    "good_locked_thing": "[A 2-3 sentence example of resistance/barrier without explanation in your theme.]",
+
+    "bad_locked_thing": "[A 2-3 sentence example of what NOT to do when describing barriers.]",
+
+    "good_multi_part": "[A 2-3 sentence example of describing the middle of a complex space in your theme. Capture sensation, not geography.]",
+
+    "bad_multi_part": "[A 2-3 sentence example of what NOT to do: narrating the ends, being too explicit about topology, etc.]"
+  },
+
+  "author_notes": "[Meta guidance for anyone forking this template. What assumptions does it make about your world? What might break if they change? E.g., 'This assumes an urban setting. If your zones are smaller or more isolated, adjust keyword frequency.' Or 'This template prioritizes sensory detail; if your theme is more mechanical/technical, emphasize keywords_include toward technical concepts.']",
+
+  "author_credit": "[Your name]. Built [date]."
+}

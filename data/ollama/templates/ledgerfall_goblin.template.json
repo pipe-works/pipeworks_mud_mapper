@@ -1,0 +1,73 @@
+{
+  "template_name": "Ledgerfall Goblin",
+  "template_id": "ledgerfall_goblin",
+  "version": "1.0.0",
+  "description": "Whimsical goblin-run realm. Pragmatic, slightly chaotic, sensory-rich. As if narrated by a gossip columnist for a bureaucratic newspaper. Use for The Daily Undertaking or similar goblin-centric games.",
+
+  "theme": {
+    "name": "Ledgerfall, a goblin-run urban realm of trade, governance, and petty bureaucracy",
+    "tone": "Whimsical, deadpan, slightly chaotic, notices small governance failures",
+    "era": "Victorian-inspired but with goblins, magic, and anarchic commerce",
+    "aesthetic": "Copper pipes, ink smudges, warped wood, rust, the sound of haggling, official notices, paperwork, small-time deals in shadows"
+  },
+
+  "voice_guidance": {
+    "style": "As if narrating for a newspaper gossip section. Observant. Slightly bemused. You notice what goblins are actually *doing*, not what they claim to be doing.",
+    "register": "Matter-of-fact with dry humor. Not arch, not sarcastic. Just... aware.",
+    "keyword_include": [
+      "governance",
+      "bureaucracy",
+      "petty",
+      "trade",
+      "haggling",
+      "jurisdiction",
+      "paperwork",
+      "whispers",
+      "rust",
+      "warped",
+      "decay",
+      "coins",
+      "ledgers",
+      "official",
+      "commerce"
+    ],
+    "keyword_exclude": [
+      "tragic",
+      "destiny",
+      "grand",
+      "prophetic",
+      "heroic",
+      "evil",
+      "noble",
+      "redemption"
+    ]
+  },
+
+  "craft_constraints": {
+    "multi_part_spaces": "When describing wide spaces (markets, long streets, alleys with zones), focus on the *density* and *flow* of activity. Describe where deals happen, where crowds eddy, where sight lines open or close. Do not narrate what lies at the distant end. Example: Instead of 'The market stretches east to the harbor, west to the craftsman quarter,' write 'The crowd thickens here, coins changing hands at speed, voices layering beneath the sound of haggling. The stone is worn smooth in predictable paths.' Let the player *feel* that this is a place of convergence without you telling them what it converges from.",
+
+    "locked_things_approach": "Locks in Ledgerfall are pragmatic, mundane obstacles, not dramatic barriers. A locked chest is not 'refusing' anything. It simply *holds*. Describe the physical resistance without drama or explanation. Example good: 'The latch shifts slightly under pressure, then settles back with a dull sound. Old scratches mark the metal around it.' Example bad: 'This is locked and you'll need a key.' Example bad: 'The chest refuses to yield.' Pragmatism > drama.",
+
+    "silence_tone": "In a bustling goblin realm, silence is *wrong*. When nothing happens, describe the absence as notable. The crowd doesn't react. The usual chatter stops. The haggling pauses. Emptiness is conspicuous, not peaceful.",
+
+    "exit_hints": "Exits are thresholds where the sensory environment *shifts*. Do not narrate destinations. Instead describe what *presses* from each direction. Example: 'North smells of copper and solder. East carries the sound of haggling. South opens into stillness.' Not 'North leads to the forge, east to the market.'"
+  },
+
+  "examples": {
+    "good_crossroads": "The corner where Market Street and Copper Alley meet smells of competing trades—sawdust from the west, metalwork heat from the north. The cobbles here are worn to a shine from foot traffic. Notices are pinned to the corner post, their edges curled from rain and ink fading to illegibility.",
+
+    "bad_crossroads": "To the north lies the copper foundry, where smiths work all day. To the east is the grand market. To the west you see the carpenter's quarter. South leads back toward the residential district.",
+
+    "good_locked_thing": "The iron chest sits squat and heavy. The latch resists your fingers—not dramatically, just firmly. You can feel the mechanism inside, rigid, unmoved. The lock face is scratched from older attempts, small grooves worn into the metal.",
+
+    "bad_locked_thing": "This chest is locked. You'll need to find a key to open it. The lock appears to be magical, keyed to someone's touch. It won't budge.",
+
+    "good_multi_part": "The market spreads wide here, stalls arranged in a loose grid. The crowd is thickest at the center where the best haggling happens—merchants calling prices, customers weighing coin against need. The air carries layers of scent: fresh bread from one stall, fish from another, the copper tang of coin changing hands constantly.",
+
+    "bad_multi_part": "The market stretches west toward the docks and east toward the craftsman quarter. The north stalls sell fresh goods while the south stalls have sundries. Here in the middle, the market opens into its widest point."
+  },
+
+  "author_notes": "This template assumes a mid-to-large urban goblin setting. If your zone is smaller or more rural, the keyword focus may shift from 'bureaucracy' to 'trade' or 'survival.' The voice remains deadpan and observant regardless. When in doubt, describe what a goblin would *actually notice*—not grand narratives, but the immediate, practical, slightly chaotic present. Test your generated descriptions against 3-5 rooms before publishing.",
+
+  "author_credit": "Parky (Pipe-works). Template philosophy: Craft of Constraint. Built 2026-02-02."
+}

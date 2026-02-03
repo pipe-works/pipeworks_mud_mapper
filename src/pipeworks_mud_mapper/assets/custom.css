@@ -1,0 +1,33 @@
+/**
+ * Custom CSS for PipeWorks MUD Mapper
+ *
+ * This file contains custom styles that extend Bootstrap and Dash defaults.
+ * Dash automatically loads CSS files from the assets/ directory.
+ */
+
+/* =============================================================================
+ * Loading Animations
+ * =============================================================================
+ * Used for visual feedback during async operations like:
+ * - Ollama model refresh (spinning refresh icon)
+ * - LLM text generation (spinning hourglass)
+ */
+
+@keyframes spin {
+    from {
+        transform: rotate(0deg);
+    }
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.spinning {
+    display: inline-block;
+    animation: spin 1s linear infinite;
+}
+
+/* Slightly slower spin for hourglass (feels more natural) */
+.bi-hourglass-split.spinning {
+    animation: spin 1.5s linear infinite;
+}

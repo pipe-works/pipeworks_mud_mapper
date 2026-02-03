@@ -73,6 +73,13 @@ from pipeworks_mud_mapper.services.room_service import (
     remove_exit,
     update_room,
 )
+from pipeworks_mud_mapper.services.template_service import (
+    compile_system_prompt,
+    get_default_system_prompt,
+    get_templates_directory,
+    list_templates,
+    load_template,
+)
 from pipeworks_mud_mapper.services.validation_service import (
     ValidationWarning,
     validate_all,
@@ -106,4 +113,10 @@ __all__ = [
     "validate_connectivity",
     "validate_exit_consistency",
     "validate_language_direction",
+    # Template service
+    "get_templates_directory",
+    "list_templates",
+    "load_template",
+    "compile_system_prompt",
+    "get_default_system_prompt",
 ]

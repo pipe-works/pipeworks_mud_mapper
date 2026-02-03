@@ -6,8 +6,8 @@
   "rooms": {
     "spawn": {
       "id": "spawn",
-      "name": "Starting Room",
-      "description": "A sliver of dust-filled sunbeams pierces through the warped wood planks of the door, casting elongated shadows across the stone floor. The air hangs thick with the scent of decay – musty earth and the faintest trace of mildew - an unsettling harmony against the silence of the room.  \n\nTo the East a broken door creaks slightly in the stale air as if protesting at your touch.",
+      "name": "A Quiet Alley",
+      "description": "The air hangs thick here, a peculiar mix of stale rain and the faintest scent of copper from the market on your left. You feel it clinging to the cobblestones beneath your feet, almost a wet weight pressing against you with every step. Above, a thin layer of grime covers the worn wooden beams that span the narrow space, leaving a dim shadow on the ground where light manages to reach.  The sound of hammers and haggling fades into the distance as you stand here.\n\nTo your west, the Ledgerfall Market bustles with activity - a constant flow of bartering and hurried steps echoing in the cobbled streets. To your east, an archaic door stands cracked and broken, its paint peeled away like dried scabs on aging parchment. It leans precariously against the wall, almost as if it's holding onto the very structure of the alley with a threadbare groan. A rusty hinge creaks faintly with every draft that rushes through the gap, sending ripples in the stagnant air. \n\nThe silence here is thick and heavy, not peaceful like an empty room. It hums like the undercurrent of unseen activity around you. It doesn’t feel empty.  It feels… restrained. Like a threadbare curtain holding back something bigger.",
       "coords": [
         0,
         0,
@@ -29,37 +29,7 @@
         0
       ],
       "exits": {
-        "west": "spawn",
-        "south": "dark_hallway"
-      },
-      "items": []
-    },
-    "dark_hallway": {
-      "id": "dark_hallway",
-      "name": "Dark Hallway",
-      "description": "A dark hallway. The sound of tiny feet skittering on stone.",
-      "coords": [
-        5,
-        -5,
-        0
-      ],
-      "exits": {
-        "north": "broken_door"
-      },
-      "items": []
-    },
-    "locked_door": {
-      "id": "locked_door",
-      "name": "Sturdy Locked Door",
-      "description": "You should have brought an Orc.",
-      "coords": [
-        0,
-        -5,
-        0
-      ],
-      "exits": {
-        "east": "dark_hallway",
-        "south": "back_door"
+        "west": "spawn"
       },
       "items": []
     },
@@ -74,50 +44,6 @@
       ],
       "exits": {
         "east": "spawn"
-      },
-      "items": []
-    },
-    "back_door": {
-      "id": "back_door",
-      "name": "Back Door",
-      "description": "This door looks well maintained.",
-      "coords": [
-        0,
-        -10,
-        0
-      ],
-      "exits": {
-        "north": "locked_door",
-        "south": "quiet_street"
-      },
-      "items": []
-    },
-    "quiet_street": {
-      "id": "quiet_street",
-      "name": "Quiet Street",
-      "description": "A suspiciously quite street.",
-      "coords": [
-        0,
-        -15,
-        0
-      ],
-      "exits": {
-        "north": "back_door",
-        "west": "quite_street_west"
-      },
-      "items": []
-    },
-    "quite_street_west": {
-      "id": "quite_street_west",
-      "name": "West Quiet Street",
-      "description": "A street urchin lurks in the shadows",
-      "coords": [
-        -5,
-        -15,
-        0
-      ],
-      "exits": {
-        "east": "quiet_street"
       },
       "items": []
     }

@@ -57,11 +57,21 @@ Component IDs
 - ``ollama-server-url``: Input for Ollama server URL
 - ``ollama-model-dropdown``: Dropdown to select Ollama model
 - ``ollama-refresh-models-btn``: Button to refresh model list
-- ``ollama-system-prompt``: Textarea for system prompt
+- ``ollama-refresh-icon``: Icon inside refresh button (for spinning animation)
+- ``ollama-template-dropdown``: Dropdown to select prompt template
+- ``ollama-system-prompt-toggle``: Button to toggle system prompt visibility
+- ``ollama-system-prompt-collapse``: Collapsible wrapper for system prompt
+- ``ollama-system-prompt``: Textarea for system prompt (read-only when template selected)
+- ``ollama-copy-system-prompt-btn``: Button to copy system prompt to clipboard
 - ``ollama-user-prompt``: Textarea for user prompt
+- ``ollama-populate-prompt-btn``: Button to populate prompt from room description
 - ``ollama-generate-btn``: Button to generate description
+- ``ollama-generate-icon``: Icon inside generate button (for loading state)
+- ``ollama-generate-text``: Text inside generate button (changes during generation)
 - ``ollama-response``: Textarea for LLM response
-- ``ollama-copy-btn``: Button to copy response to clipboard
+- ``ollama-send-to-description-btn``: Button to send response to room description
+- ``ollama-clipboard``: Clipboard copy component
+- ``ollama-clipboard-feedback``: Clipboard copy feedback message
 - ``ollama-status``: Status message area
 
 See Also
@@ -291,7 +301,12 @@ def create_properties_panel() -> dbc.Card:
                                 size="sm",
                             ),
                             dbc.Button(
-                                html.I(className="bi bi-arrow-clockwise"),
+                                [
+                                    html.I(
+                                        className="bi bi-arrow-clockwise",
+                                        id="ollama-refresh-icon",
+                                    ),
+                                ],
                                 id="ollama-refresh-models-btn",
                                 color="secondary",
                                 outline=True,
@@ -327,29 +342,96 @@ def create_properties_panel() -> dbc.Card:
                             style={"fontSize": "0.875rem"},
                         ),
                     ),
-                    # System prompt
-                    dbc.Label("System Prompt", html_for="ollama-system-prompt", size="sm"),
-                    dbc.Textarea(
-                        id="ollama-system-prompt",
-                        value="You are a creative writer for a MUD (text-based adventure game). "
-                        "Write atmospheric, evocative room descriptions. Keep descriptions "
-                        "concise (2-3 sentences). Focus on sensory details and mood.",
+                    # Template dropdown
+                    dbc.Label("Template", html_for="ollama-template-dropdown", size="sm"),
+                    dcc.Dropdown(
+                        id="ollama-template-dropdown",
+                        options=[],  # Populated by callback
+                        placeholder="Select a template...",
                         className="mb-2",
-                        style={"height": "70px", "fontSize": "0.8rem"},
+                        style={"fontSize": "0.875rem"},
                     ),
-                    # User prompt
-                    dbc.Label("User Prompt", html_for="ollama-user-prompt", size="sm"),
+                    # Collapsible system prompt section
+                    html.Div(
+                        [
+                            dbc.Button(
+                                [
+                                    html.I(
+                                        className="bi bi-chevron-right me-1",
+                                        id="ollama-system-prompt-chevron",
+                                    ),
+                                    "System Prompt",
+                                ],
+                                id="ollama-system-prompt-toggle",
+                                color="link",
+                                size="sm",
+                                className="p-0 text-muted",
+                            ),
+                        ],
+                        className="d-flex align-items-center mb-1",
+                    ),
+                    dbc.Collapse(
+                        [
+                            dbc.Textarea(
+                                id="ollama-system-prompt",
+                                value=(
+                                    "You are a creative writer for a MUD (text-based adventure "
+                                    "game). Write atmospheric, evocative room descriptions. "
+                                    "Keep descriptions concise (2-3 sentences). Focus on "
+                                    "sensory details and mood."
+                                ),
+                                className="mb-1",
+                                style={
+                                    "height": "120px",
+                                    "fontSize": "0.75rem",
+                                    "fontFamily": "monospace",
+                                },
+                            ),
+                            dcc.Clipboard(
+                                id="ollama-copy-system-prompt-btn",
+                                target_id="ollama-system-prompt",
+                                title="Copy system prompt to clipboard",
+                                className="btn btn-outline-secondary btn-sm mb-2",
+                                content="Copy System Prompt",
+                            ),
+                        ],
+                        id="ollama-system-prompt-collapse",
+                        is_open=False,
+                    ),
+                    # User prompt with populate button
+                    html.Div(
+                        [
+                            dbc.Label(
+                                "User Prompt",
+                                html_for="ollama-user-prompt",
+                                size="sm",
+                                className="me-auto",
+                            ),
+                            dbc.Button(
+                                [
+                                    html.I(className="bi bi-arrow-down-circle me-1"),
+                                    "Use Description",
+                                ],
+                                id="ollama-populate-prompt-btn",
+                                color="link",
+                                size="sm",
+                                className="p-0 text-muted",
+                                title="Copy current room description to prompt",
+                            ),
+                        ],
+                        className="d-flex align-items-center mb-1",
+                    ),
                     dbc.Textarea(
                         id="ollama-user-prompt",
                         placeholder="Describe a room called 'The Main Hall'...",
                         className="mb-2",
                         style={"height": "60px", "fontSize": "0.8rem"},
                     ),
-                    # Generate button
+                    # Generate button with loading state support
                     dbc.Button(
                         [
-                            html.I(className="bi bi-magic me-1"),
-                            "Generate",
+                            html.I(className="bi bi-magic me-1", id="ollama-generate-icon"),
+                            html.Span("Generate", id="ollama-generate-text"),
                         ],
                         id="ollama-generate-btn",
                         color="info",

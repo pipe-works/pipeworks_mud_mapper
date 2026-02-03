@@ -1,31 +1,45 @@
 """Comprehensive tests for Ollama LLM integration callbacks.
 
 This module tests the Ollama callbacks that handle communication with
-a local Ollama server for generating room descriptions.
+a local Ollama server for generating room descriptions, including
+the template-based system prompt system.
 
 Test Organization
 -----------------
 Tests are grouped by callback function:
 
 - **TestRefreshOllamaModels**: Model list fetching from server
-- **TestGenerateDescription**: LLM text generation
+- **TestGenerateDescription**: LLM text generation via /api/chat
 - **TestSendToDescription**: Sending response to room description
 - **TestHandleClipboardCopy**: Clipboard feedback handling
+- **TestPopulatePromptFromDescription**: Populating prompt from room description
+- **TestLoadTemplateOptions**: Template dropdown population
+- **TestHandleTemplateSelection**: Template selection and compilation
+- **TestToggleSystemPromptCollapse**: System prompt collapse toggle
+- **TestCopySystemPrompt**: System prompt clipboard feedback
 
 Design Notes
 ------------
 These tests mock the httpx client to avoid requiring an actual
 Ollama server. We test:
 
-- Successful API responses
+- Successful API responses (using /api/chat endpoint)
 - Network errors (connection refused, timeout)
 - HTTP errors (4xx, 5xx)
 - Edge cases (empty responses, missing data)
+- Template loading, compilation, and UI state management
+
+API Migration
+-------------
+The generate_description callback uses Ollama's ``/api/chat`` endpoint
+instead of ``/api/generate`` for proper system/user message separation.
+Tests verify the messages array format with distinct roles.
 
 See Also
 --------
 - ``callbacks/ollama_callbacks.py``: The callbacks being tested
 - ``test_layout.py``: Tests for the Ollama UI components
+- ``test_template_service.py``: Tests for template loading/compilation
 """
 
 from unittest.mock import MagicMock, patch
@@ -35,10 +49,15 @@ import pytest
 from dash import no_update
 
 from pipeworks_mud_mapper.callbacks.ollama_callbacks import (
+    copy_system_prompt,
     generate_description,
     handle_clipboard_copy,
+    handle_template_selection,
+    load_template_options,
+    populate_prompt_from_description,
     refresh_ollama_models,
     send_to_description,
+    toggle_system_prompt_collapse,
 )
 
 # =============================================================================
@@ -59,13 +78,20 @@ def mock_models_response():
 
 
 @pytest.fixture
-def mock_generate_response():
-    """Create a mock response for /api/generate endpoint."""
+def mock_chat_response():
+    """Create a mock response for /api/chat endpoint.
+
+    The /api/chat endpoint returns a different format than /api/generate,
+    with the response text nested under message.content.
+    """
     return {
         "model": "llama3.2:latest",
-        "response": "The ancient stone hall stretches before you, its vaulted "
-        "ceiling lost in shadow. Flickering torchlight casts dancing "
-        "patterns across weathered flagstones.",
+        "message": {
+            "role": "assistant",
+            "content": "The ancient stone hall stretches before you, its vaulted "
+            "ceiling lost in shadow. Flickering torchlight casts dancing "
+            "patterns across weathered flagstones.",
+        },
         "done": True,
     }
 
@@ -248,11 +274,11 @@ class TestGenerateDescription:
             system_prompt="You are helpful.",
             user_prompt="Describe a room.",
         )
-        assert result == (no_update, no_update, no_update)
+        assert result == (no_update, no_update)
 
     def test_empty_server_url(self):
         """Should return warning when server URL is empty."""
-        response, status, disabled = generate_description(
+        response, status = generate_description(
             n_clicks=1,
             server_url="",
             model="llama3.2:latest",
@@ -261,11 +287,10 @@ class TestGenerateDescription:
         )
         assert response == ""
         assert "Please enter a server URL" in str(status)
-        assert disabled is False
 
     def test_no_model_selected(self):
         """Should return warning when no model selected."""
-        response, status, disabled = generate_description(
+        response, status = generate_description(
             n_clicks=1,
             server_url="http://localhost:11434",
             model=None,
@@ -274,11 +299,10 @@ class TestGenerateDescription:
         )
         assert response == ""
         assert "Please select a model" in str(status)
-        assert disabled is False
 
     def test_empty_model_selected(self):
         """Should return warning when model is empty string."""
-        response, status, disabled = generate_description(
+        response, status = generate_description(
             n_clicks=1,
             server_url="http://localhost:11434",
             model="",
@@ -290,7 +314,7 @@ class TestGenerateDescription:
 
     def test_empty_user_prompt(self):
         """Should return warning when user prompt is empty."""
-        response, status, disabled = generate_description(
+        response, status = generate_description(
             n_clicks=1,
             server_url="http://localhost:11434",
             model="llama3.2:latest",
@@ -300,16 +324,16 @@ class TestGenerateDescription:
         assert response == ""
         assert "Please enter a user prompt" in str(status)
 
-    def test_successful_generation(self, mock_generate_response):
+    def test_successful_generation(self, mock_chat_response):
         """Should return generated text on successful API call."""
         mock_response = MagicMock()
-        mock_response.json.return_value = mock_generate_response
+        mock_response.json.return_value = mock_chat_response
         mock_response.raise_for_status = MagicMock()
 
         with patch("pipeworks_mud_mapper.callbacks.ollama_callbacks.httpx.Client") as mock_client:
             mock_client.return_value.__enter__.return_value.post.return_value = mock_response
 
-            response, status, disabled = generate_description(
+            response, status = generate_description(
                 n_clicks=1,
                 server_url="http://localhost:11434",
                 model="llama3.2:latest",
@@ -319,19 +343,18 @@ class TestGenerateDescription:
 
         assert "ancient stone hall" in response
         assert "Generated successfully" in str(status)
-        assert disabled is False
 
-    def test_generation_without_system_prompt(self, mock_generate_response):
-        """Should work without a system prompt."""
+    def test_generation_without_system_prompt(self, mock_chat_response):
+        """Should work without a system prompt using /api/chat."""
         mock_response = MagicMock()
-        mock_response.json.return_value = mock_generate_response
+        mock_response.json.return_value = mock_chat_response
         mock_response.raise_for_status = MagicMock()
 
         with patch("pipeworks_mud_mapper.callbacks.ollama_callbacks.httpx.Client") as mock_client:
             mock_instance = mock_client.return_value.__enter__.return_value
             mock_instance.post.return_value = mock_response
 
-            response, status, disabled = generate_description(
+            response, status = generate_description(
                 n_clicks=1,
                 server_url="http://localhost:11434",
                 model="llama3.2:latest",
@@ -340,15 +363,18 @@ class TestGenerateDescription:
             )
 
         assert response != ""
-        # Verify the prompt was sent without system prefix
+        # Verify messages array has only user message (no system)
         call_args = mock_instance.post.call_args
         sent_json = call_args[1]["json"]
-        assert sent_json["prompt"] == "Describe a medieval hall."
+        assert "messages" in sent_json
+        assert len(sent_json["messages"]) == 1
+        assert sent_json["messages"][0]["role"] == "user"
+        assert sent_json["messages"][0]["content"] == "Describe a medieval hall."
 
-    def test_generation_with_system_prompt(self, mock_generate_response):
-        """Should combine system and user prompts."""
+    def test_generation_with_system_prompt(self, mock_chat_response):
+        """Should send system and user messages separately via /api/chat."""
         mock_response = MagicMock()
-        mock_response.json.return_value = mock_generate_response
+        mock_response.json.return_value = mock_chat_response
         mock_response.raise_for_status = MagicMock()
 
         with patch("pipeworks_mud_mapper.callbacks.ollama_callbacks.httpx.Client") as mock_client:
@@ -363,22 +389,27 @@ class TestGenerateDescription:
                 user_prompt="Describe a hall.",
             )
 
-        # Verify prompts were combined
+        # Verify messages array has both system and user messages
         call_args = mock_instance.post.call_args
         sent_json = call_args[1]["json"]
-        assert "Be creative." in sent_json["prompt"]
-        assert "Describe a hall." in sent_json["prompt"]
+        assert "messages" in sent_json
+        assert len(sent_json["messages"]) == 2
+        assert sent_json["messages"][0]["role"] == "system"
+        assert sent_json["messages"][0]["content"] == "Be creative."
+        assert sent_json["messages"][1]["role"] == "user"
+        assert sent_json["messages"][1]["content"] == "Describe a hall."
 
     def test_empty_response_from_model(self):
-        """Should handle empty response from model."""
+        """Should handle empty response from model via /api/chat."""
         mock_response = MagicMock()
-        mock_response.json.return_value = {"response": "", "done": True}
+        # /api/chat returns empty content under message.content
+        mock_response.json.return_value = {"message": {"role": "assistant", "content": ""}}
         mock_response.raise_for_status = MagicMock()
 
         with patch("pipeworks_mud_mapper.callbacks.ollama_callbacks.httpx.Client") as mock_client:
             mock_client.return_value.__enter__.return_value.post.return_value = mock_response
 
-            response, status, disabled = generate_description(
+            response, status = generate_description(
                 n_clicks=1,
                 server_url="http://localhost:11434",
                 model="llama3.2:latest",
@@ -396,7 +427,7 @@ class TestGenerateDescription:
                 "Connection refused"
             )
 
-            response, status, disabled = generate_description(
+            response, status = generate_description(
                 n_clicks=1,
                 server_url="http://localhost:11434",
                 model="llama3.2:latest",
@@ -406,7 +437,6 @@ class TestGenerateDescription:
 
         assert response == ""
         assert "Cannot connect to server" in str(status)
-        assert disabled is False
 
     def test_timeout_error(self):
         """Should handle request timeout."""
@@ -415,7 +445,7 @@ class TestGenerateDescription:
                 httpx.TimeoutException("Request timed out")
             )
 
-            response, status, disabled = generate_description(
+            response, status = generate_description(
                 n_clicks=1,
                 server_url="http://localhost:11434",
                 model="llama3.2:latest",
@@ -436,7 +466,7 @@ class TestGenerateDescription:
                 httpx.HTTPStatusError("Not found", request=MagicMock(), response=mock_response)
             )
 
-            response, status, disabled = generate_description(
+            response, status = generate_description(
                 n_clicks=1,
                 server_url="http://localhost:11434",
                 model="nonexistent:model",
@@ -622,7 +652,7 @@ class TestHandleClipboardCopy:
 class TestOllamaIntegration:
     """Integration tests for Ollama callback workflows."""
 
-    def test_full_workflow_fetch_and_generate(self, mock_models_response, mock_generate_response):
+    def test_full_workflow_fetch_and_generate(self, mock_models_response, mock_chat_response):
         """Test complete workflow: fetch models, then generate text."""
         # First, fetch models
         mock_tags_response = MagicMock()
@@ -641,13 +671,13 @@ class TestOllamaIntegration:
 
         # Then generate with selected model
         mock_gen_response = MagicMock()
-        mock_gen_response.json.return_value = mock_generate_response
+        mock_gen_response.json.return_value = mock_chat_response
         mock_gen_response.raise_for_status = MagicMock()
 
         with patch("pipeworks_mud_mapper.callbacks.ollama_callbacks.httpx.Client") as mock_client:
             mock_client.return_value.__enter__.return_value.post.return_value = mock_gen_response
 
-            response, status, disabled = generate_description(
+            response, status = generate_description(
                 n_clicks=1,
                 server_url="http://localhost:11434",
                 model=selected_model,
@@ -656,19 +686,18 @@ class TestOllamaIntegration:
             )
 
         assert "ancient stone hall" in response
-        assert disabled is False
 
-    def test_generate_and_send_workflow(self, mock_generate_response):
+    def test_generate_and_send_workflow(self, mock_chat_response):
         """Test workflow: generate text, then send to description."""
         # Generate text
         mock_response = MagicMock()
-        mock_response.json.return_value = mock_generate_response
+        mock_response.json.return_value = mock_chat_response
         mock_response.raise_for_status = MagicMock()
 
         with patch("pipeworks_mud_mapper.callbacks.ollama_callbacks.httpx.Client") as mock_client:
             mock_client.return_value.__enter__.return_value.post.return_value = mock_response
 
-            response, status, disabled = generate_description(
+            response, status = generate_description(
                 n_clicks=1,
                 server_url="http://localhost:11434",
                 model="llama3.2:latest",
@@ -717,3 +746,239 @@ class TestOllamaIntegration:
 
         assert len(options) == 3
         assert "Connected" in str(status)
+
+
+# =============================================================================
+# Test populate_prompt_from_description
+# =============================================================================
+
+
+class TestPopulatePromptFromDescription:
+    """Tests for the populate_prompt_from_description callback."""
+
+    def test_no_clicks_returns_no_update(self):
+        """Should return no_update when button not clicked."""
+        result = populate_prompt_from_description(
+            n_clicks=0,
+            room_description="Some description",
+            room_name="Test Room",
+        )
+        assert result == (no_update, no_update)
+
+    def test_none_clicks_returns_no_update(self):
+        """Should return no_update when n_clicks is None."""
+        result = populate_prompt_from_description(
+            n_clicks=None,
+            room_description="Some description",
+            room_name="Test Room",
+        )
+        assert result == (no_update, no_update)
+
+    def test_empty_description_shows_message(self):
+        """Should show message when description is empty."""
+        prompt, status = populate_prompt_from_description(
+            n_clicks=1,
+            room_description="",
+            room_name="Test Room",
+        )
+        assert prompt is no_update
+        assert "No description to use" in str(status)
+
+    def test_none_description_shows_message(self):
+        """Should show message when description is None."""
+        prompt, status = populate_prompt_from_description(
+            n_clicks=1,
+            room_description=None,
+            room_name="Test Room",
+        )
+        assert prompt is no_update
+        assert "No description to use" in str(status)
+
+    def test_populates_with_room_name(self):
+        """Should include room name in generated prompt."""
+        test_description = "A dark and dusty cellar."
+        prompt, status = populate_prompt_from_description(
+            n_clicks=1,
+            room_description=test_description,
+            room_name="The Wine Cellar",
+        )
+        assert "The Wine Cellar" in prompt
+        assert test_description in prompt
+        assert "Rewrite" in prompt
+        assert "copied to prompt" in str(status).lower()
+
+    def test_populates_without_room_name(self):
+        """Should work without room name."""
+        test_description = "A bright sunny meadow."
+        prompt, status = populate_prompt_from_description(
+            n_clicks=1,
+            room_description=test_description,
+            room_name=None,
+        )
+        assert test_description in prompt
+        assert "Rewrite this room description" in prompt
+        assert "copied to prompt" in str(status).lower()
+
+    def test_populates_with_empty_room_name(self):
+        """Should work when room name is empty string."""
+        test_description = "Stone walls surround you."
+        prompt, status = populate_prompt_from_description(
+            n_clicks=1,
+            room_description=test_description,
+            room_name="",
+        )
+        assert test_description in prompt
+        # Empty room name should be treated like None
+        assert "Rewrite this room description" in prompt
+
+
+# =============================================================================
+# Test Template Callbacks
+# =============================================================================
+
+
+class TestLoadTemplateOptions:
+    """Tests for the load_template_options callback.
+
+    This callback populates the template dropdown with available templates
+    from the data/ollama/templates/ directory.
+    """
+
+    def test_returns_list(self):
+        """Should return a list of template options."""
+        result = load_template_options(n_clicks=0)
+        assert isinstance(result, list)
+
+    def test_includes_custom_option(self):
+        """Should include 'Custom' option at the end."""
+        result = load_template_options(n_clicks=1)
+
+        # Last option should be Custom
+        assert result[-1]["value"] == "__custom__"
+        assert "Custom" in result[-1]["label"]
+
+    def test_loads_on_startup(self):
+        """Should load templates even with n_clicks=0 (initial load)."""
+        result = load_template_options(n_clicks=0)
+
+        # Should still return options (at minimum, the Custom option)
+        assert len(result) >= 1
+
+
+class TestHandleTemplateSelection:
+    """Tests for the handle_template_selection callback.
+
+    This callback compiles the selected template into a system prompt
+    and updates the UI state accordingly.
+    """
+
+    def test_no_selection_returns_no_update(self):
+        """Should return no_update when nothing selected."""
+        result = handle_template_selection(template_id=None)
+        assert result == (no_update, no_update, no_update, no_update)
+
+    def test_custom_mode_enables_editing(self):
+        """Should enable editing when 'Custom' is selected."""
+        prompt, read_only, is_open, status = handle_template_selection(template_id="__custom__")
+
+        # Custom mode should be editable
+        assert read_only is False
+        # Collapse should be open
+        assert is_open is True
+        # Should have some prompt text
+        assert len(prompt) > 0
+        # Status should mention custom mode
+        assert "Custom" in str(status) or "edit" in str(status).lower()
+
+    def test_template_selection_makes_readonly(self):
+        """Should make prompt read-only when template selected."""
+        # Mock the template service (imported inside the function)
+        mock_template = MagicMock()
+        mock_template.template_name = "Test Template"
+        mock_template.version = "1.0.0"
+        mock_template.theme.name = "Test Realm"
+
+        with (
+            patch("pipeworks_mud_mapper.services.template_service.load_template") as mock_load,
+            patch(
+                "pipeworks_mud_mapper.services.template_service.compile_system_prompt"
+            ) as mock_compile,
+        ):
+            mock_load.return_value = mock_template
+            mock_compile.return_value = "Compiled system prompt"
+
+            prompt, read_only, is_open, status = handle_template_selection(
+                template_id="test_template"
+            )
+
+        # Template mode should be read-only
+        assert read_only is True
+        # Collapse should be open to show the prompt
+        assert is_open is True
+        # Should have compiled prompt
+        assert prompt == "Compiled system prompt"
+
+    def test_missing_template_shows_error(self):
+        """Should show error when template not found."""
+        with patch("pipeworks_mud_mapper.services.template_service.load_template") as mock_load:
+            mock_load.return_value = None
+
+            prompt, read_only, is_open, status = handle_template_selection(
+                template_id="nonexistent"
+            )
+
+        # Should not update prompt when template missing
+        assert prompt is no_update
+        # Status should indicate error
+        assert "not found" in str(status).lower()
+
+
+class TestToggleSystemPromptCollapse:
+    """Tests for the toggle_system_prompt_collapse callback.
+
+    This callback toggles the collapse state and updates the chevron icon.
+    """
+
+    def test_no_clicks_returns_no_update(self):
+        """Should return no_update when not clicked."""
+        result = toggle_system_prompt_collapse(n_clicks=0, is_open=False)
+        assert result == (no_update, no_update)
+
+    def test_toggle_from_closed_to_open(self):
+        """Should open collapse when currently closed."""
+        new_is_open, icon_class = toggle_system_prompt_collapse(n_clicks=1, is_open=False)
+        assert new_is_open is True
+        assert "chevron-down" in icon_class
+
+    def test_toggle_from_open_to_closed(self):
+        """Should close collapse when currently open."""
+        new_is_open, icon_class = toggle_system_prompt_collapse(n_clicks=1, is_open=True)
+        assert new_is_open is False
+        assert "chevron-right" in icon_class
+
+
+class TestCopySystemPrompt:
+    """Tests for the copy_system_prompt callback.
+
+    This callback provides feedback when the system prompt is copied.
+    """
+
+    def test_no_clicks_returns_no_update(self):
+        """Should return no_update when not clicked."""
+        result = copy_system_prompt(n_clicks=0, system_prompt="Some prompt")
+        assert result is no_update
+
+    def test_empty_prompt_shows_message(self):
+        """Should show message when prompt is empty."""
+        result = copy_system_prompt(n_clicks=1, system_prompt="")
+        assert "No system prompt" in str(result)
+
+    def test_none_prompt_shows_message(self):
+        """Should show message when prompt is None."""
+        result = copy_system_prompt(n_clicks=1, system_prompt=None)
+        assert "No system prompt" in str(result)
+
+    def test_successful_copy_feedback(self):
+        """Should show success message when prompt exists."""
+        result = copy_system_prompt(n_clicks=1, system_prompt="A valid system prompt")
+        assert "copied" in str(result).lower()
