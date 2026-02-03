@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.11](https://github.com/pipe-works/pipeworks_mud_mapper/compare/pipeworks-mud-mapper-v0.0.10...pipeworks-mud-mapper-v0.0.11) (2026-02-03)
+
+
+### Features
+
+* add flattened Z-layer display with visual stacking ([018976f](https://github.com/pipe-works/pipeworks_mud_mapper/commit/018976facc0524c7171ac7f3231a375019f0b6fb))
+
 ## [0.0.10](https://github.com/pipe-works/pipeworks_mud_mapper/compare/pipeworks-mud-mapper-v0.0.9...pipeworks-mud-mapper-v0.0.10) (2026-02-02)
 
 
