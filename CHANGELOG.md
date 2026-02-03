@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.1.5](https://github.com/pipe-works/pipeworks_mud_mapper/compare/pipeworks-mud-mapper-v0.1.4...pipeworks-mud-mapper-v0.1.5) (2026-02-03)
+
+
+### Features
+
+* **ollama:** allow lower target word counts (min 25) ([#19](https://github.com/pipe-works/pipeworks_mud_mapper/issues/19)) ([8f9c59b](https://github.com/pipe-works/pipeworks_mud_mapper/commit/8f9c59b44c02a5091d6ac538ba30bfd5addd709d))
+
+
+### Fixes
+
+* **ollama:** allow finer temperature granularity (step 0.05) ([1f23d7c](https://github.com/pipe-works/pipeworks_mud_mapper/commit/1f23d7c9c62e1145f7a545d2aee1c4377ebbd04b))
+* **ui:** change num_predict step to 1 for arbitrary token values ([#20](https://github.com/pipe-works/pipeworks_mud_mapper/issues/20)) ([625bf6a](https://github.com/pipe-works/pipeworks_mud_mapper/commit/625bf6afbb4975652ba8211c48fb859c9fa3b3bf))
+* **validation:** use StrEnum instead of (str, Enum) inheritance ([b6dadcc](https://github.com/pipe-works/pipeworks_mud_mapper/commit/b6dadcc7041fff0ad3306c10867f1fba60745d15))
+
+
+### Internal Changes
+
+* **ollama:** add banned phrases to Core Rules for small LLMs ([b6dadcc](https://github.com/pipe-works/pipeworks_mud_mapper/commit/b6dadcc7041fff0ad3306c10867f1fba60745d15))
+
 ## [0.1.4](https://github.com/pipe-works/pipeworks_mud_mapper/compare/pipeworks-mud-mapper-v0.1.3...pipeworks-mud-mapper-v0.1.4) (2026-02-03)
 
 
