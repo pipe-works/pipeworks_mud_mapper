@@ -480,7 +480,7 @@ def create_ollama_panel() -> dbc.Card:
                                                             value=DEFAULT_TEMPERATURE,
                                                             min=0.0,
                                                             max=2.0,
-                                                            step=0.1,
+                                                            step=0.05,
                                                             size="sm",
                                                         ),
                                                         html.Small(
