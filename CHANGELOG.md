@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.3](https://github.com/pipe-works/pipeworks_mud_mapper/compare/pipeworks-mud-mapper-v0.1.2...pipeworks-mud-mapper-v0.1.3) (2026-02-03)
+
+
+### Features
+
+* add data-only commit automation with CI skip ([87b6085](https://github.com/pipe-works/pipeworks_mud_mapper/commit/87b6085486d9a65153e938f54680dd485fde9618))
+* store Ollama generation metadata in .map.json files ([36afb4f](https://github.com/pipe-works/pipeworks_mud_mapper/commit/36afb4f83146eeb6a76cc79957f7fc5565633f14))
+
 ## [0.1.2](https://github.com/pipe-works/pipeworks_mud_mapper/compare/pipeworks-mud-mapper-v0.1.1...pipeworks-mud-mapper-v0.1.2) (2026-02-03)
 
 
