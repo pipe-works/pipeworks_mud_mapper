@@ -257,7 +257,12 @@ class TestFileBrowser:
 
 
 class TestMapPanel:
-    """Tests for map_panel module."""
+    """Tests for map_panel module.
+
+    The map panel displays a flattened view of all Z-levels with visual
+    differentiation. The z-level-filter checklist allows hiding specific
+    levels (all checked by default).
+    """
 
     def test_create_map_panel_returns_card(self):
         """create_map_panel should return a dbc.Card."""
@@ -269,10 +274,10 @@ class TestMapPanel:
         result = create_map_panel()
         assert component_has_id(result, "map-graph")
 
-    def test_create_map_panel_has_z_level_selector(self):
-        """create_map_panel should include z-level-selector."""
+    def test_create_map_panel_has_z_level_filter(self):
+        """create_map_panel should include z-level-filter checklist."""
         result = create_map_panel()
-        assert component_has_id(result, "z-level-selector")
+        assert component_has_id(result, "z-level-filter")
 
     def test_create_map_panel_graph_is_dcc_graph(self):
         """create_map_panel map-graph should be a dcc.Graph."""
@@ -286,22 +291,22 @@ class TestMapPanel:
         graph = find_component_by_id(result, "map-graph")
         assert graph.figure is not None
 
-    def test_create_map_panel_z_selector_has_three_options(self):
-        """create_map_panel z-level-selector should have -1, 0, +1 options."""
+    def test_create_map_panel_z_filter_has_three_options(self):
+        """create_map_panel z-level-filter should have -1, 0, +1 options."""
         result = create_map_panel()
-        z_selector = find_component_by_id(result, "z-level-selector")
-        assert isinstance(z_selector, dbc.RadioItems)
-        assert len(z_selector.options) == 3
-        values = [opt["value"] for opt in z_selector.options]
+        z_filter = find_component_by_id(result, "z-level-filter")
+        assert isinstance(z_filter, dbc.Checklist)
+        assert len(z_filter.options) == 3
+        values = [opt["value"] for opt in z_filter.options]
         assert -1 in values
         assert 0 in values
         assert 1 in values
 
-    def test_create_map_panel_z_selector_default_is_zero(self):
-        """create_map_panel z-level-selector should default to 0."""
+    def test_create_map_panel_z_filter_all_checked_default(self):
+        """create_map_panel z-level-filter should have all levels checked by default."""
         result = create_map_panel()
-        z_selector = find_component_by_id(result, "z-level-selector")
-        assert z_selector.value == 0
+        z_filter = find_component_by_id(result, "z-level-filter")
+        assert set(z_filter.value) == {-1, 0, 1}
 
     def test_create_map_panel_graph_config_scroll_zoom(self):
         """create_map_panel map-graph should have scrollZoom enabled."""
@@ -619,7 +624,7 @@ class TestMainLayout:
 
         # Map panel IDs
         assert "map-graph" in ids
-        assert "z-level-selector" in ids
+        assert "z-level-filter" in ids
 
         # Properties panel IDs
         assert "room-id" in ids
@@ -672,7 +677,7 @@ class TestLayoutIntegration:
         # IDs used in map_callbacks.py
         map_callback_ids = [
             "map-graph",
-            "z-level-selector",
+            "z-level-filter",
             "selected-room",
         ]
         for id_ in map_callback_ids:

@@ -2,29 +2,47 @@
 
 This module handles:
 
-- Rendering the map when zone data or Z-level changes
+- Rendering the flattened map when zone data or visibility filter changes
 - Selecting rooms when clicked on the map
+
+The map displays all Z-levels on a single 2D plane with visual differentiation:
+
+- **z=-1 (Down)**: Black filled circles (smallest)
+- **z=0 (Ground)**: Blue filled circles (largest)
+- **z=+1 (Up)**: White circles with black border (medium)
 
 Component Dependencies
 ----------------------
 **Inputs:**
+
 - ``current-zone-data``: Zone data for rendering
-- ``z-level-selector``: Current Z-level filter
+- ``z-level-filter``: List of visible Z-levels (checklist)
 - ``selected-room``: Currently selected room
 - ``map-graph``: Click events on the map
 
 **Outputs:**
+
 - ``map-graph``: Updated Plotly figure
 - ``selected-room``: Room ID from click
+
+Click Selection with Stacked Rooms
+----------------------------------
+When rooms overlap (same X,Y, different Z), ground level (z=0) receives
+clicks first due to render order. To select a lower-level room:
+
+1. Uncheck higher levels in the z-level-filter
+2. Click the now-visible lower-level room
+3. Re-check levels when done
 
 See Also
 --------
 - ``components/map_view.py``: Plotly figure creation functions
+- ``layout/map_panel.py``: Map panel with filter controls
 """
 
 from typing import Any
 
-from dash import Input, Output, State, callback, no_update
+from dash import Input, Output, State, callback, ctx, no_update
 
 from pipeworks_mud_mapper.components.map_view import (
     create_map_figure,
@@ -35,77 +53,220 @@ from pipeworks_mud_mapper.components.map_view import (
 @callback(
     Output("map-graph", "figure"),
     Input("current-zone-data", "data"),
-    Input("z-level-selector", "value"),
+    Input("z-level-filter", "value"),
     Input("selected-room", "data"),
+    Input("z-level-offset", "value"),
 )
-def update_map_with_rooms(zone_data: dict | None, z_level: int, selected_room: str | None) -> Any:
-    """Update the map figure when zone data, Z-level, or selection changes.
+def update_map_with_rooms(
+    zone_data: dict | None,
+    visible_z_levels: list[int],
+    selected_room: str | None,
+    visual_offset: float,
+) -> Any:
+    """Update the map figure when zone data, visibility, or selection changes.
 
-    Re-renders the Plotly figure with current rooms filtered to the
-    selected Z-level, highlighting the selected room if any.
+    Re-renders the Plotly figure with rooms from all visible Z-levels,
+    displayed on a single 2D plane with visual differentiation by level.
 
     Parameters
     ----------
     zone_data : dict | None
-        Current zone data, or None if no zone loaded.
-    z_level : int
-        Currently selected Z-level (-1, 0, or 1).
+        Current zone data containing rooms, or None if no zone loaded.
+    visible_z_levels : list[int]
+        List of Z-levels to display, from the filter checklist.
+        Default is all levels: [-1, 0, 1]. Empty list shows base map only.
     selected_room : str | None
-        Currently selected room ID, or None.
+        Currently selected room ID, or None. Selected room is highlighted
+        in red regardless of its Z-level.
+    visual_offset : float
+        Scale factor for Z-level visual offset. Controls how much stacked
+        rooms are visually separated. 0 = no offset, higher = more separation.
 
     Returns
     -------
     dict
         Plotly figure dictionary for the map graph.
-    """
-    if not zone_data:
-        return create_map_figure(z_level=z_level)
 
+    Rendering Behavior
+    ------------------
+    - Rooms are rendered in Z-order: z=-1 first, z=+1 second, z=0 last
+    - Ground level (z=0) appears on top and receives clicks first
+    - Exit lines only connect rooms on the same Z-level
+    - Vertical exits (up/down) are shown as "U/D" labels near stacked rooms
+    - Hover text includes Z-level information for each room
+
+    Examples
+    --------
+    Show all levels (default)::
+
+        >>> figure = update_map_with_rooms(zone_data, [-1, 0, 1], None, 1.0)
+
+    Show only ground level::
+
+        >>> figure = update_map_with_rooms(zone_data, [0], None, 1.0)
+
+    Hide ground to select a basement room::
+
+        >>> figure = update_map_with_rooms(zone_data, [-1, 1], "cellar", 1.0)
+    """
+    # Handle no zone loaded - return empty base map
+    if not zone_data:
+        return create_map_figure()
+
+    # Get rooms from zone data and render with visibility filter
     rooms = zone_data.get("rooms", {})
-    return create_map_figure_with_rooms(rooms=rooms, z_level=z_level, selected_room=selected_room)
+    return create_map_figure_with_rooms(
+        rooms=rooms,
+        visible_z_levels=visible_z_levels,
+        selected_room=selected_room,
+        visual_offset=visual_offset,
+    )
 
 
 @callback(
     Output("selected-room", "data"),
     Input("map-graph", "clickData"),
     State("current-zone-data", "data"),
+    State("selected-room", "data"),
     prevent_initial_call=True,
 )
-def handle_map_click(click_data: dict | None, zone_data: dict | None) -> Any:
-    """Select a room when it is clicked on the map.
+def handle_map_click(
+    click_data: dict | None,
+    zone_data: dict | None,
+    current_selection: str | None,
+) -> Any:
+    """Select a room when clicked, or unselect if clicking the same room again.
 
     Extracts the room ID from the clicked point's text field and
-    validates that it exists in the current zone.
+    validates that it exists in the current zone. Clicking on an
+    already-selected room toggles the selection off.
 
     Parameters
     ----------
     click_data : dict | None
-        Plotly click event data.
+        Plotly click event data containing information about the
+        clicked point, or None if no click occurred.
     zone_data : dict | None
-        Current zone data.
+        Current zone data containing rooms dictionary.
+    current_selection : str | None
+        Currently selected room ID, used for toggle behavior.
 
     Returns
     -------
-    str | None
-        Room ID if valid room clicked, or no_update.
+    str | None | no_update
+        Room ID if a new room was clicked, None if the same room was clicked
+        again (toggle off), or no_update if the click was on a non-room
+        element like an exit line.
 
-    Notes
-    -----
-    - Room ID is stored in the text field of Scatter points
-    - Clicks on non-room elements (lines, empty space) are ignored
+    Click Handling Details
+    ----------------------
+    - Room ID is stored in the ``text`` field of Scatter points
+    - Clicking an already-selected room clears the selection (toggle)
+    - Clicks on exit lines return no_update (hoverinfo="skip")
+    - Invalid room IDs (not in zone_data) return no_update
+
+    Stacked Room Selection
+    ----------------------
+    When rooms are stacked (same X,Y, different Z), the topmost visible
+    room receives the click. Due to render order:
+
+    - If z=0 is visible, ground-level room gets the click
+    - If z=0 is hidden but z=+1 visible, upper-level room gets the click
+    - If only z=-1 is visible, lower-level room gets the click
+
+    To select a specific stacked room, use the z-level-filter to hide
+    the levels above it.
+
+    Examples
+    --------
+    Click data structure from Plotly::
+
+        >>> click_data = {
+        ...     "points": [{
+        ...         "x": 0,
+        ...         "y": 0,
+        ...         "text": "spawn",  # Room ID
+        ...         "curveNumber": 2,
+        ...     }]
+        ... }
+        >>> handle_map_click(click_data, zone_data, None)
+        'spawn'
+
+    Click same room again to unselect::
+
+        >>> handle_map_click(click_data, zone_data, "spawn")
+        None
     """
+    # Ignore if no click data or no zone loaded
     if not click_data or not zone_data:
         return no_update
 
-    # Get clicked point info
+    # Extract clicked point information
     points = click_data.get("points", [])
     if not points:
         return no_update
 
+    # Get the first (and typically only) clicked point
     point = points[0]
-    # The text field contains the room_id (set in map_view.py)
+
+    # The text field contains the room_id (set in map_view.py _draw_rooms_at_z_level)
     room_id = point.get("text")
+
+    # Validate that this is a real room in the zone
     if room_id and room_id in zone_data.get("rooms", {}):
+        # Toggle: if clicking the already-selected room, unselect it
+        if room_id == current_selection:
+            return None
         return room_id
 
+    # Clicked on something that isn't a room (line, background, etc.)
     return no_update
+
+
+@callback(
+    Output("z-level-offset", "value"),
+    Input("z-level-offset-decrease", "n_clicks"),
+    Input("z-level-offset-increase", "n_clicks"),
+    State("z-level-offset", "value"),
+    prevent_initial_call=True,
+)
+def adjust_z_level_offset(
+    decrease_clicks: int | None,
+    increase_clicks: int | None,
+    current_value: float | None,
+) -> Any:
+    """Adjust the Z-level visual offset via +/- buttons.
+
+    Increments or decrements the offset value by 0.1 when the
+    corresponding button is clicked, clamped to [0, 5] range.
+
+    Parameters
+    ----------
+    decrease_clicks : int | None
+        Number of times the decrease button was clicked.
+    increase_clicks : int | None
+        Number of times the increase button was clicked.
+    current_value : float | None
+        Current offset value from the input field.
+
+    Returns
+    -------
+    float | no_update
+        New offset value after adjustment, or no_update if no button triggered.
+    """
+    # Default to 0.4 if no current value
+    if current_value is None:
+        current_value = 0.4
+
+    # Determine which button was clicked
+    triggered_id = ctx.triggered_id
+
+    if triggered_id == "z-level-offset-decrease":
+        new_value = max(0.0, current_value - 0.1)
+    elif triggered_id == "z-level-offset-increase":
+        new_value = min(5.0, current_value + 0.1)
+    else:
+        return no_update
+
+    # Round to avoid floating point precision issues
+    return round(new_value, 1)

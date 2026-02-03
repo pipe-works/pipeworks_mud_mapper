@@ -1,0 +1,12 @@
+{
+  "timestamp": "2026-02-03T09:46:18.100745+00:00",
+  "map_file": "crooked_pipe.map.json",
+  "summary": {
+    "errors": 0,
+    "warnings": 0,
+    "info": 0,
+    "total": 0,
+    "passed": true
+  },
+  "warnings": []
+}

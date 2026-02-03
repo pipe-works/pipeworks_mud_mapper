@@ -1,0 +1,53 @@
+{
+  "timestamp": "2026-02-02T17:31:08.737171+00:00",
+  "map_file": "ledgerfall_alley.map.json",
+  "summary": {
+    "errors": 0,
+    "warnings": 4,
+    "info": 1,
+    "total": 5,
+    "passed": true
+  },
+  "warnings": [
+    {
+      "severity": "warning",
+      "category": "connectivity",
+      "room_id": "back_door",
+      "message": "Room is unreachable from spawn 'spawn'",
+      "details": null
+    },
+    {
+      "severity": "warning",
+      "category": "connectivity",
+      "room_id": "locked_door",
+      "message": "Room is unreachable from spawn 'spawn'",
+      "details": null
+    },
+    {
+      "severity": "warning",
+      "category": "connectivity",
+      "room_id": "quiet_street",
+      "message": "Room is unreachable from spawn 'spawn'",
+      "details": null
+    },
+    {
+      "severity": "warning",
+      "category": "connectivity",
+      "room_id": "quite_street_west",
+      "message": "Room is unreachable from spawn 'spawn'",
+      "details": null
+    },
+    {
+      "severity": "info",
+      "category": "consistency",
+      "room_id": "locked_door",
+      "message": "Asymmetric exit: locked_door→east→dark_hallway, but dark_hallway has no west exit back",
+      "details": {
+        "from_room": "locked_door",
+        "direction": "east",
+        "to_room": "dark_hallway",
+        "expected_return": "west"
+      }
+    }
+  ]
+}

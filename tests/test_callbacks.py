@@ -268,14 +268,19 @@ class TestExitCallbacks:
 
 
 class TestMapCallbacks:
-    """Tests for map_callbacks module."""
+    """Tests for map_callbacks module.
+
+    The map callback now uses visible_z_levels (list) instead of z_level (int)
+    to support the flattened multi-level display with filtering.
+    """
 
     def test_update_map_with_rooms_no_data(self):
         """update_map_with_rooms should return empty figure when no zone data."""
         figure = update_map_with_rooms(
             zone_data=None,
-            z_level=0,
+            visible_z_levels=[-1, 0, 1],
             selected_room=None,
+            visual_offset=1.0,
         )
         assert isinstance(figure, go.Figure)
         assert hasattr(figure, "data")
@@ -285,8 +290,9 @@ class TestMapCallbacks:
         """update_map_with_rooms should return figure with room data."""
         figure = update_map_with_rooms(
             zone_data=simple_zone_data,
-            z_level=0,
+            visible_z_levels=[-1, 0, 1],
             selected_room=None,
+            visual_offset=1.0,
         )
         assert isinstance(figure, go.Figure)
         assert len(figure.data) > 0  # Should have room markers
@@ -295,55 +301,87 @@ class TestMapCallbacks:
         """update_map_with_rooms should highlight selected room."""
         figure = update_map_with_rooms(
             zone_data=simple_zone_data,
-            z_level=0,
+            visible_z_levels=[-1, 0, 1],
             selected_room="spawn",
+            visual_offset=1.0,
         )
         assert isinstance(figure, go.Figure)
 
-    def test_update_map_with_rooms_different_z_level(self, simple_zone_data):
-        """update_map_with_rooms should filter by z-level."""
+    def test_update_map_with_rooms_filtered_z_levels(self, simple_zone_data):
+        """update_map_with_rooms should filter by visible_z_levels."""
         figure = update_map_with_rooms(
             zone_data=simple_zone_data,
-            z_level=1,  # No rooms at z=1
+            visible_z_levels=[1],  # Only show z=1, spawn is at z=0
             selected_room=None,
+            visual_offset=1.0,
         )
         assert isinstance(figure, go.Figure)
-        # No room markers at z=1
-        assert len(figure.data) == 0
+        # No room markers at z=1 (spawn is at z=0), filter out background
+        room_traces = [t for t in figure.data if t.text is not None and len(t.text) > 0]
+        assert len(room_traces) == 0
+
+    def test_update_map_with_rooms_empty_filter(self, simple_zone_data):
+        """update_map_with_rooms should show no rooms with empty filter."""
+        figure = update_map_with_rooms(
+            zone_data=simple_zone_data,
+            visible_z_levels=[],  # No levels visible
+            selected_room=None,
+            visual_offset=1.0,
+        )
+        assert isinstance(figure, go.Figure)
+        # No room traces, filter out background
+        room_traces = [t for t in figure.data if t.text is not None and len(t.text) > 0]
+        assert len(room_traces) == 0
 
     def test_handle_map_click_no_data(self):
         """handle_map_click should return no_update when no click data."""
-        result = handle_map_click(click_data=None, zone_data=None)
+        result = handle_map_click(click_data=None, zone_data=None, current_selection=None)
         assert result is no_update
 
     def test_handle_map_click_no_zone(self):
         """handle_map_click should return no_update when no zone data."""
         click_data = {"points": [{"text": "spawn"}]}
-        result = handle_map_click(click_data=click_data, zone_data=None)
+        result = handle_map_click(click_data=click_data, zone_data=None, current_selection=None)
         assert result is no_update
 
     def test_handle_map_click_empty_points(self, simple_zone_data):
         """handle_map_click should return no_update when no points clicked."""
         click_data: dict = {"points": []}
-        result = handle_map_click(click_data=click_data, zone_data=simple_zone_data)
+        result = handle_map_click(
+            click_data=click_data, zone_data=simple_zone_data, current_selection=None
+        )
         assert result is no_update
 
     def test_handle_map_click_valid_room(self, simple_zone_data):
         """handle_map_click should return room_id when valid room clicked."""
         click_data = {"points": [{"text": "spawn"}]}
-        result = handle_map_click(click_data=click_data, zone_data=simple_zone_data)
+        result = handle_map_click(
+            click_data=click_data, zone_data=simple_zone_data, current_selection=None
+        )
         assert result == "spawn"
+
+    def test_handle_map_click_toggle_unselect(self, simple_zone_data):
+        """handle_map_click should return None when clicking same room (toggle)."""
+        click_data = {"points": [{"text": "spawn"}]}
+        result = handle_map_click(
+            click_data=click_data, zone_data=simple_zone_data, current_selection="spawn"
+        )
+        assert result is None
 
     def test_handle_map_click_invalid_room(self, simple_zone_data):
         """handle_map_click should return no_update for invalid room."""
         click_data = {"points": [{"text": "nonexistent"}]}
-        result = handle_map_click(click_data=click_data, zone_data=simple_zone_data)
+        result = handle_map_click(
+            click_data=click_data, zone_data=simple_zone_data, current_selection=None
+        )
         assert result is no_update
 
     def test_handle_map_click_no_text(self, simple_zone_data):
         """handle_map_click should return no_update when point has no text."""
         click_data = {"points": [{"x": 0, "y": 0}]}
-        result = handle_map_click(click_data=click_data, zone_data=simple_zone_data)
+        result = handle_map_click(
+            click_data=click_data, zone_data=simple_zone_data, current_selection=None
+        )
         assert result is no_update
 
 
