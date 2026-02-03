@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.4](https://github.com/pipe-works/pipeworks_mud_mapper/compare/pipeworks-mud-mapper-v0.1.3...pipeworks-mud-mapper-v0.1.4) (2026-02-03)
+
+
+### Features
+
+* **ollama:** add configurable target word count for LLM generation ([de00d6b](https://github.com/pipe-works/pipeworks_mud_mapper/commit/de00d6bfb7742aa82e365ffe1242c2c67be2d2e0))
+
 ## [0.1.3](https://github.com/pipe-works/pipeworks_mud_mapper/compare/pipeworks-mud-mapper-v0.1.2...pipeworks-mud-mapper-v0.1.3) (2026-02-03)
 
 
