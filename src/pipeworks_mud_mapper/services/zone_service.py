@@ -173,11 +173,28 @@ def save_map_file(map_file: MapFile, path: Path) -> None:
 
 
 def export_zone(map_file: MapFile, path: Path) -> None:
-    """Export a map file as a zone file (strips coordinates).
+    """Export a map file as a zone file (strips coordinates and authoring metadata).
 
     This creates the "game truth" file that the MUD server consumes.
-    Coordinates are removed because the game engine operates on topology
-    (connections) not geometry (positions).
+    Coordinates and LLM generation metadata are removed because the game
+    engine operates on topology (connections) not geometry (positions),
+    and doesn't need authoring provenance data.
+
+    Stripped Fields
+    ---------------
+    The following "authoring scaffolding" fields are removed during export:
+
+    - **coords**: Room coordinates are visualization aids, not game state.
+      Movement in a MUD is topological (room A connects to room B via "north"),
+      not metric (room B is at position [1, 0, 0]).
+
+    - **llm_generation**: LLM generation metadata (model, seed, prompts, etc.)
+      exists for authoring purposes only - it enables reproducibility and
+      provenance tracking during map creation, but has no meaning to the
+      game server.
+
+    This separation reflects the pipe-works philosophy that authoring scaffolding
+    supports the creation process but is not part of the final game state.
 
     Parameters
     ----------
@@ -192,21 +209,34 @@ def export_zone(map_file: MapFile, path: Path) -> None:
 
     Notes
     -----
-    The exported zone file can be loaded back, but coordinates will be
-    lost. Always keep the original map file as the authoring source.
+    The exported zone file can be loaded back, but coordinates and LLM metadata
+    will be lost. Always keep the original map file as the authoring source.
+
+    See Also
+    --------
+    MapRoom.to_room : Primary stripping mechanism (model conversion).
+    OllamaGenerationInfo : The metadata model that gets stripped.
     """
     # Ensure parent directory exists
     path.parent.mkdir(parents=True, exist_ok=True)
 
-    # Convert to zone (strips coords)
+    # Convert to zone (strips coords and llm_generation via MapRoom.to_room())
+    # The Room model doesn't have these fields, so they're automatically excluded.
     zone = map_file.to_zone()
 
     # Serialize without coords
     data = zone.model_dump(exclude_none=True)
 
-    # Remove any lingering coord fields (belt and suspenders)
+    # Belt-and-suspenders: Remove any lingering authoring fields.
+    # These should already be gone from the model conversion above,
+    # but we explicitly remove them as a safety measure.
+    # This guards against:
+    #   - Future model changes that might accidentally include these fields
+    #   - Serialization edge cases in Pydantic
+    #   - Any other unexpected data leakage
     for room_data in data.get("rooms", {}).values():
         room_data.pop("coords", None)
+        room_data.pop("llm_generation", None)
 
     # Write with pretty formatting
     content = json.dumps(data, indent=2, ensure_ascii=False)

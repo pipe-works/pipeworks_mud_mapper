@@ -11,9 +11,10 @@ The application uses a three-column layout plus action bar:
 ::
 
     ┌─────────┬─────────────────────────┬───────────┐
-    │  File   │                         │  Room     │
-    │ Browser │       Map Panel         │Properties │
-    │  (2/12) │        (7/12)           │  (3/12)   │
+    │  File   │       Map Panel         │  Room     │
+    │ Browser │        (7/12)           │Properties │
+    │  (2/12) │─────────────────────────│  (3/12)   │
+    │         │   LLM Assistant (Ollama)│           │
     └─────────┴─────────────────────────┴───────────┘
     │             Action Bar (Save, Status)         │
     └───────────────────────────────────────────────┘
@@ -25,6 +26,9 @@ Module Layout
 
 **map_panel**
     Center column with Plotly map and Z-level selector.
+
+**ollama_panel**
+    Center column LLM Assistant for generating room descriptions.
 
 **properties_panel**
     Right column room editing form with coordinates and exits.
@@ -48,6 +52,7 @@ Or import individual components::
     from pipeworks_mud_mapper.layout import (
         create_file_browser,
         create_map_panel,
+        create_ollama_panel,
         create_properties_panel,
         create_action_bar,
     )
@@ -63,12 +68,14 @@ from pipeworks_mud_mapper.layout.action_bar import create_action_bar
 from pipeworks_mud_mapper.layout.file_browser import create_file_browser
 from pipeworks_mud_mapper.layout.main_layout import create_app_layout
 from pipeworks_mud_mapper.layout.map_panel import create_map_panel
+from pipeworks_mud_mapper.layout.ollama_panel import create_ollama_panel
 from pipeworks_mud_mapper.layout.properties_panel import create_properties_panel
 
 __all__ = [
     "create_app_layout",
     "create_file_browser",
     "create_map_panel",
+    "create_ollama_panel",
     "create_properties_panel",
     "create_action_bar",
 ]

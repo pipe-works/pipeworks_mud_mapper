@@ -1,8 +1,8 @@
 """Main application layout assembly.
 
 This module assembles all layout components into the complete application
-layout. It combines the file browser, map panel, properties panel, and
-action bar with the necessary state stores and modal dialogs.
+layout. It combines the file browser, map panel, Ollama panel, properties
+panel, and action bar with the necessary state stores and modal dialogs.
 
 Application Structure
 ---------------------
@@ -18,6 +18,9 @@ Application Structure
     │ 📁 data/│         [Interactive Map]                   │ Room ID: _  │
     │  file1  │                                             │ Name: _____ │
     │  file2  │         Layer (Z): ○-1 ●0 ○+1               │ Coords: XYZ │
+    │         ├─────────────────────────────────────────────┤             │
+    │         │         🤖 LLM Assistant (Ollama)           │             │
+    │         │         [Template] [Model] [Generate]       │             │
     ├─────────┴─────────────────────────────────────────────┴─────────────┤
     │ [Validate] [Export Zone JSON] [Save Map]          ● Status message  │
     └─────────────────────────────────────────────────────────────────────┘
@@ -43,7 +46,8 @@ Modal Dialogs
 See Also
 --------
 - ``file_browser.py``: Left column component
-- ``map_panel.py``: Center column component
+- ``map_panel.py``: Center column component (map visualization)
+- ``ollama_panel.py``: Center column component (LLM Assistant)
 - ``properties_panel.py``: Right column component
 - ``action_bar.py``: Bottom bar component
 - ``components/new_map_modal.py``: Zone creation modal
@@ -56,6 +60,7 @@ from pipeworks_mud_mapper.components.new_map_modal import create_new_map_modal
 from pipeworks_mud_mapper.layout.action_bar import create_action_bar
 from pipeworks_mud_mapper.layout.file_browser import create_file_browser
 from pipeworks_mud_mapper.layout.map_panel import create_map_panel
+from pipeworks_mud_mapper.layout.ollama_panel import create_ollama_panel
 from pipeworks_mud_mapper.layout.properties_panel import create_properties_panel
 
 
@@ -96,6 +101,12 @@ def create_app_layout() -> dbc.Container:
             dcc.Store(id="has-unsaved-changes", data=False),  # Unsaved flag
             dcc.Store(id="delete-undo-data", data=None),  # Undo data for delete
             dcc.Store(id="validation-report", data=None),  # Validation report
+            # Ollama generation metadata store - holds LLM generation info
+            # (model, seed, parameters, prompts) from the most recent generation.
+            # This data flows from generate_description() to send_to_description()
+            # where it gets attached to the room as llm_generation metadata.
+            # Format: dict with keys matching OllamaGenerationInfo fields, or None.
+            dcc.Store(id="ollama-last-generation-info", data=None),
             # Interval to trigger initial file load
             dcc.Interval(id="initial-load", interval=100, max_intervals=1),
             # -----------------------------------------------------------------
@@ -194,9 +205,15 @@ def create_app_layout() -> dbc.Container:
                         width=2,
                         className="pe-2",
                     ),
-                    # Center column - Map (7/12 width)
+                    # Center column - Map + Ollama (7/12 width)
+                    # Contains the map panel at top and LLM Assistant below
                     dbc.Col(
-                        create_map_panel(),
+                        html.Div(
+                            [
+                                create_map_panel(),
+                                create_ollama_panel(),
+                            ]
+                        ),
                         width=7,
                         className="px-2",
                     ),

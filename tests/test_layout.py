@@ -40,6 +40,7 @@ from pipeworks_mud_mapper.layout import (
     create_app_layout,
     create_file_browser,
     create_map_panel,
+    create_ollama_panel,
     create_properties_panel,
 )
 
@@ -423,95 +424,291 @@ class TestPropertiesPanel:
         assert isinstance(result.children[0], dbc.CardHeader)
         assert "Room Properties" in str(result.children[0].children)
 
-    # =========================================================================
-    # Ollama LLM Section Tests
-    # =========================================================================
 
-    def test_create_properties_panel_has_ollama_server_url(self):
-        """create_properties_panel should include ollama-server-url input."""
-        result = create_properties_panel()
+# =============================================================================
+# Ollama Panel Tests
+# =============================================================================
+
+
+class TestOllamaPanel:
+    """Tests for ollama_panel module.
+
+    The Ollama panel provides LLM-powered description generation via Ollama.
+    It was moved from properties_panel to the center column below the map.
+    """
+
+    def test_create_ollama_panel_returns_card(self):
+        """create_ollama_panel should return a dbc.Card."""
+        result = create_ollama_panel()
+        assert isinstance(result, dbc.Card)
+
+    def test_create_ollama_panel_has_ollama_server_url(self):
+        """create_ollama_panel should include ollama-server-url input."""
+        result = create_ollama_panel()
         assert component_has_id(result, "ollama-server-url")
 
-    def test_create_properties_panel_has_ollama_model_dropdown(self):
-        """create_properties_panel should include ollama-model-dropdown."""
-        result = create_properties_panel()
+    def test_create_ollama_panel_has_ollama_model_dropdown(self):
+        """create_ollama_panel should include ollama-model-dropdown."""
+        result = create_ollama_panel()
         assert component_has_id(result, "ollama-model-dropdown")
 
-    def test_create_properties_panel_has_ollama_refresh_btn(self):
-        """create_properties_panel should include ollama-refresh-models-btn."""
-        result = create_properties_panel()
+    def test_create_ollama_panel_has_ollama_refresh_btn(self):
+        """create_ollama_panel should include ollama-refresh-models-btn."""
+        result = create_ollama_panel()
         assert component_has_id(result, "ollama-refresh-models-btn")
 
-    def test_create_properties_panel_has_ollama_system_prompt(self):
-        """create_properties_panel should include ollama-system-prompt."""
-        result = create_properties_panel()
+    def test_create_ollama_panel_has_ollama_system_prompt(self):
+        """create_ollama_panel should include ollama-system-prompt."""
+        result = create_ollama_panel()
         assert component_has_id(result, "ollama-system-prompt")
 
-    def test_create_properties_panel_has_ollama_user_prompt(self):
-        """create_properties_panel should include ollama-user-prompt."""
-        result = create_properties_panel()
+    def test_create_ollama_panel_has_ollama_user_prompt(self):
+        """create_ollama_panel should include ollama-user-prompt."""
+        result = create_ollama_panel()
         assert component_has_id(result, "ollama-user-prompt")
 
-    def test_create_properties_panel_has_ollama_generate_btn(self):
-        """create_properties_panel should include ollama-generate-btn."""
-        result = create_properties_panel()
+    def test_create_ollama_panel_has_ollama_generate_btn(self):
+        """create_ollama_panel should include ollama-generate-btn."""
+        result = create_ollama_panel()
         assert component_has_id(result, "ollama-generate-btn")
 
-    def test_create_properties_panel_has_ollama_response(self):
-        """create_properties_panel should include ollama-response textarea."""
-        result = create_properties_panel()
+    def test_create_ollama_panel_has_ollama_response(self):
+        """create_ollama_panel should include ollama-response textarea."""
+        result = create_ollama_panel()
         assert component_has_id(result, "ollama-response")
 
-    def test_create_properties_panel_has_ollama_status(self):
-        """create_properties_panel should include ollama-status."""
-        result = create_properties_panel()
+    def test_create_ollama_panel_has_ollama_status(self):
+        """create_ollama_panel should include ollama-status."""
+        result = create_ollama_panel()
         assert component_has_id(result, "ollama-status")
 
-    def test_create_properties_panel_has_ollama_connection_status(self):
-        """create_properties_panel should include ollama-connection-status."""
-        result = create_properties_panel()
+    def test_create_ollama_panel_has_ollama_connection_status(self):
+        """create_ollama_panel should include ollama-connection-status."""
+        result = create_ollama_panel()
         assert component_has_id(result, "ollama-connection-status")
 
-    def test_create_properties_panel_has_ollama_send_to_description_btn(self):
-        """create_properties_panel should include ollama-send-to-description-btn."""
-        result = create_properties_panel()
+    def test_create_ollama_panel_has_ollama_send_to_description_btn(self):
+        """create_ollama_panel should include ollama-send-to-description-btn."""
+        result = create_ollama_panel()
         assert component_has_id(result, "ollama-send-to-description-btn")
 
-    def test_create_properties_panel_has_ollama_clipboard_feedback(self):
-        """create_properties_panel should include ollama-clipboard-feedback."""
-        result = create_properties_panel()
+    def test_create_ollama_panel_has_ollama_clipboard_feedback(self):
+        """create_ollama_panel should include ollama-clipboard-feedback."""
+        result = create_ollama_panel()
         assert component_has_id(result, "ollama-clipboard-feedback")
 
-    def test_create_properties_panel_ollama_server_default(self):
-        """create_properties_panel ollama-server-url should default to localhost."""
-        result = create_properties_panel()
+    def test_create_ollama_panel_ollama_server_default(self):
+        """create_ollama_panel ollama-server-url should default to localhost."""
+        result = create_ollama_panel()
         server_input = find_component_by_id(result, "ollama-server-url")
         assert server_input.value == "http://localhost:11434"
 
-    def test_create_properties_panel_ollama_system_prompt_has_default(self):
-        """create_properties_panel ollama-system-prompt should have default text."""
-        result = create_properties_panel()
+    def test_create_ollama_panel_ollama_system_prompt_has_default(self):
+        """create_ollama_panel ollama-system-prompt should have default text."""
+        result = create_ollama_panel()
         system_prompt = find_component_by_id(result, "ollama-system-prompt")
         assert "creative writer" in system_prompt.value.lower()
         assert "MUD" in system_prompt.value
 
-    def test_create_properties_panel_ollama_response_readonly(self):
-        """create_properties_panel ollama-response should be read-only."""
-        result = create_properties_panel()
+    def test_create_ollama_panel_ollama_response_readonly(self):
+        """create_ollama_panel ollama-response should be read-only."""
+        result = create_ollama_panel()
         response = find_component_by_id(result, "ollama-response")
         assert response.readOnly is True
 
-    def test_create_properties_panel_has_ollama_clipboard(self):
-        """create_properties_panel should include ollama-clipboard component."""
-        result = create_properties_panel()
+    def test_create_ollama_panel_has_ollama_clipboard(self):
+        """create_ollama_panel should include ollama-clipboard component."""
+        result = create_ollama_panel()
         assert component_has_id(result, "ollama-clipboard")
 
-    def test_create_properties_panel_ollama_connection_default_not_connected(self):
-        """create_properties_panel connection status should default to not connected."""
-        result = create_properties_panel()
+    def test_create_ollama_panel_ollama_connection_default_not_connected(self):
+        """create_ollama_panel connection status should default to not connected."""
+        result = create_ollama_panel()
         connection_status = find_component_by_id(result, "ollama-connection-status")
         # Check the children contain "Not connected" text
         assert connection_status is not None
+
+    def test_create_ollama_panel_has_template_dropdown(self):
+        """create_ollama_panel should include ollama-template-dropdown."""
+        result = create_ollama_panel()
+        assert component_has_id(result, "ollama-template-dropdown")
+
+    def test_create_ollama_panel_has_system_prompt_collapse(self):
+        """create_ollama_panel should include ollama-system-prompt-collapse."""
+        result = create_ollama_panel()
+        assert component_has_id(result, "ollama-system-prompt-collapse")
+
+    def test_create_ollama_panel_has_system_prompt_toggle(self):
+        """create_ollama_panel should include ollama-system-prompt-toggle."""
+        result = create_ollama_panel()
+        assert component_has_id(result, "ollama-system-prompt-toggle")
+
+    def test_create_ollama_panel_has_copy_system_prompt_btn(self):
+        """create_ollama_panel should include ollama-copy-system-prompt-btn."""
+        result = create_ollama_panel()
+        assert component_has_id(result, "ollama-copy-system-prompt-btn")
+
+    def test_create_ollama_panel_has_header(self):
+        """create_ollama_panel should have 'LLM Assistant' header."""
+        result = create_ollama_panel()
+        assert isinstance(result.children[0], dbc.CardHeader)
+        header_content = str(result.children[0].children)
+        assert "LLM Assistant" in header_content
+
+    # =========================================================================
+    # Parameters Section Tests
+    # =========================================================================
+
+    def test_create_ollama_panel_has_params_toggle(self):
+        """create_ollama_panel should include ollama-params-toggle button."""
+        result = create_ollama_panel()
+        assert component_has_id(result, "ollama-params-toggle")
+
+    def test_create_ollama_panel_has_params_chevron(self):
+        """create_ollama_panel should include ollama-params-chevron icon."""
+        result = create_ollama_panel()
+        assert component_has_id(result, "ollama-params-chevron")
+
+    def test_create_ollama_panel_has_params_collapse(self):
+        """create_ollama_panel should include ollama-params-collapse section."""
+        result = create_ollama_panel()
+        assert component_has_id(result, "ollama-params-collapse")
+
+    def test_create_ollama_panel_params_collapse_hidden_by_default(self):
+        """create_ollama_panel params-collapse should be hidden (is_open=False) by default."""
+        result = create_ollama_panel()
+        collapse = find_component_by_id(result, "ollama-params-collapse")
+        assert collapse.is_open is False
+
+    # =========================================================================
+    # Seed Control Tests
+    # =========================================================================
+
+    def test_create_ollama_panel_has_seed_value_input(self):
+        """create_ollama_panel should include ollama-seed-value input."""
+        result = create_ollama_panel()
+        assert component_has_id(result, "ollama-seed-value")
+
+    def test_create_ollama_panel_has_seed_decrease_button(self):
+        """create_ollama_panel should include ollama-seed-decrease button."""
+        result = create_ollama_panel()
+        assert component_has_id(result, "ollama-seed-decrease")
+
+    def test_create_ollama_panel_has_seed_increase_button(self):
+        """create_ollama_panel should include ollama-seed-increase button."""
+        result = create_ollama_panel()
+        assert component_has_id(result, "ollama-seed-increase")
+
+    def test_create_ollama_panel_has_seed_random_checkbox(self):
+        """create_ollama_panel should include ollama-seed-random-check checkbox."""
+        result = create_ollama_panel()
+        assert component_has_id(result, "ollama-seed-random-check")
+
+    def test_create_ollama_panel_seed_default_minus_one(self):
+        """create_ollama_panel seed value should default to -1 (random)."""
+        result = create_ollama_panel()
+        seed_input = find_component_by_id(result, "ollama-seed-value")
+        assert seed_input.value == -1
+
+    def test_create_ollama_panel_seed_random_checked_by_default(self):
+        """create_ollama_panel random checkbox should be checked by default."""
+        result = create_ollama_panel()
+        random_check = find_component_by_id(result, "ollama-seed-random-check")
+        assert random_check.value is True
+
+    # =========================================================================
+    # Model Parameter Tests
+    # =========================================================================
+
+    def test_create_ollama_panel_has_temperature_input(self):
+        """create_ollama_panel should include ollama-temperature input."""
+        result = create_ollama_panel()
+        assert component_has_id(result, "ollama-temperature")
+
+    def test_create_ollama_panel_has_top_k_input(self):
+        """create_ollama_panel should include ollama-top-k input."""
+        result = create_ollama_panel()
+        assert component_has_id(result, "ollama-top-k")
+
+    def test_create_ollama_panel_has_top_p_input(self):
+        """create_ollama_panel should include ollama-top-p input."""
+        result = create_ollama_panel()
+        assert component_has_id(result, "ollama-top-p")
+
+    def test_create_ollama_panel_has_num_ctx_input(self):
+        """create_ollama_panel should include ollama-num-ctx input."""
+        result = create_ollama_panel()
+        assert component_has_id(result, "ollama-num-ctx")
+
+    def test_create_ollama_panel_has_num_predict_input(self):
+        """create_ollama_panel should include ollama-num-predict input."""
+        result = create_ollama_panel()
+        assert component_has_id(result, "ollama-num-predict")
+
+    def test_create_ollama_panel_temperature_default(self):
+        """create_ollama_panel temperature should default to 0.7."""
+        result = create_ollama_panel()
+        temp_input = find_component_by_id(result, "ollama-temperature")
+        assert temp_input.value == 0.7
+
+    def test_create_ollama_panel_top_k_default(self):
+        """create_ollama_panel top_k should default to 40."""
+        result = create_ollama_panel()
+        top_k_input = find_component_by_id(result, "ollama-top-k")
+        assert top_k_input.value == 40
+
+    def test_create_ollama_panel_top_p_default(self):
+        """create_ollama_panel top_p should default to 0.9."""
+        result = create_ollama_panel()
+        top_p_input = find_component_by_id(result, "ollama-top-p")
+        assert top_p_input.value == 0.9
+
+    def test_create_ollama_panel_num_ctx_default(self):
+        """create_ollama_panel num_ctx should default to 4096."""
+        result = create_ollama_panel()
+        num_ctx_input = find_component_by_id(result, "ollama-num-ctx")
+        assert num_ctx_input.value == 4096
+
+    def test_create_ollama_panel_num_predict_default(self):
+        """create_ollama_panel num_predict should default to 512."""
+        result = create_ollama_panel()
+        num_predict_input = find_component_by_id(result, "ollama-num-predict")
+        assert num_predict_input.value == 512
+
+    def test_create_ollama_panel_temperature_has_min_max(self):
+        """create_ollama_panel temperature input should have min/max constraints."""
+        result = create_ollama_panel()
+        temp_input = find_component_by_id(result, "ollama-temperature")
+        assert temp_input.min == 0.0
+        assert temp_input.max == 2.0
+
+    def test_create_ollama_panel_top_k_has_min_max(self):
+        """create_ollama_panel top_k input should have min/max constraints."""
+        result = create_ollama_panel()
+        top_k_input = find_component_by_id(result, "ollama-top-k")
+        assert top_k_input.min == 1
+        assert top_k_input.max == 100
+
+    def test_create_ollama_panel_top_p_has_min_max(self):
+        """create_ollama_panel top_p input should have min/max constraints."""
+        result = create_ollama_panel()
+        top_p_input = find_component_by_id(result, "ollama-top-p")
+        assert top_p_input.min == 0.0
+        assert top_p_input.max == 1.0
+
+    def test_create_ollama_panel_num_ctx_has_min_max(self):
+        """create_ollama_panel num_ctx input should have min/max constraints."""
+        result = create_ollama_panel()
+        num_ctx_input = find_component_by_id(result, "ollama-num-ctx")
+        assert num_ctx_input.min == 512
+        assert num_ctx_input.max == 8192
+
+    def test_create_ollama_panel_num_predict_has_min_max(self):
+        """create_ollama_panel num_predict input should have min/max constraints."""
+        result = create_ollama_panel()
+        num_predict_input = find_component_by_id(result, "ollama-num-predict")
+        assert num_predict_input.min == 64
+        assert num_predict_input.max == 2048
 
 
 # =============================================================================
@@ -721,6 +918,21 @@ class TestLayoutIntegration:
             "ollama-send-to-description-btn",
             "ollama-clipboard",
             "ollama-clipboard-feedback",
+            # Parameters section IDs
+            "ollama-params-toggle",
+            "ollama-params-chevron",
+            "ollama-params-collapse",
+            # Seed control IDs
+            "ollama-seed-value",
+            "ollama-seed-decrease",
+            "ollama-seed-increase",
+            "ollama-seed-random-check",
+            # Model parameter IDs
+            "ollama-temperature",
+            "ollama-top-k",
+            "ollama-top-p",
+            "ollama-num-ctx",
+            "ollama-num-predict",
         ]
         for id_ in ollama_callback_ids:
             assert id_ in ids, f"Missing ID for ollama callbacks: {id_}"
@@ -768,8 +980,9 @@ class TestLayoutIntegration:
         result = create_app_layout()
         ids = get_all_component_ids(result)
 
-        # Should have at least 41 IDs (all the stores, inputs, buttons, plus Ollama)
-        assert len(ids) >= 41, f"Only found {len(ids)} IDs, expected at least 41"
+        # Should have at least 54 IDs (all the stores, inputs, buttons, plus Ollama
+        # with new parameters section: +13 new IDs for params, seed, and model params)
+        assert len(ids) >= 54, f"Only found {len(ids)} IDs, expected at least 54"
 
     def test_store_components_are_dcc_store(self):
         """All store components should be dcc.Store instances."""

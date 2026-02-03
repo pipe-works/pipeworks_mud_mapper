@@ -27,6 +27,7 @@ See Also
 
 import json
 import tempfile
+from datetime import UTC
 from pathlib import Path
 
 import pytest
@@ -198,6 +199,97 @@ class TestZoneService:
 
         content = json.loads(zone_path.read_text())
         assert content["rooms"]["spawn"]["exits"]["north"] == "hallway"
+
+    def test_export_zone_strips_llm_generation(self, simple_map_file, temp_dir):
+        """export_zone should strip llm_generation metadata.
+
+        LLM generation metadata (model, seed, prompts, etc.) is authoring
+        scaffolding that supports map creation but shouldn't be included
+        in the game truth file consumed by the MUD server.
+
+        This follows the same pattern as coordinates - useful for authoring,
+        but not part of the final game state.
+        """
+        from datetime import datetime
+
+        from pipeworks_mud_mapper.models import OllamaGenerationInfo
+
+        # Add llm_generation metadata to the spawn room
+        gen_info = OllamaGenerationInfo(
+            model="gemma2:2b",
+            actual_seed=12345,
+            template_id="ledgerfall_goblin",
+            temperature=0.7,
+            top_k=40,
+            top_p=0.9,
+            num_ctx=4096,
+            num_predict=512,
+            system_prompt="You are a creative writer...",
+            user_prompt="Describe a quiet alley",
+            generated_at=datetime(2024, 1, 15, 10, 30, 0, tzinfo=UTC),
+        )
+        simple_map_file.rooms["spawn"].llm_generation = gen_info
+
+        # Verify llm_generation is set before export
+        assert simple_map_file.rooms["spawn"].llm_generation is not None
+
+        # Export to zone file
+        zone_path = temp_dir / "zones" / "test.json"
+        export_zone(simple_map_file, zone_path)
+        assert zone_path.exists()
+
+        # Read raw JSON to verify no llm_generation
+        content = json.loads(zone_path.read_text())
+        for room_data in content["rooms"].values():
+            assert (
+                "llm_generation" not in room_data
+            ), "llm_generation should be stripped from zone export"
+
+    def test_export_zone_strips_both_coords_and_llm_generation(self, simple_map_file, temp_dir):
+        """export_zone should strip both coords and llm_generation.
+
+        Both fields are authoring scaffolding that should be removed
+        when exporting to the game truth format.
+        """
+        from datetime import datetime
+
+        from pipeworks_mud_mapper.models import OllamaGenerationInfo
+
+        # Add llm_generation to the room
+        gen_info = OllamaGenerationInfo(
+            model="llama3:8b",
+            actual_seed=99999,
+            template_id="__custom__",
+            temperature=0.5,
+            top_k=30,
+            top_p=0.8,
+            num_ctx=2048,
+            num_predict=256,
+            system_prompt="Custom prompt",
+            user_prompt="Describe this room",
+            generated_at=datetime.now(UTC),
+        )
+        simple_map_file.rooms["spawn"].llm_generation = gen_info
+
+        # Verify both are set before export
+        assert simple_map_file.rooms["spawn"].coords is not None
+        assert simple_map_file.rooms["spawn"].llm_generation is not None
+
+        # Export to zone file
+        zone_path = temp_dir / "test.json"
+        export_zone(simple_map_file, zone_path)
+
+        # Read raw JSON
+        content = json.loads(zone_path.read_text())
+        spawn_data = content["rooms"]["spawn"]
+
+        # Both should be stripped
+        assert "coords" not in spawn_data
+        assert "llm_generation" not in spawn_data
+
+        # But other fields should be preserved
+        assert spawn_data["id"] == "spawn"
+        assert spawn_data["name"] == "Spawn Room"
 
     def test_load_zone_file_adds_default_coords(self, temp_dir):
         """load_map_file on a zone file should add default coords."""

@@ -2,7 +2,7 @@
 
 This module tests the Ollama callbacks that handle communication with
 a local Ollama server for generating room descriptions, including
-the template-based system prompt system.
+the template-based system prompt system and model parameters.
 
 Test Organization
 -----------------
@@ -10,13 +10,17 @@ Tests are grouped by callback function:
 
 - **TestRefreshOllamaModels**: Model list fetching from server
 - **TestGenerateDescription**: LLM text generation via /api/chat
+- **TestGenerateDescriptionWithParameters**: LLM generation with model parameters
 - **TestSendToDescription**: Sending response to room description
 - **TestHandleClipboardCopy**: Clipboard feedback handling
 - **TestPopulatePromptFromDescription**: Populating prompt from room description
 - **TestLoadTemplateOptions**: Template dropdown population
 - **TestHandleTemplateSelection**: Template selection and compilation
 - **TestToggleSystemPromptCollapse**: System prompt collapse toggle
+- **TestToggleParamsCollapse**: Parameters section collapse toggle
+- **TestHandleSeedControls**: Seed control interactions
 - **TestCopySystemPrompt**: System prompt clipboard feedback
+- **TestSeedIsolation**: Verifies seed doesn't affect global random state
 
 Design Notes
 ------------
@@ -28,12 +32,24 @@ Ollama server. We test:
 - HTTP errors (4xx, 5xx)
 - Edge cases (empty responses, missing data)
 - Template loading, compilation, and UI state management
+- Model parameters (seed, temperature, top_k, top_p, num_ctx, num_predict)
+- Seed isolation (critical for determinism in other parts of the app)
 
 API Migration
 -------------
 The generate_description callback uses Ollama's ``/api/chat`` endpoint
 instead of ``/api/generate`` for proper system/user message separation.
 Tests verify the messages array format with distinct roles.
+
+Parameter Testing
+-----------------
+The generate_description callback accepts model parameters that control
+LLM behavior. Tests verify:
+
+- Parameters are passed correctly in the options dict
+- Default values are used when parameters are None
+- Seed handling: -1 triggers random seed using isolated RNG
+- Random seed generation doesn't poison global random state
 
 See Also
 --------
@@ -42,6 +58,7 @@ See Also
 - ``test_template_service.py``: Tests for template loading/compilation
 """
 
+import random
 from unittest.mock import MagicMock, patch
 
 import httpx
@@ -52,12 +69,22 @@ from pipeworks_mud_mapper.callbacks.ollama_callbacks import (
     copy_system_prompt,
     generate_description,
     handle_clipboard_copy,
+    handle_seed_controls,
     handle_template_selection,
     load_template_options,
     populate_prompt_from_description,
     refresh_ollama_models,
     send_to_description,
+    toggle_params_collapse,
     toggle_system_prompt_collapse,
+)
+from pipeworks_mud_mapper.layout.ollama_panel import (
+    DEFAULT_NUM_CTX,
+    DEFAULT_NUM_PREDICT,
+    DEFAULT_SEED,
+    DEFAULT_TEMPERATURE,
+    DEFAULT_TOP_K,
+    DEFAULT_TOP_P,
 )
 
 # =============================================================================
@@ -263,7 +290,11 @@ class TestRefreshOllamaModels:
 
 
 class TestGenerateDescription:
-    """Tests for the generate_description callback."""
+    """Tests for the generate_description callback.
+
+    Note: These tests use default parameter values. For tests specifically
+    targeting parameter handling, see TestGenerateDescriptionWithParameters.
+    """
 
     def test_no_clicks_returns_no_update(self):
         """Should return no_update when button not clicked."""
@@ -273,56 +304,96 @@ class TestGenerateDescription:
             model="llama3.2:latest",
             system_prompt="You are helpful.",
             user_prompt="Describe a room.",
+            seed=DEFAULT_SEED,
+            temperature=DEFAULT_TEMPERATURE,
+            top_k=DEFAULT_TOP_K,
+            top_p=DEFAULT_TOP_P,
+            num_ctx=DEFAULT_NUM_CTX,
+            num_predict=DEFAULT_NUM_PREDICT,
+            template_id="__custom__",
         )
-        assert result == (no_update, no_update)
+        # Now returns 3 values: (response, status, generation_info)
+        assert result == (no_update, no_update, no_update)
 
     def test_empty_server_url(self):
         """Should return warning when server URL is empty."""
-        response, status = generate_description(
+        response, status, gen_info = generate_description(
             n_clicks=1,
             server_url="",
             model="llama3.2:latest",
             system_prompt="You are helpful.",
             user_prompt="Describe a room.",
+            seed=DEFAULT_SEED,
+            temperature=DEFAULT_TEMPERATURE,
+            top_k=DEFAULT_TOP_K,
+            top_p=DEFAULT_TOP_P,
+            num_ctx=DEFAULT_NUM_CTX,
+            num_predict=DEFAULT_NUM_PREDICT,
+            template_id="__custom__",
         )
         assert response == ""
         assert "Please enter a server URL" in str(status)
+        assert gen_info is None  # No metadata on validation error
 
     def test_no_model_selected(self):
         """Should return warning when no model selected."""
-        response, status = generate_description(
+        response, status, gen_info = generate_description(
             n_clicks=1,
             server_url="http://localhost:11434",
             model=None,
             system_prompt="You are helpful.",
             user_prompt="Describe a room.",
+            seed=DEFAULT_SEED,
+            temperature=DEFAULT_TEMPERATURE,
+            top_k=DEFAULT_TOP_K,
+            top_p=DEFAULT_TOP_P,
+            num_ctx=DEFAULT_NUM_CTX,
+            num_predict=DEFAULT_NUM_PREDICT,
+            template_id="__custom__",
         )
         assert response == ""
         assert "Please select a model" in str(status)
+        assert gen_info is None
 
     def test_empty_model_selected(self):
         """Should return warning when model is empty string."""
-        response, status = generate_description(
+        response, status, gen_info = generate_description(
             n_clicks=1,
             server_url="http://localhost:11434",
             model="",
             system_prompt="You are helpful.",
             user_prompt="Describe a room.",
+            seed=DEFAULT_SEED,
+            temperature=DEFAULT_TEMPERATURE,
+            top_k=DEFAULT_TOP_K,
+            top_p=DEFAULT_TOP_P,
+            num_ctx=DEFAULT_NUM_CTX,
+            num_predict=DEFAULT_NUM_PREDICT,
+            template_id="__custom__",
         )
         assert response == ""
         assert "Please select a model" in str(status)
+        assert gen_info is None
 
     def test_empty_user_prompt(self):
         """Should return warning when user prompt is empty."""
-        response, status = generate_description(
+        response, status, gen_info = generate_description(
             n_clicks=1,
             server_url="http://localhost:11434",
             model="llama3.2:latest",
             system_prompt="You are helpful.",
             user_prompt="",
+            seed=DEFAULT_SEED,
+            temperature=DEFAULT_TEMPERATURE,
+            top_k=DEFAULT_TOP_K,
+            top_p=DEFAULT_TOP_P,
+            num_ctx=DEFAULT_NUM_CTX,
+            num_predict=DEFAULT_NUM_PREDICT,
+            template_id="__custom__",
         )
         assert response == ""
         assert "Please enter a user prompt" in str(status)
+        assert gen_info is None
 
     def test_successful_generation(self, mock_chat_response):
         """Should return generated text on successful API call."""
@@ -333,16 +404,28 @@ class TestGenerateDescription:
         with patch("pipeworks_mud_mapper.callbacks.ollama_callbacks.httpx.Client") as mock_client:
             mock_client.return_value.__enter__.return_value.post.return_value = mock_response
 
-            response, status = generate_description(
+            response, status, gen_info = generate_description(
                 n_clicks=1,
                 server_url="http://localhost:11434",
                 model="llama3.2:latest",
                 system_prompt="You are a creative writer.",
                 user_prompt="Describe a medieval hall.",
+                seed=42,  # Fixed seed for reproducibility
+                temperature=DEFAULT_TEMPERATURE,
+                top_k=DEFAULT_TOP_K,
+                top_p=DEFAULT_TOP_P,
+                num_ctx=DEFAULT_NUM_CTX,
+                num_predict=DEFAULT_NUM_PREDICT,
+                template_id="__custom__",
             )
 
         assert "ancient stone hall" in response
         assert "Generated successfully" in str(status)
+        # Verify metadata is returned on success
+        assert gen_info is not None
+        assert gen_info["model"] == "llama3.2:latest"
+        assert gen_info["actual_seed"] == 42
+        assert gen_info["template_id"] == "__custom__"
 
     def test_generation_without_system_prompt(self, mock_chat_response):
         """Should work without a system prompt using /api/chat."""
@@ -354,12 +437,19 @@ class TestGenerateDescription:
             mock_instance = mock_client.return_value.__enter__.return_value
             mock_instance.post.return_value = mock_response
 
-            response, status = generate_description(
+            response, status, gen_info = generate_description(
                 n_clicks=1,
                 server_url="http://localhost:11434",
                 model="llama3.2:latest",
                 system_prompt="",  # No system prompt
                 user_prompt="Describe a medieval hall.",
+                seed=42,
+                temperature=DEFAULT_TEMPERATURE,
+                top_k=DEFAULT_TOP_K,
+                top_p=DEFAULT_TOP_P,
+                num_ctx=DEFAULT_NUM_CTX,
+                num_predict=DEFAULT_NUM_PREDICT,
+                template_id="__custom__",
             )
 
         assert response != ""
@@ -370,6 +460,9 @@ class TestGenerateDescription:
         assert len(sent_json["messages"]) == 1
         assert sent_json["messages"][0]["role"] == "user"
         assert sent_json["messages"][0]["content"] == "Describe a medieval hall."
+        # Verify metadata is returned
+        assert gen_info is not None
+        assert gen_info["system_prompt"] == ""
 
     def test_generation_with_system_prompt(self, mock_chat_response):
         """Should send system and user messages separately via /api/chat."""
@@ -381,12 +474,19 @@ class TestGenerateDescription:
             mock_instance = mock_client.return_value.__enter__.return_value
             mock_instance.post.return_value = mock_response
 
-            generate_description(
+            response, status, gen_info = generate_description(
                 n_clicks=1,
                 server_url="http://localhost:11434",
                 model="llama3.2:latest",
                 system_prompt="Be creative.",
                 user_prompt="Describe a hall.",
+                seed=42,
+                temperature=DEFAULT_TEMPERATURE,
+                top_k=DEFAULT_TOP_K,
+                top_p=DEFAULT_TOP_P,
+                num_ctx=DEFAULT_NUM_CTX,
+                num_predict=DEFAULT_NUM_PREDICT,
+                template_id="ledgerfall_goblin",
             )
 
         # Verify messages array has both system and user messages
@@ -398,6 +498,9 @@ class TestGenerateDescription:
         assert sent_json["messages"][0]["content"] == "Be creative."
         assert sent_json["messages"][1]["role"] == "user"
         assert sent_json["messages"][1]["content"] == "Describe a hall."
+        # Verify metadata captures template_id
+        assert gen_info["template_id"] == "ledgerfall_goblin"
+        assert gen_info["system_prompt"] == "Be creative."
 
     def test_empty_response_from_model(self):
         """Should handle empty response from model via /api/chat."""
@@ -409,16 +512,24 @@ class TestGenerateDescription:
         with patch("pipeworks_mud_mapper.callbacks.ollama_callbacks.httpx.Client") as mock_client:
             mock_client.return_value.__enter__.return_value.post.return_value = mock_response
 
-            response, status = generate_description(
+            response, status, gen_info = generate_description(
                 n_clicks=1,
                 server_url="http://localhost:11434",
                 model="llama3.2:latest",
                 system_prompt="",
                 user_prompt="Describe a room.",
+                seed=42,
+                temperature=DEFAULT_TEMPERATURE,
+                top_k=DEFAULT_TOP_K,
+                top_p=DEFAULT_TOP_P,
+                num_ctx=DEFAULT_NUM_CTX,
+                num_predict=DEFAULT_NUM_PREDICT,
+                template_id="__custom__",
             )
 
         assert response == ""
         assert "Empty response" in str(status)
+        assert gen_info is None  # No metadata on empty response
 
     def test_connection_error(self):
         """Should handle connection refused error."""
@@ -427,16 +538,24 @@ class TestGenerateDescription:
                 "Connection refused"
             )
 
-            response, status = generate_description(
+            response, status, gen_info = generate_description(
                 n_clicks=1,
                 server_url="http://localhost:11434",
                 model="llama3.2:latest",
                 system_prompt="",
                 user_prompt="Describe a room.",
+                seed=42,
+                temperature=DEFAULT_TEMPERATURE,
+                top_k=DEFAULT_TOP_K,
+                top_p=DEFAULT_TOP_P,
+                num_ctx=DEFAULT_NUM_CTX,
+                num_predict=DEFAULT_NUM_PREDICT,
+                template_id="__custom__",
             )
 
         assert response == ""
         assert "Cannot connect to server" in str(status)
+        assert gen_info is None  # No metadata on error
 
     def test_timeout_error(self):
         """Should handle request timeout."""
@@ -445,16 +564,24 @@ class TestGenerateDescription:
                 httpx.TimeoutException("Request timed out")
             )
 
-            response, status = generate_description(
+            response, status, gen_info = generate_description(
                 n_clicks=1,
                 server_url="http://localhost:11434",
                 model="llama3.2:latest",
                 system_prompt="",
                 user_prompt="Describe a room.",
+                seed=42,
+                temperature=DEFAULT_TEMPERATURE,
+                top_k=DEFAULT_TOP_K,
+                top_p=DEFAULT_TOP_P,
+                num_ctx=DEFAULT_NUM_CTX,
+                num_predict=DEFAULT_NUM_PREDICT,
+                template_id="__custom__",
             )
 
         assert response == ""
         assert "Request timed out" in str(status)
+        assert gen_info is None
 
     def test_http_status_error(self):
         """Should handle HTTP error responses."""
@@ -466,16 +593,24 @@ class TestGenerateDescription:
                 httpx.HTTPStatusError("Not found", request=MagicMock(), response=mock_response)
             )
 
-            response, status = generate_description(
+            response, status, gen_info = generate_description(
                 n_clicks=1,
                 server_url="http://localhost:11434",
                 model="nonexistent:model",
                 system_prompt="",
                 user_prompt="Describe a room.",
+                seed=42,
+                temperature=DEFAULT_TEMPERATURE,
+                top_k=DEFAULT_TOP_K,
+                top_p=DEFAULT_TOP_P,
+                num_ctx=DEFAULT_NUM_CTX,
+                num_predict=DEFAULT_NUM_PREDICT,
+                template_id="__custom__",
             )
 
         assert response == ""
         assert "Server error: 404" in str(status)
+        assert gen_info is None
 
 
 # =============================================================================
@@ -506,6 +641,23 @@ class TestSendToDescription:
             "items": {},
         }
 
+    @pytest.fixture
+    def sample_generation_info(self):
+        """Create sample generation metadata for testing."""
+        return {
+            "model": "llama3.2:latest",
+            "actual_seed": 12345,
+            "template_id": "__custom__",
+            "temperature": 0.7,
+            "top_k": 40,
+            "top_p": 0.9,
+            "num_ctx": 4096,
+            "num_predict": 512,
+            "system_prompt": "You are a creative writer.",
+            "user_prompt": "Describe a room.",
+            "generated_at": "2024-01-15T10:30:00+00:00",
+        }
+
     def test_no_clicks_returns_no_update(self, sample_zone_data):
         """Should return no_update when button not clicked."""
         result = send_to_description(
@@ -513,6 +665,7 @@ class TestSendToDescription:
             response_text="Some text",
             selected_room="spawn",
             zone_data=sample_zone_data,
+            generation_info=None,
         )
         assert result == (no_update, no_update, no_update, no_update)
 
@@ -523,6 +676,7 @@ class TestSendToDescription:
             response_text="Some text",
             selected_room="spawn",
             zone_data=sample_zone_data,
+            generation_info=None,
         )
         assert result == (no_update, no_update, no_update, no_update)
 
@@ -533,6 +687,7 @@ class TestSendToDescription:
             response_text="",
             selected_room="spawn",
             zone_data=sample_zone_data,
+            generation_info=None,
         )
         assert description is no_update
         assert zone is no_update
@@ -546,6 +701,7 @@ class TestSendToDescription:
             response_text=None,
             selected_room="spawn",
             zone_data=sample_zone_data,
+            generation_info=None,
         )
         assert description is no_update
         assert "Nothing to send" in str(status)
@@ -558,6 +714,7 @@ class TestSendToDescription:
             response_text=test_text,
             selected_room=None,
             zone_data=None,
+            generation_info=None,
         )
         assert description == test_text
         assert zone is no_update
@@ -572,6 +729,7 @@ class TestSendToDescription:
             response_text=test_text,
             selected_room="spawn",
             zone_data=sample_zone_data,
+            generation_info=None,
         )
         assert description == test_text
         assert zone is not no_update
@@ -587,6 +745,7 @@ class TestSendToDescription:
             response_text=test_text,
             selected_room="nonexistent",
             zone_data=sample_zone_data,
+            generation_info=None,
         )
         assert description == test_text
         assert zone is no_update
@@ -602,12 +761,59 @@ class TestSendToDescription:
             response_text=test_text,
             selected_room="spawn",
             zone_data=sample_zone_data,
+            generation_info=None,
         )
 
         # Original should be unchanged
         assert sample_zone_data["rooms"]["spawn"]["description"] == original_description
         # New zone should have updated description
         assert zone["rooms"]["spawn"]["description"] == test_text
+
+    def test_stores_generation_metadata(self, sample_zone_data, sample_generation_info):
+        """Should store llm_generation metadata when provided.
+
+        When a room description is applied, the generation metadata should
+        be attached to the room for provenance tracking and reproducibility.
+        """
+        test_text = "A generated description."
+        description, zone, unsaved, status = send_to_description(
+            n_clicks=1,
+            response_text=test_text,
+            selected_room="spawn",
+            zone_data=sample_zone_data,
+            generation_info=sample_generation_info,
+        )
+
+        # Verify metadata is stored
+        assert zone["rooms"]["spawn"]["llm_generation"] is not None
+        assert zone["rooms"]["spawn"]["llm_generation"]["model"] == "llama3.2:latest"
+        assert zone["rooms"]["spawn"]["llm_generation"]["actual_seed"] == 12345
+        assert zone["rooms"]["spawn"]["llm_generation"]["template_id"] == "__custom__"
+
+    def test_clears_metadata_when_none(self, sample_zone_data):
+        """Should clear llm_generation when no metadata provided.
+
+        If the user edits the response manually or metadata is unavailable,
+        any existing llm_generation should be cleared since it no longer
+        accurately describes the description.
+        """
+        # First add some existing metadata to the room
+        sample_zone_data["rooms"]["spawn"]["llm_generation"] = {
+            "model": "old_model",
+            "actual_seed": 99999,
+        }
+
+        test_text = "Manually edited description."
+        description, zone, unsaved, status = send_to_description(
+            n_clicks=1,
+            response_text=test_text,
+            selected_room="spawn",
+            zone_data=sample_zone_data,
+            generation_info=None,  # No metadata
+        )
+
+        # Existing metadata should be cleared
+        assert "llm_generation" not in zone["rooms"]["spawn"]
 
 
 # =============================================================================
@@ -677,15 +883,23 @@ class TestOllamaIntegration:
         with patch("pipeworks_mud_mapper.callbacks.ollama_callbacks.httpx.Client") as mock_client:
             mock_client.return_value.__enter__.return_value.post.return_value = mock_gen_response
 
-            response, status = generate_description(
+            response, status, gen_info = generate_description(
                 n_clicks=1,
                 server_url="http://localhost:11434",
                 model=selected_model,
                 system_prompt="You are a creative writer.",
                 user_prompt="Describe a dark dungeon.",
+                seed=42,
+                temperature=DEFAULT_TEMPERATURE,
+                top_k=DEFAULT_TOP_K,
+                top_p=DEFAULT_TOP_P,
+                num_ctx=DEFAULT_NUM_CTX,
+                num_predict=DEFAULT_NUM_PREDICT,
+                template_id="__custom__",
             )
 
         assert "ancient stone hall" in response
+        assert gen_info is not None
 
     def test_generate_and_send_workflow(self, mock_chat_response):
         """Test workflow: generate text, then send to description."""
@@ -697,12 +911,19 @@ class TestOllamaIntegration:
         with patch("pipeworks_mud_mapper.callbacks.ollama_callbacks.httpx.Client") as mock_client:
             mock_client.return_value.__enter__.return_value.post.return_value = mock_response
 
-            response, status = generate_description(
+            response, status, gen_info = generate_description(
                 n_clicks=1,
                 server_url="http://localhost:11434",
                 model="llama3.2:latest",
                 system_prompt="",
                 user_prompt="Describe a room.",
+                seed=42,
+                temperature=DEFAULT_TEMPERATURE,
+                top_k=DEFAULT_TOP_K,
+                top_p=DEFAULT_TOP_P,
+                num_ctx=DEFAULT_NUM_CTX,
+                num_predict=DEFAULT_NUM_PREDICT,
+                template_id="__custom__",
             )
 
         # Send to description (without room selection - just updates form field)
@@ -711,6 +932,7 @@ class TestOllamaIntegration:
             response_text=response,
             selected_room=None,
             zone_data=None,
+            generation_info=gen_info,
         )
 
         assert description == response
@@ -870,21 +1092,28 @@ class TestHandleTemplateSelection:
 
     This callback compiles the selected template into a system prompt
     and updates the UI state accordingly.
+
+    Note: The callback now returns 5 values (prompt, read_only, is_open, chevron, status).
+    See TestHandleTemplateSelectionNewBehavior for tests of the new collapse behavior.
     """
 
     def test_no_selection_returns_no_update(self):
         """Should return no_update when nothing selected."""
         result = handle_template_selection(template_id=None)
-        assert result == (no_update, no_update, no_update, no_update)
+        assert result == (no_update, no_update, no_update, no_update, no_update)
 
     def test_custom_mode_enables_editing(self):
         """Should enable editing when 'Custom' is selected."""
-        prompt, read_only, is_open, status = handle_template_selection(template_id="__custom__")
+        prompt, read_only, is_open, chevron, status = handle_template_selection(
+            template_id="__custom__"
+        )
 
         # Custom mode should be editable
         assert read_only is False
-        # Collapse should be open
+        # Collapse should be open (custom mode opens for editing)
         assert is_open is True
+        # Chevron should be down (open state)
+        assert "chevron-down" in chevron
         # Should have some prompt text
         assert len(prompt) > 0
         # Status should mention custom mode
@@ -907,14 +1136,16 @@ class TestHandleTemplateSelection:
             mock_load.return_value = mock_template
             mock_compile.return_value = "Compiled system prompt"
 
-            prompt, read_only, is_open, status = handle_template_selection(
+            prompt, read_only, is_open, chevron, status = handle_template_selection(
                 template_id="test_template"
             )
 
         # Template mode should be read-only
         assert read_only is True
-        # Collapse should be open to show the prompt
-        assert is_open is True
+        # Collapse should be CLOSED by default (changed behavior)
+        assert is_open is False
+        # Chevron should be right (closed state)
+        assert "chevron-right" in chevron
         # Should have compiled prompt
         assert prompt == "Compiled system prompt"
 
@@ -923,12 +1154,14 @@ class TestHandleTemplateSelection:
         with patch("pipeworks_mud_mapper.services.template_service.load_template") as mock_load:
             mock_load.return_value = None
 
-            prompt, read_only, is_open, status = handle_template_selection(
+            prompt, read_only, is_open, chevron, status = handle_template_selection(
                 template_id="nonexistent"
             )
 
         # Should not update prompt when template missing
         assert prompt is no_update
+        # Chevron should not update either
+        assert chevron is no_update
         # Status should indicate error
         assert "not found" in str(status).lower()
 
@@ -982,3 +1215,508 @@ class TestCopySystemPrompt:
         """Should show success message when prompt exists."""
         result = copy_system_prompt(n_clicks=1, system_prompt="A valid system prompt")
         assert "copied" in str(result).lower()
+
+
+# =============================================================================
+# Test generate_description with parameters
+# =============================================================================
+
+
+class TestGenerateDescriptionWithParameters:
+    """Tests for generate_description with model parameters.
+
+    These tests verify that model parameters (seed, temperature, top_k,
+    top_p, num_ctx, num_predict) are correctly passed to the Ollama API.
+    """
+
+    @pytest.fixture
+    def mock_chat_response(self):
+        """Create a mock response for /api/chat endpoint."""
+        return {
+            "model": "llama3.2:latest",
+            "message": {
+                "role": "assistant",
+                "content": "A dark chamber with flickering torches.",
+            },
+            "done": True,
+        }
+
+    def test_parameters_passed_to_api(self, mock_chat_response):
+        """Should pass all parameters in the options dict."""
+        mock_response = MagicMock()
+        mock_response.json.return_value = mock_chat_response
+        mock_response.raise_for_status = MagicMock()
+
+        with patch("pipeworks_mud_mapper.callbacks.ollama_callbacks.httpx.Client") as mock_client:
+            mock_instance = mock_client.return_value.__enter__.return_value
+            mock_instance.post.return_value = mock_response
+
+            generate_description(
+                n_clicks=1,
+                server_url="http://localhost:11434",
+                model="llama3.2:latest",
+                system_prompt="Test prompt",
+                user_prompt="Describe a room",
+                seed=42,
+                temperature=0.5,
+                top_k=30,
+                top_p=0.8,
+                num_ctx=2048,
+                num_predict=256,
+                template_id="__custom__",
+            )
+
+        # Verify the API call included options
+        call_args = mock_instance.post.call_args
+        sent_json = call_args[1]["json"]
+        assert "options" in sent_json
+
+        options = sent_json["options"]
+        assert options["seed"] == 42
+        assert options["temperature"] == 0.5
+        assert options["top_k"] == 30
+        assert options["top_p"] == 0.8
+        assert options["num_ctx"] == 2048
+        assert options["num_predict"] == 256
+
+    def test_default_parameters_used_when_none(self, mock_chat_response):
+        """Should use default values when parameters are None."""
+        mock_response = MagicMock()
+        mock_response.json.return_value = mock_chat_response
+        mock_response.raise_for_status = MagicMock()
+
+        with patch("pipeworks_mud_mapper.callbacks.ollama_callbacks.httpx.Client") as mock_client:
+            mock_instance = mock_client.return_value.__enter__.return_value
+            mock_instance.post.return_value = mock_response
+
+            generate_description(
+                n_clicks=1,
+                server_url="http://localhost:11434",
+                model="llama3.2:latest",
+                system_prompt="Test prompt",
+                user_prompt="Describe a room",
+                seed=None,
+                temperature=None,
+                top_k=None,
+                top_p=None,
+                num_ctx=None,
+                num_predict=None,
+                template_id=None,
+            )
+
+        # Verify defaults were used
+        call_args = mock_instance.post.call_args
+        sent_json = call_args[1]["json"]
+        options = sent_json["options"]
+
+        # Seed will be random when DEFAULT_SEED (-1), so just check it's >= 0
+        assert options["seed"] >= 0  # Random seed is always positive
+        assert options["temperature"] == DEFAULT_TEMPERATURE
+        assert options["top_k"] == DEFAULT_TOP_K
+        assert options["top_p"] == DEFAULT_TOP_P
+        assert options["num_ctx"] == DEFAULT_NUM_CTX
+        assert options["num_predict"] == DEFAULT_NUM_PREDICT
+
+    def test_random_seed_generates_positive_value(self, mock_chat_response):
+        """Should generate positive seed when seed is -1."""
+        mock_response = MagicMock()
+        mock_response.json.return_value = mock_chat_response
+        mock_response.raise_for_status = MagicMock()
+
+        with patch("pipeworks_mud_mapper.callbacks.ollama_callbacks.httpx.Client") as mock_client:
+            mock_instance = mock_client.return_value.__enter__.return_value
+            mock_instance.post.return_value = mock_response
+
+            response, status, gen_info = generate_description(
+                n_clicks=1,
+                server_url="http://localhost:11434",
+                model="llama3.2:latest",
+                system_prompt="Test prompt",
+                user_prompt="Describe a room",
+                seed=-1,  # Random mode
+                temperature=0.7,
+                top_k=40,
+                top_p=0.9,
+                num_ctx=4096,
+                num_predict=512,
+                template_id="__custom__",
+            )
+
+        call_args = mock_instance.post.call_args
+        sent_json = call_args[1]["json"]
+        options = sent_json["options"]
+
+        # Random seed should be a positive integer
+        assert options["seed"] >= 0
+        assert options["seed"] < 2**31
+        # Verify metadata captures the actual random seed
+        assert gen_info["actual_seed"] == options["seed"]
+
+    def test_fixed_seed_used_directly(self, mock_chat_response):
+        """Should use fixed seed value when seed >= 0."""
+        mock_response = MagicMock()
+        mock_response.json.return_value = mock_chat_response
+        mock_response.raise_for_status = MagicMock()
+
+        with patch("pipeworks_mud_mapper.callbacks.ollama_callbacks.httpx.Client") as mock_client:
+            mock_instance = mock_client.return_value.__enter__.return_value
+            mock_instance.post.return_value = mock_response
+
+            response, status, gen_info = generate_description(
+                n_clicks=1,
+                server_url="http://localhost:11434",
+                model="llama3.2:latest",
+                system_prompt="Test prompt",
+                user_prompt="Describe a room",
+                seed=12345,  # Fixed seed
+                temperature=0.7,
+                top_k=40,
+                top_p=0.9,
+                num_ctx=4096,
+                num_predict=512,
+                template_id="__custom__",
+            )
+
+        call_args = mock_instance.post.call_args
+        sent_json = call_args[1]["json"]
+        options = sent_json["options"]
+
+        # Fixed seed should be used as-is
+        assert options["seed"] == 12345
+        # Verify metadata captures the seed
+        assert gen_info["actual_seed"] == 12345
+
+    def test_status_shows_seed_info(self, mock_chat_response):
+        """Should show seed info in status message on success."""
+        mock_response = MagicMock()
+        mock_response.json.return_value = mock_chat_response
+        mock_response.raise_for_status = MagicMock()
+
+        with patch("pipeworks_mud_mapper.callbacks.ollama_callbacks.httpx.Client") as mock_client:
+            mock_client.return_value.__enter__.return_value.post.return_value = mock_response
+
+            response, status, gen_info = generate_description(
+                n_clicks=1,
+                server_url="http://localhost:11434",
+                model="llama3.2:latest",
+                system_prompt="Test prompt",
+                user_prompt="Describe a room",
+                seed=42,
+                temperature=0.7,
+                top_k=40,
+                top_p=0.9,
+                num_ctx=4096,
+                num_predict=512,
+                template_id="__custom__",
+            )
+
+        # Status should mention the seed for reproducibility
+        assert "seed" in str(status).lower()
+        assert "42" in str(status)
+
+
+# =============================================================================
+# Test toggle_params_collapse
+# =============================================================================
+
+
+class TestToggleParamsCollapse:
+    """Tests for the toggle_params_collapse callback.
+
+    This callback toggles the parameters section collapse and updates
+    the chevron icon.
+    """
+
+    def test_no_clicks_returns_no_update(self):
+        """Should return no_update when not clicked."""
+        result = toggle_params_collapse(n_clicks=0, is_open=False)
+        assert result == (no_update, no_update)
+
+    def test_toggle_from_closed_to_open(self):
+        """Should open collapse when currently closed."""
+        new_is_open, icon_class = toggle_params_collapse(n_clicks=1, is_open=False)
+        assert new_is_open is True
+        assert "chevron-down" in icon_class
+
+    def test_toggle_from_open_to_closed(self):
+        """Should close collapse when currently open."""
+        new_is_open, icon_class = toggle_params_collapse(n_clicks=1, is_open=True)
+        assert new_is_open is False
+        assert "chevron-right" in icon_class
+
+
+# =============================================================================
+# Test handle_seed_controls
+# =============================================================================
+
+
+class TestHandleSeedControls:
+    """Tests for the handle_seed_controls callback.
+
+    This callback manages interaction between seed value input,
+    +/- buttons, and the random checkbox.
+    """
+
+    def test_random_checkbox_checked_sets_seed_minus_one(self):
+        """Should set seed to -1 when random checkbox is checked."""
+        with patch("pipeworks_mud_mapper.callbacks.ollama_callbacks.ctx") as mock_ctx:
+            mock_ctx.triggered_id = "ollama-seed-random-check"
+
+            seed, random_checked = handle_seed_controls(
+                decrease_clicks=0,
+                increase_clicks=0,
+                random_checked=True,
+                current_seed=42,
+            )
+
+        assert seed == -1
+        assert random_checked is True
+
+    def test_random_checkbox_unchecked_sets_seed_zero(self):
+        """Should set seed to 0 when random checkbox unchecked from -1."""
+        with patch("pipeworks_mud_mapper.callbacks.ollama_callbacks.ctx") as mock_ctx:
+            mock_ctx.triggered_id = "ollama-seed-random-check"
+
+            seed, random_checked = handle_seed_controls(
+                decrease_clicks=0,
+                increase_clicks=0,
+                random_checked=False,
+                current_seed=-1,  # Was in random mode
+            )
+
+        assert seed == 0
+        assert random_checked is False
+
+    def test_random_checkbox_unchecked_keeps_current_seed(self):
+        """Should keep current seed when unchecking if not -1."""
+        with patch("pipeworks_mud_mapper.callbacks.ollama_callbacks.ctx") as mock_ctx:
+            mock_ctx.triggered_id = "ollama-seed-random-check"
+
+            seed, random_checked = handle_seed_controls(
+                decrease_clicks=0,
+                increase_clicks=0,
+                random_checked=False,
+                current_seed=42,  # Already had a valid seed
+            )
+
+        assert seed == 42
+        assert random_checked is False
+
+    def test_increase_button_increments_seed(self):
+        """Should increment seed when + button clicked."""
+        with patch("pipeworks_mud_mapper.callbacks.ollama_callbacks.ctx") as mock_ctx:
+            mock_ctx.triggered_id = "ollama-seed-increase"
+
+            seed, random_checked = handle_seed_controls(
+                decrease_clicks=0,
+                increase_clicks=1,
+                random_checked=False,
+                current_seed=10,
+            )
+
+        assert seed == 11
+        assert random_checked is False
+
+    def test_decrease_button_decrements_seed(self):
+        """Should decrement seed when - button clicked."""
+        with patch("pipeworks_mud_mapper.callbacks.ollama_callbacks.ctx") as mock_ctx:
+            mock_ctx.triggered_id = "ollama-seed-decrease"
+
+            seed, random_checked = handle_seed_controls(
+                decrease_clicks=1,
+                increase_clicks=0,
+                random_checked=False,
+                current_seed=10,
+            )
+
+        assert seed == 9
+        assert random_checked is False
+
+    def test_decrease_button_stops_at_zero(self):
+        """Should not go below 0 when decrementing."""
+        with patch("pipeworks_mud_mapper.callbacks.ollama_callbacks.ctx") as mock_ctx:
+            mock_ctx.triggered_id = "ollama-seed-decrease"
+
+            seed, random_checked = handle_seed_controls(
+                decrease_clicks=1,
+                increase_clicks=0,
+                random_checked=False,
+                current_seed=0,
+            )
+
+        assert seed == 0  # Stays at 0, doesn't go to -1
+        assert random_checked is False
+
+    def test_buttons_ignored_in_random_mode(self):
+        """Should not change seed when in random mode (seed=-1)."""
+        with patch("pipeworks_mud_mapper.callbacks.ollama_callbacks.ctx") as mock_ctx:
+            mock_ctx.triggered_id = "ollama-seed-increase"
+
+            seed, random_checked = handle_seed_controls(
+                decrease_clicks=0,
+                increase_clicks=1,
+                random_checked=True,
+                current_seed=-1,
+            )
+
+        assert seed == -1  # Stays in random mode
+        assert random_checked is True
+
+
+# =============================================================================
+# Test Seed Isolation (Critical for Determinism)
+# =============================================================================
+
+
+class TestSeedIsolation:
+    """Tests verifying that random seed generation doesn't affect global state.
+
+    This is critical because other parts of the application (e.g., name
+    generation, character issuance) rely on deterministic random generation.
+    The Ollama callback must use an ISOLATED Random instance to avoid
+    poisoning the global random state.
+    """
+
+    @pytest.fixture
+    def mock_chat_response(self):
+        """Create a mock response for /api/chat endpoint."""
+        return {
+            "model": "llama3.2:latest",
+            "message": {
+                "role": "assistant",
+                "content": "Generated content.",
+            },
+            "done": True,
+        }
+
+    def test_random_seed_does_not_affect_global_state(self, mock_chat_response):
+        """Generating with seed=-1 should not affect global random state.
+
+        This test verifies that the isolated RNG approach is working:
+        1. Set up a known global random state
+        2. Call generate_description with seed=-1 (triggers random seed)
+        3. Verify the global random state wasn't changed
+        """
+        # Set up a known global random state
+        random.seed(42)
+        expected_values = [random.randint(0, 1000) for _ in range(5)]
+
+        # Reset to the same state
+        random.seed(42)
+
+        # Now call generate_description with random seed
+        mock_response = MagicMock()
+        mock_response.json.return_value = mock_chat_response
+        mock_response.raise_for_status = MagicMock()
+
+        with patch("pipeworks_mud_mapper.callbacks.ollama_callbacks.httpx.Client") as mock_client:
+            mock_client.return_value.__enter__.return_value.post.return_value = mock_response
+
+            generate_description(
+                n_clicks=1,
+                server_url="http://localhost:11434",
+                model="llama3.2:latest",
+                system_prompt="Test",
+                user_prompt="Test",
+                seed=-1,  # Random mode - should use isolated RNG
+                temperature=0.7,
+                top_k=40,
+                top_p=0.9,
+                num_ctx=4096,
+                num_predict=512,
+                template_id="__custom__",
+            )
+
+        # After the call, global random state should still produce expected values
+        actual_values = [random.randint(0, 1000) for _ in range(5)]
+        assert actual_values == expected_values, (
+            "Global random state was modified by generate_description! "
+            "This breaks determinism in other parts of the application."
+        )
+
+    def test_multiple_random_calls_dont_accumulate_state_changes(self, mock_chat_response):
+        """Multiple calls with seed=-1 should not accumulate state changes.
+
+        Even after many calls, the global random state should be unaffected.
+        """
+        # Set up a known global random state
+        random.seed(123)
+        expected_value = random.randint(0, 10000)
+
+        # Reset to the same state
+        random.seed(123)
+
+        # Make multiple calls with random seed
+        mock_response = MagicMock()
+        mock_response.json.return_value = mock_chat_response
+        mock_response.raise_for_status = MagicMock()
+
+        with patch("pipeworks_mud_mapper.callbacks.ollama_callbacks.httpx.Client") as mock_client:
+            mock_client.return_value.__enter__.return_value.post.return_value = mock_response
+
+            for _ in range(10):  # Multiple calls
+                generate_description(
+                    n_clicks=1,
+                    server_url="http://localhost:11434",
+                    model="llama3.2:latest",
+                    system_prompt="Test",
+                    user_prompt="Test",
+                    seed=-1,
+                    temperature=0.7,
+                    top_k=40,
+                    top_p=0.9,
+                    num_ctx=4096,
+                    num_predict=512,
+                    template_id="__custom__",
+                )
+
+        # Global state should still produce expected value
+        actual_value = random.randint(0, 10000)
+        assert actual_value == expected_value
+
+
+# =============================================================================
+# Test handle_template_selection with new behavior
+# =============================================================================
+
+
+class TestHandleTemplateSelectionNewBehavior:
+    """Tests for handle_template_selection with updated collapse behavior.
+
+    The template selection now keeps the system prompt collapse CLOSED
+    by default (changed from previous behavior where it opened).
+    """
+
+    def test_template_selection_keeps_collapse_closed(self):
+        """Should keep system prompt collapse closed when template selected."""
+        mock_template = MagicMock()
+        mock_template.template_name = "Test Template"
+        mock_template.version = "1.0.0"
+        mock_template.theme.name = "Test Realm"
+
+        with (
+            patch("pipeworks_mud_mapper.services.template_service.load_template") as mock_load,
+            patch(
+                "pipeworks_mud_mapper.services.template_service.compile_system_prompt"
+            ) as mock_compile,
+        ):
+            mock_load.return_value = mock_template
+            mock_compile.return_value = "Compiled system prompt"
+
+            prompt, read_only, is_open, chevron, status = handle_template_selection(
+                template_id="test_template"
+            )
+
+        # Template mode should keep collapse CLOSED (is_open=False)
+        assert is_open is False
+        assert "chevron-right" in chevron  # Closed state icon
+
+    def test_custom_mode_opens_collapse(self):
+        """Should open collapse when 'Custom' mode selected."""
+        prompt, read_only, is_open, chevron, status = handle_template_selection(
+            template_id="__custom__"
+        )
+
+        # Custom mode should open collapse for editing
+        assert is_open is True
+        assert "chevron-down" in chevron  # Open state icon

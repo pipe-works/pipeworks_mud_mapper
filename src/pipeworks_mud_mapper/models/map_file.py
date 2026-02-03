@@ -517,20 +517,44 @@ class MapFile(BaseModel):
         """Export to dictionary with coords as lists (legacy format).
 
         This method produces output compatible with the current zone_io
-        functions and existing data files.
+        functions and existing data files. It handles two format conversions:
+
+        1. **Coords as lists**: Converts ``{"x": 0, "y": 0, "z": 0}`` to ``[0, 0, 0]``
+           for backwards compatibility with existing map files.
+
+        2. **Datetime as ISO string**: Uses ``mode="json"`` serialization to convert
+           datetime objects (like ``llm_generation.generated_at``) to ISO 8601 strings.
+           This ensures JSON compatibility when saving map files.
+
+        The ``llm_generation`` field (if present) contains a ``generated_at`` datetime
+        that must be serialized for JSON storage. Using ``mode="json"`` handles this
+        automatically, producing strings like ``"2024-01-15T10:30:00+00:00"``.
 
         Returns
         -------
         dict
-            Map file data with coords as [x, y, z] lists.
+            Map file data with coords as [x, y, z] lists and datetimes as ISO strings.
 
         Examples
         --------
         >>> data = map_file.to_dict_with_list_coords()
         >>> data["rooms"]["spawn"]["coords"]
         [0, 0, 0]
+
+        With llm_generation metadata::
+
+            >>> room_data = data["rooms"]["spawn"]
+            >>> room_data["llm_generation"]["generated_at"]
+            '2024-01-15T10:30:00+00:00'
         """
-        data: dict[str, Any] = self.model_dump()
+        # Use mode="json" to serialize datetime objects as ISO strings.
+        # This is necessary for llm_generation.generated_at to be JSON-compatible.
+        # Without this, datetime objects would cause JSON serialization errors.
+        data: dict[str, Any] = self.model_dump(mode="json")
+
+        # Convert coords from dict format to list format for backwards compatibility.
+        # Pydantic serializes Coords as {"x": 0, "y": 0, "z": 0} but our file format
+        # uses [x, y, z] lists for compactness and readability.
         for room_data in data["rooms"].values():
             if "coords" in room_data and isinstance(room_data["coords"], dict):
                 coords = room_data["coords"]
