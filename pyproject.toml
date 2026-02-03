@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pipeworks-mud-mapper"
-version = "0.1.1"
+version = "0.1.2"
 description = "Procedural MUD world mapping and visualization tool"
 readme = "README.md"
 license = {text = "GPL-3.0-or-later"}

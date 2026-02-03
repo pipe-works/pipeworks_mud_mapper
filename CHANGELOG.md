@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.2](https://github.com/pipe-works/pipeworks_mud_mapper/compare/pipeworks-mud-mapper-v0.1.1...pipeworks-mud-mapper-v0.1.2) (2026-02-03)
+
+
+### Features
+
+* add Ollama template system for LLM room descriptions ([ab9bbe9](https://github.com/pipe-works/pipeworks_mud_mapper/commit/ab9bbe96e9a598a320efb069264d9ec1687ddbc0))
+
 ## [0.1.1](https://github.com/pipe-works/pipeworks_mud_mapper/compare/pipeworks-mud-mapper-v0.1.0...pipeworks-mud-mapper-v0.1.1) (2026-02-03)
 
 
