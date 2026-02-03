@@ -612,7 +612,7 @@ def create_ollama_panel() -> dbc.Card:
                                                             value=DEFAULT_NUM_PREDICT,
                                                             min=30,
                                                             max=2048,
-                                                            step=10,
+                                                            step=1,
                                                             size="sm",
                                                         ),
                                                         html.Small(
