@@ -65,7 +65,7 @@ Component IDs
 - ``ollama-top-k``: Input for top_k (vocabulary filtering, 1-100)
 - ``ollama-top-p``: Input for top_p (nucleus sampling threshold, 0.0-1.0)
 - ``ollama-num-ctx``: Input for num_ctx (context window in tokens, 512-8192)
-- ``ollama-num-predict``: Input for num_predict (max output tokens, 64-2048)
+- ``ollama-num-predict``: Input for num_predict (max output tokens, 30-2048)
 
 **User Prompt and Generation:**
 
@@ -100,7 +100,7 @@ The following default values are used for model parameters:
 +---------------+---------+-----------+----------------------------------------------+
 | num_ctx       | 4096    | 512-8192  | Context window size in tokens                |
 +---------------+---------+-----------+----------------------------------------------+
-| num_predict   | 512     | 64-2048   | Maximum number of tokens to generate         |
+| num_predict   | 512     | 30-2048   | Maximum number of tokens to generate         |
 +---------------+---------+-----------+----------------------------------------------+
 
 See Also
@@ -610,13 +610,13 @@ def create_ollama_panel() -> dbc.Card:
                                                             id="ollama-num-predict",
                                                             type="number",
                                                             value=DEFAULT_NUM_PREDICT,
-                                                            min=64,
+                                                            min=30,
                                                             max=2048,
-                                                            step=64,
+                                                            step=10,
                                                             size="sm",
                                                         ),
                                                         html.Small(
-                                                            "64-2048: Max tokens to generate",
+                                                            "30-2048: Max tokens to generate",
                                                             className="text-muted",
                                                             style={"fontSize": "0.65rem"},
                                                         ),
@@ -648,13 +648,13 @@ def create_ollama_panel() -> dbc.Card:
                                                             id="ollama-target-words",
                                                             type="number",
                                                             value=DEFAULT_TARGET_WORDS,
-                                                            min=50,
+                                                            min=25,
                                                             max=500,
-                                                            step=50,
+                                                            step=5,
                                                             size="sm",
                                                         ),
                                                         html.Small(
-                                                            "50-500: Guides LLM output length",
+                                                            "25-500: Guides LLM output length",
                                                             className="text-muted",
                                                             style={"fontSize": "0.65rem"},
                                                         ),

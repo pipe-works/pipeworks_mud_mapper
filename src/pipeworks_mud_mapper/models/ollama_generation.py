@@ -150,11 +150,11 @@ class OllamaGenerationInfo(BaseModel):
         Limits the length of generated output. Room descriptions typically
         need 100-500 tokens.
 
-        - ``64``: Minimum, very short descriptions
+        - ``30``: Minimum, very short descriptions
         - ``512``: Default, good for room descriptions
         - ``2048``: Maximum, for very long content
 
-        Constraints: Must be in range [64, 2048]
+        Constraints: Must be in range [30, 2048]
 
     system_prompt : str
         The full compiled system prompt used for generation.
@@ -310,14 +310,14 @@ class OllamaGenerationInfo(BaseModel):
 
     num_predict: int = Field(
         ...,
-        ge=64,
+        ge=30,
         le=2048,
         description="Maximum number of tokens to generate",
     )
 
     target_words: int = Field(
         default=300,
-        ge=50,
+        ge=25,
         le=500,
         description="Target word count used in system prompt compilation",
     )
