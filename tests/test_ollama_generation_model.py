@@ -258,10 +258,10 @@ class TestOllamaGenerationInfoValidation:
 
     # num_predict validation tests
     def test_num_predict_minimum(self, valid_generation_info):
-        """num_predict must be >= 64."""
-        valid_generation_info["num_predict"] = 63
+        """num_predict must be >= 30."""
+        valid_generation_info["num_predict"] = 29
 
-        with pytest.raises(ValidationError, match="greater than or equal to 64"):
+        with pytest.raises(ValidationError, match="greater than or equal to 30"):
             OllamaGenerationInfo(**valid_generation_info)
 
     def test_num_predict_maximum(self, valid_generation_info):

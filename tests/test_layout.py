@@ -707,7 +707,7 @@ class TestOllamaPanel:
         """create_ollama_panel num_predict input should have min/max constraints."""
         result = create_ollama_panel()
         num_predict_input = find_component_by_id(result, "ollama-num-predict")
-        assert num_predict_input.min == 64
+        assert num_predict_input.min == 30
         assert num_predict_input.max == 2048
 
 
