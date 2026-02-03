@@ -50,13 +50,13 @@ See Also
 """
 
 from dataclasses import dataclass
-from enum import Enum
+from enum import StrEnum
 
 from pipeworks_mud_mapper.models import Direction, MapFile
 from pipeworks_mud_mapper.models.room import OPPOSITE_DIRECTION
 
 
-class Severity(str, Enum):
+class Severity(StrEnum):
     """Severity level for validation warnings."""
 
     ERROR = "error"

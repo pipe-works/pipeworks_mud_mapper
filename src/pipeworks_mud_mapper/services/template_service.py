@@ -86,6 +86,10 @@ CRAFT OF CONSTRAINT - UNIVERSAL RULES
 6. DESCRIBE THE THRESHOLD, NOT THE DESTINATION
    - You are describing where decisions begin, not where they end
    - The room exists in the present moment, not in possibility
+
+BANNED PHRASES (never use these):
+   "opens onto", "leads to", "beyond", "offering a glimpse",
+   "into the unknown", "promise of", "ahead"
 """.strip()
 
 # =============================================================================
