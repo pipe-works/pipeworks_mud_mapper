@@ -3,8 +3,16 @@ name: CI
 on:
   push:
     branches: [main, 'release-please--*']
+    # Skip CI for data-only changes (maps, validation files)
+    # These are authored content, not code changes
+    paths-ignore:
+      - 'data/maps/**'
+      - 'data/validation/**'
   pull_request:
     branches: [main]
+    paths-ignore:
+      - 'data/maps/**'
+      - 'data/validation/**'
   workflow_dispatch:  # Allow manual/automated triggering
   workflow_call:  # Allow being called by other workflows
 
