@@ -1,0 +1,34 @@
+name: Data-Only CI Status
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'data/maps/**'
+      - 'data/validation/**'
+      - 'data/maps/dev_snapshots/**'
+    paths-ignore:
+      - '.github/**'
+      - 'docs/**'
+      - 'scripts/**'
+      - 'schemas/**'
+      - 'src/**'
+      - 'tests/**'
+      - 'CHANGELOG.md'
+      - 'README.md'
+      - 'AGENTS.md'
+      - 'LICENSE'
+      - 'pyproject.toml'
+      - 'data/ollama/**'
+      - 'data/zones/**'
+
+permissions:
+  contents: read
+
+jobs:
+  data_only_status:
+    name: ci / All Checks Passed
+    runs-on: ubuntu-latest
+    steps:
+      - name: Data-only change
+        run: echo "Data-only change detected; skipping full CI."
