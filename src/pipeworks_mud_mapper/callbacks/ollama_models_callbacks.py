@@ -8,9 +8,7 @@ isolated reduces the size of the main Ollama callback surface.
 import httpx
 from dash import Input, Output, State, callback, html, no_update
 
-from pipeworks_mud_mapper.services.ollama_config import (
-    OLLAMA_MODEL_REFRESH_TIMEOUT_SECONDS,
-)
+from pipeworks_mud_mapper.services import ollama_client
 from pipeworks_mud_mapper.services.ollama_ui import (
     status_error_filled,
     status_ok_filled,
@@ -82,14 +80,8 @@ def refresh_ollama_models(n_clicks: int, server_url: str) -> tuple:
     server_url = server_url.rstrip("/")
 
     try:
-        # Use httpx context manager for proper connection cleanup
-        with httpx.Client(timeout=OLLAMA_MODEL_REFRESH_TIMEOUT_SECONDS) as client:
-            response = client.get(f"{server_url}/api/tags")
-            response.raise_for_status()
-            data = response.json()
-
-        # Extract models list from response
-        models = data.get("models", [])
+        # Fetch the models list from the Ollama server.
+        models = ollama_client.list_models(server_url)
 
         # Handle edge case: Connected but no models installed
         if not models:

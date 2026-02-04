@@ -12,6 +12,7 @@ from datetime import UTC, datetime
 import httpx
 from dash import Input, Output, State, callback, html, no_update
 
+from pipeworks_mud_mapper.services import ollama_client
 from pipeworks_mud_mapper.services.ollama_config import (
     DEFAULT_NUM_CTX,
     DEFAULT_NUM_PREDICT,
@@ -20,7 +21,6 @@ from pipeworks_mud_mapper.services.ollama_config import (
     DEFAULT_TEMPERATURE,
     DEFAULT_TOP_K,
     DEFAULT_TOP_P,
-    OLLAMA_TIMEOUT_SECONDS,
 )
 from pipeworks_mud_mapper.services.ollama_ui import (
     status_error,
@@ -177,31 +177,26 @@ def generate_description(
     # =========================================================================
 
     try:
-        with httpx.Client(timeout=OLLAMA_TIMEOUT_SECONDS) as client:
-            response = client.post(
-                f"{server_url}/api/chat",
-                json={
-                    "model": model,
-                    "messages": messages,
-                    "stream": False,  # Wait for complete response
-                    "options": {
-                        # Seed for reproducibility (actual_seed is always >= 0)
-                        "seed": actual_seed,
-                        # Temperature controls randomness/creativity
-                        "temperature": float(temperature),
-                        # Top-K limits vocabulary to most probable tokens
-                        "top_k": int(top_k),
-                        # Top-P is nucleus sampling threshold
-                        "top_p": float(top_p),
-                        # Context window size (how much the model can "see")
-                        "num_ctx": int(num_ctx),
-                        # Maximum tokens to generate
-                        "num_predict": int(num_predict),
-                    },
-                },
-            )
-            response.raise_for_status()
-            data = response.json()
+        # Delegate the HTTP call to the Ollama client for consistency.
+        data = ollama_client.chat(
+            server_url=server_url,
+            model=model,
+            messages=messages,
+            options={
+                # Seed for reproducibility (actual_seed is always >= 0)
+                "seed": actual_seed,
+                # Temperature controls randomness/creativity
+                "temperature": float(temperature),
+                # Top-K limits vocabulary to most probable tokens
+                "top_k": int(top_k),
+                # Top-P is nucleus sampling threshold
+                "top_p": float(top_p),
+                # Context window size (how much the model can "see")
+                "num_ctx": int(num_ctx),
+                # Maximum tokens to generate
+                "num_predict": int(num_predict),
+            },
+        )
 
         # Extract response from chat format - the assistant's response is
         # nested under data["message"]["content"].
