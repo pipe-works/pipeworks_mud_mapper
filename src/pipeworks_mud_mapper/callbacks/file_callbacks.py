@@ -407,105 +407,57 @@ def handle_file_click(
 
 
 @callback(
-    Output("new-map-modal", "is_open", allow_duplicate=True),
-    Input("new-map-btn", "n_clicks"),
-    prevent_initial_call=True,
-)
-def open_new_map_modal(n_clicks: int) -> bool:
-    """Open the New Map modal when the button is clicked.
-
-    Parameters
-    ----------
-    n_clicks : int
-        Click count for the "New Map" button.
-
-    Returns
-    -------
-    bool
-        True to open the modal.
-    """
-    if n_clicks:
-        return True
-    return False
-
-
-@callback(
-    Output("new-map-modal", "is_open", allow_duplicate=True),
-    Input("new-map-cancel-btn", "n_clicks"),
-    prevent_initial_call=True,
-)
-def close_new_map_modal(n_clicks: int) -> Any:
-    """Close the New Map modal when Cancel is clicked.
-
-    Parameters
-    ----------
-    n_clicks : int
-        Click count for the Cancel button.
-
-    Returns
-    -------
-    bool | no_update
-        False to close the modal, or no_update if not clicked.
-    """
-    if n_clicks:
-        return False
-    return no_update
-
-
-@callback(
     Output("new-map-modal", "is_open"),
     Output("zone-files-store", "data", allow_duplicate=True),
     Output("new-map-feedback", "children"),
     Output("new-zone-id", "value"),
     Output("new-zone-name", "value"),
     Output("new-zone-description", "value"),
+    Input("new-map-btn", "n_clicks"),
+    Input("new-map-cancel-btn", "n_clicks"),
     Input("new-map-create-btn", "n_clicks"),
     State("new-zone-id", "value"),
     State("new-zone-name", "value"),
     State("new-zone-description", "value"),
     prevent_initial_call=True,
 )
-def create_new_map(
-    n_clicks: int,
+def handle_new_map_modal(
+    open_clicks: int,
+    cancel_clicks: int,
+    create_clicks: int,
     zone_id: str,
     zone_name: str,
     description: str,
 ) -> tuple:
-    """Create a new map file when the Create button is clicked.
+    """Open, close, and create new maps from a single modal callback.
 
-    Validates input, creates the map file structure, saves to data/maps/,
-    and refreshes the file list.
-
-    Parameters
-    ----------
-    n_clicks : int
-        Click count for the Create button.
-    zone_id : str
-        Zone ID input value.
-    zone_name : str
-        Zone name input value.
-    description : str
-        Zone description input value.
-
-    Returns
-    -------
-    tuple
-        (modal_open, file_list, feedback, zone_id_val, name_val, desc_val).
-        On success: closes modal, updates list, clears form.
-        On error: keeps modal open, shows feedback alert.
+    This consolidates the previous open/close/create callbacks so only
+    one callback owns the modal state. It routes behavior based on the
+    triggering input and only runs creation logic for the Create button.
     """
-    if not n_clicks:
+    trigger = ctx.triggered_id
+
+    # Open the modal when the "New Map" button is clicked.
+    if trigger == "new-map-btn":
+        return True, no_update, no_update, no_update, no_update, no_update
+
+    # Close the modal when Cancel is clicked.
+    if trigger == "new-map-cancel-btn":
+        return False, no_update, no_update, no_update, no_update, no_update
+
+    # Only the Create button should run creation logic.
+    if trigger != "new-map-create-btn" or not create_clicks:
         return no_update, no_update, no_update, no_update, no_update, no_update
 
-    # Normalize inputs
+    # Normalize inputs to avoid whitespace and casing issues.
     zone_id = (zone_id or "").strip().lower()
     zone_name = (zone_name or "").strip()
     description = (description or "").strip()
 
-    # Validate zone_id
+    # Validate zone_id.
     if not zone_id:
         feedback = dbc.Alert("Zone ID is required.", color="danger", className="mb-0")
-        return no_update, no_update, feedback, no_update, no_update, no_update
+        return True, no_update, feedback, no_update, no_update, no_update
 
     if not re.match(r"^[a-z][a-z0-9_]*$", zone_id):
         feedback = dbc.Alert(
@@ -514,14 +466,14 @@ def create_new_map(
             color="danger",
             className="mb-0",
         )
-        return no_update, no_update, feedback, no_update, no_update, no_update
+        return True, no_update, feedback, no_update, no_update, no_update
 
-    # Validate zone_name
+    # Validate zone_name.
     if not zone_name:
         feedback = dbc.Alert("Zone Name is required.", color="danger", className="mb-0")
-        return no_update, no_update, feedback, no_update, no_update, no_update
+        return True, no_update, feedback, no_update, no_update, no_update
 
-    # Check if file already exists
+    # Check if file already exists.
     file_path = MAPS_DIR / f"{zone_id}.map.json"
     if file_path.exists():
         feedback = dbc.Alert(
@@ -529,9 +481,9 @@ def create_new_map(
             color="warning",
             className="mb-0",
         )
-        return no_update, no_update, feedback, no_update, no_update, no_update
+        return True, no_update, feedback, no_update, no_update, no_update
 
-    # Create and save the map file using zone_service
+    # Create and save the map file using zone_service.
     map_file = zone_service.create_new_map_file(
         zone_id=zone_id,
         name=zone_name,
@@ -540,11 +492,11 @@ def create_new_map(
     )
     zone_service.save_map_file(map_file, file_path)
 
-    # Refresh file list
+    # Refresh file list after creation.
     files = list_map_files(MAPS_DIR)
     file_names = [f.name for f in files]
 
-    # Close modal and clear form
+    # Close modal and clear form on success.
     return False, file_names, "", "", "", ""
 
 

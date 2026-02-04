@@ -44,14 +44,12 @@ from pipeworks_mud_mapper.callbacks.exit_callbacks import handle_exit_changes
 from pipeworks_mud_mapper.callbacks.file_callbacks import (
     _get_cached_map_files,
     _should_throttle_snapshot,
-    close_new_map_modal,
-    create_new_map,
     export_zone_to_file,
     handle_dev_snapshotting,
     handle_file_click,
+    handle_new_map_modal,
     load_dev_snapshot_files_list,
     load_map_files_list,
-    open_new_map_modal,
     render_dev_snapshot_list,
     render_file_list,
     save_map_to_file,
@@ -816,77 +814,113 @@ class TestFileCallbacks:
         )
         assert result == (no_update, no_update, no_update, no_update)
 
-    def test_open_new_map_modal(self):
-        """open_new_map_modal should return True when clicked."""
-        result = open_new_map_modal(n_clicks=1)
-        assert result is True
+    def test_handle_new_map_modal_open(self):
+        """handle_new_map_modal should open when the button is clicked."""
+        with patch("pipeworks_mud_mapper.callbacks.file_callbacks.ctx") as mock_ctx:
+            mock_ctx.triggered_id = "new-map-btn"
+            result = handle_new_map_modal(
+                open_clicks=1,
+                cancel_clicks=0,
+                create_clicks=0,
+                zone_id="",
+                zone_name="",
+                description="",
+            )
 
-    def test_open_new_map_modal_no_click(self):
-        """open_new_map_modal should return False when not clicked."""
-        result = open_new_map_modal(n_clicks=0)
-        assert result is False
+        assert result == (True, no_update, no_update, no_update, no_update, no_update)
 
-    def test_close_new_map_modal(self):
-        """close_new_map_modal should return False when clicked."""
-        result = close_new_map_modal(n_clicks=1)
-        assert result is False
+    def test_handle_new_map_modal_cancel(self):
+        """handle_new_map_modal should close when cancel is clicked."""
+        with patch("pipeworks_mud_mapper.callbacks.file_callbacks.ctx") as mock_ctx:
+            mock_ctx.triggered_id = "new-map-cancel-btn"
+            result = handle_new_map_modal(
+                open_clicks=0,
+                cancel_clicks=1,
+                create_clicks=0,
+                zone_id="",
+                zone_name="",
+                description="",
+            )
 
-    def test_close_new_map_modal_no_click(self):
-        """close_new_map_modal should return no_update when not clicked."""
-        result = close_new_map_modal(n_clicks=0)
-        assert result is no_update
+        assert result == (False, no_update, no_update, no_update, no_update, no_update)
 
-    def test_create_new_map_no_click(self):
-        """create_new_map should return no_update when not clicked."""
-        result = create_new_map(
-            n_clicks=0,
-            zone_id="test",
-            zone_name="Test",
-            description="",
-        )
+    def test_handle_new_map_modal_create_no_click(self):
+        """handle_new_map_modal should no-op when create is not clicked."""
+        with patch("pipeworks_mud_mapper.callbacks.file_callbacks.ctx") as mock_ctx:
+            mock_ctx.triggered_id = "new-map-create-btn"
+            result = handle_new_map_modal(
+                open_clicks=0,
+                cancel_clicks=0,
+                create_clicks=0,
+                zone_id="test",
+                zone_name="Test",
+                description="",
+            )
+
         assert result == (no_update,) * 6
 
-    def test_create_new_map_empty_id(self):
-        """create_new_map should reject empty zone ID."""
-        result = create_new_map(
-            n_clicks=1,
-            zone_id="",
-            zone_name="Test",
-            description="",
-        )
-        assert result[0] is no_update  # Modal stays open
+    def test_handle_new_map_modal_empty_id(self):
+        """handle_new_map_modal should reject empty zone ID."""
+        with patch("pipeworks_mud_mapper.callbacks.file_callbacks.ctx") as mock_ctx:
+            mock_ctx.triggered_id = "new-map-create-btn"
+            result = handle_new_map_modal(
+                open_clicks=0,
+                cancel_clicks=0,
+                create_clicks=1,
+                zone_id="",
+                zone_name="Test",
+                description="",
+            )
+
+        assert result[0] is True  # Modal stays open
         assert result[2] is not no_update  # feedback
 
-    def test_create_new_map_invalid_id(self):
-        """create_new_map should reject invalid zone ID format."""
-        result = create_new_map(
-            n_clicks=1,
-            zone_id="123invalid",  # Starts with number
-            zone_name="Test",
-            description="",
-        )
-        assert result[0] is no_update
+    def test_handle_new_map_modal_invalid_id(self):
+        """handle_new_map_modal should reject invalid zone ID format."""
+        with patch("pipeworks_mud_mapper.callbacks.file_callbacks.ctx") as mock_ctx:
+            mock_ctx.triggered_id = "new-map-create-btn"
+            result = handle_new_map_modal(
+                open_clicks=0,
+                cancel_clicks=0,
+                create_clicks=1,
+                zone_id="123invalid",  # Starts with number
+                zone_name="Test",
+                description="",
+            )
+
+        assert result[0] is True
         assert result[2] is not no_update  # feedback
 
-    def test_create_new_map_empty_name(self):
-        """create_new_map should reject empty zone name."""
-        result = create_new_map(
-            n_clicks=1,
-            zone_id="test",
-            zone_name="",
-            description="",
-        )
-        assert result[0] is no_update
+    def test_handle_new_map_modal_empty_name(self):
+        """handle_new_map_modal should reject empty zone name."""
+        with patch("pipeworks_mud_mapper.callbacks.file_callbacks.ctx") as mock_ctx:
+            mock_ctx.triggered_id = "new-map-create-btn"
+            result = handle_new_map_modal(
+                open_clicks=0,
+                cancel_clicks=0,
+                create_clicks=1,
+                zone_id="test",
+                zone_name="",
+                description="",
+            )
+
+        assert result[0] is True
         assert result[2] is not no_update  # feedback
 
-    def test_create_new_map_success(self, temp_maps_dir):
-        """create_new_map should create file on success."""
-        with patch(
-            "pipeworks_mud_mapper.callbacks.file_callbacks.MAPS_DIR",
-            temp_maps_dir,
+    def test_handle_new_map_modal_success(self, temp_maps_dir):
+        """handle_new_map_modal should create file on success."""
+        with (
+            patch(
+                "pipeworks_mud_mapper.callbacks.file_callbacks.MAPS_DIR",
+                temp_maps_dir,
+            ),
+            patch("pipeworks_mud_mapper.callbacks.file_callbacks.ctx") as mock_ctx,
         ):
-            result = create_new_map(
-                n_clicks=1,
+            mock_ctx.triggered_id = "new-map-create-btn"
+            result = handle_new_map_modal(
+                open_clicks=0,
+                cancel_clicks=0,
+                create_clicks=1,
                 zone_id="newzone",
                 zone_name="New Zone",
                 description="A new zone.",
@@ -897,23 +931,29 @@ class TestFileCallbacks:
         assert "newzone.map.json" in file_list
         assert (temp_maps_dir / "newzone.map.json").exists()
 
-    def test_create_new_map_duplicate(self, temp_maps_dir):
-        """create_new_map should reject duplicate zone ID."""
+    def test_handle_new_map_modal_duplicate(self, temp_maps_dir):
+        """handle_new_map_modal should reject duplicate zone ID."""
         # Create existing file
         (temp_maps_dir / "existing.map.json").write_text("{}")
 
-        with patch(
-            "pipeworks_mud_mapper.callbacks.file_callbacks.MAPS_DIR",
-            temp_maps_dir,
+        with (
+            patch(
+                "pipeworks_mud_mapper.callbacks.file_callbacks.MAPS_DIR",
+                temp_maps_dir,
+            ),
+            patch("pipeworks_mud_mapper.callbacks.file_callbacks.ctx") as mock_ctx,
         ):
-            result = create_new_map(
-                n_clicks=1,
+            mock_ctx.triggered_id = "new-map-create-btn"
+            result = handle_new_map_modal(
+                open_clicks=0,
+                cancel_clicks=0,
+                create_clicks=1,
                 zone_id="existing",
                 zone_name="Existing Zone",
                 description="",
             )
 
-        assert result[0] is no_update  # Modal stays open
+        assert result[0] is True  # Modal stays open
         assert result[2] is not no_update  # feedback about duplicate
 
     def test_update_save_status_no_file(self):
