@@ -7,40 +7,12 @@ on:
       - 'data/maps/**'
       - 'data/validation/**'
       - 'data/maps/dev_snapshots/**'
-    paths-ignore:
-      - '.github/**'
-      - 'docs/**'
-      - 'scripts/**'
-      - 'schemas/**'
-      - 'src/**'
-      - 'tests/**'
-      - 'CHANGELOG.md'
-      - 'README.md'
-      - 'AGENTS.md'
-      - 'LICENSE'
-      - 'pyproject.toml'
-      - 'data/ollama/**'
-      - 'data/zones/**'
   pull_request:
     branches: [main]
     paths:
       - 'data/maps/**'
       - 'data/validation/**'
       - 'data/maps/dev_snapshots/**'
-    paths-ignore:
-      - '.github/**'
-      - 'docs/**'
-      - 'scripts/**'
-      - 'schemas/**'
-      - 'src/**'
-      - 'tests/**'
-      - 'CHANGELOG.md'
-      - 'README.md'
-      - 'AGENTS.md'
-      - 'LICENSE'
-      - 'pyproject.toml'
-      - 'data/ollama/**'
-      - 'data/zones/**'
 
 permissions:
   contents: read
