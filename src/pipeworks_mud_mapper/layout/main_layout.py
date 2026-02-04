@@ -107,6 +107,10 @@ def create_app_layout() -> dbc.Container:
             # where it gets attached to the room as llm_generation metadata.
             # Format: dict with keys matching OllamaGenerationInfo fields, or None.
             dcc.Store(id="ollama-last-generation-info", data=None),
+            # Latest validator result for the current LLM response.
+            dcc.Store(id="ollama-validation-info", data=None),
+            # In-memory validator history for the Ollama panel staging area.
+            dcc.Store(id="ollama-validation-history", data=[]),
             # Interval to trigger initial file load
             dcc.Interval(id="initial-load", interval=100, max_intervals=1),
             # -----------------------------------------------------------------

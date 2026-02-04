@@ -67,6 +67,7 @@ west, up, down. This matches the decision in ``goblin_cartography.md`` Section
 north/south - they represent vertical traversal (stairs, ladders, trapdoors).
 """
 
+from pipeworks_mud_mapper.models.description_validation import DescriptionValidationInfo
 from pipeworks_mud_mapper.models.map_file import MapFile
 from pipeworks_mud_mapper.models.ollama_generation import OllamaGenerationInfo
 from pipeworks_mud_mapper.models.room import Coords, Direction, MapRoom, Room
@@ -94,4 +95,5 @@ __all__ = [
     "TemplateExamples",
     # Ollama generation metadata
     "OllamaGenerationInfo",
+    "DescriptionValidationInfo",
 ]

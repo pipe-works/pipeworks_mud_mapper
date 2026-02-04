@@ -65,6 +65,10 @@ See Also
 - ``refactor_01.md``: Architecture decisions and rationale
 """
 
+from pipeworks_mud_mapper.services.description_validator import (
+    load_validator_config,
+    validate_description,
+)
 from pipeworks_mud_mapper.services.room_service import (
     create_exit,
     create_room,
@@ -119,4 +123,7 @@ __all__ = [
     "load_template",
     "compile_system_prompt",
     "get_default_system_prompt",
+    # Description validator
+    "load_validator_config",
+    "validate_description",
 ]

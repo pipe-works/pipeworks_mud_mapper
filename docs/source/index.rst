@@ -20,6 +20,7 @@ Features
 * **Two-File Workflow** - Separate authoring (with coords) and export (without)
 * **Validation** - Check for connectivity, consistency, and language-direction issues
 * **LLM Integration** - Generate room descriptions using local Ollama server
+* **Description Validator** - Advisory checks for LLM prose constraints
 * **JSON Schema** - Editor validation support for map files
 
 Two-File Workflow

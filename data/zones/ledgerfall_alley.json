@@ -7,7 +7,7 @@
     "spawn": {
       "id": "spawn",
       "name": "A Quiet Alley",
-      "description": "The air here is thick with the scent of mildew and damp stone. A chill clings to your coat despite the heat radiating from the nearby ledger-filled stalls of the Market Street merchants. The sound of coins clinking and haggling fades into the silence beyond the broken door to the east, where a sliver of light bleeds through cracks in the warped wood framing it.  The shadows here are deep, punctuated only by the occasional flicker of lamplight that dances along the grime-coated cobblestones. To the west, the Market hums with a cacophony of voices and bartering cries.",
+      "description": "The air here is thick with the smell of stale ale and wet earth. A thin, wavering haze hangs over the cobblestones, making the shadows stretch longer than they should.  You're pressed against the rough brick wall on your left, the faintest whisper of haggling from the Ledgerfall Market a distant hum to your right. The east end is obscured by",
       "exits": {
         "east": "broken_door",
         "west": "ledgerfall_market"

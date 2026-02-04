@@ -497,6 +497,14 @@ class TestOllamaPanel:
         result = create_ollama_panel()
         assert component_has_id(result, "ollama-clipboard-feedback")
 
+    def test_create_ollama_panel_has_validator_staging(self):
+        """create_ollama_panel should include validator staging IDs."""
+        result = create_ollama_panel()
+        assert component_has_id(result, "ollama-validator-status")
+        assert component_has_id(result, "ollama-validator-summary")
+        assert component_has_id(result, "ollama-validator-hits")
+        assert component_has_id(result, "ollama-validator-history")
+
     def test_create_ollama_panel_ollama_server_default(self):
         """create_ollama_panel ollama-server-url should default to localhost."""
         result = create_ollama_panel()
@@ -906,6 +914,9 @@ class TestLayoutIntegration:
 
         # IDs used in ollama_callbacks.py
         ollama_callback_ids = [
+            "ollama-last-generation-info",
+            "ollama-validation-history",
+            "ollama-validation-info",
             "ollama-server-url",
             "ollama-model-dropdown",
             "ollama-refresh-models-btn",
@@ -918,6 +929,10 @@ class TestLayoutIntegration:
             "ollama-send-to-description-btn",
             "ollama-clipboard",
             "ollama-clipboard-feedback",
+            "ollama-validator-status",
+            "ollama-validator-summary",
+            "ollama-validator-hits",
+            "ollama-validator-history",
             # Parameters section IDs
             "ollama-params-toggle",
             "ollama-params-chevron",

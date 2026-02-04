@@ -150,6 +150,8 @@ using LLMs.
 - The user prompt should describe what you want (e.g., "A dark cellar with cobwebs")
 - You can edit the generated text before sending it to the room
 - Generation marks the room as having unsaved changes
+- A validator staging panel shows hard-rule hits without blocking authors
+- Validator results are saved into the map file as authoring metadata
 
 Saving and Exporting
 --------------------

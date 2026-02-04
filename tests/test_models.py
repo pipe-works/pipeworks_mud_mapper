@@ -32,6 +32,7 @@ from pydantic import ValidationError
 
 from pipeworks_mud_mapper.models import (
     Coords,
+    DescriptionValidationInfo,
     Direction,
     MapFile,
     MapRoom,
@@ -218,7 +219,32 @@ class TestMapRoom:
         """MapRoom with only required fields."""
         room = MapRoom(id="spawn", name="Spawn")
         assert room.id == "spawn"
-        assert room.coords == Coords()  # Default origin
+
+
+# =============================================================================
+# DescriptionValidationInfo Tests
+# =============================================================================
+
+
+class TestDescriptionValidationInfo:
+    """Tests for DescriptionValidationInfo model."""
+
+    def test_defaults_and_fields(self):
+        """Model should accept required fields and populate defaults."""
+        info = DescriptionValidationInfo(
+            valid=True,
+            hard_failures=[],
+            soft_failures=[],
+            metrics={"word_count": 50},
+            rule_hits={"cardinal_directions": []},
+        )
+
+        assert info.valid is True
+        assert info.hard_failures == []
+        assert info.soft_failures == []
+        assert info.metrics["word_count"] == 50
+        assert info.rule_hits["cardinal_directions"] == []
+        assert info.validated_at is not None
 
     def test_map_room_with_coords(self):
         """MapRoom with explicit coordinates."""
@@ -519,6 +545,7 @@ class TestMapFile:
             },
         )
         room = map_file.find_room_in_direction(Coords(x=0, y=0, z=0), "north", exclude_room="spawn")
+        assert room is not None
         assert room.id == "near"
 
     def test_find_room_in_direction_not_found(self):

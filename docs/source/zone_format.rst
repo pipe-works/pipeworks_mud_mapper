@@ -63,6 +63,33 @@ Basic Structure
                 "name": "Room Name",
                 "description": "Room description",
                 "coords": [0, 0, 0],
+                "llm_generation": {
+                    "model": "gemma2:2b",
+                    "actual_seed": 123,
+                    "template_id": "ledgerfall_goblin",
+                    "temperature": 0.7,
+                    "top_k": 40,
+                    "top_p": 0.9,
+                    "num_ctx": 4096,
+                    "num_predict": 512,
+                    "target_words": 300,
+                    "system_prompt": "You are a Game Master...",
+                    "user_prompt": "Describe a quiet alley",
+                    "generated_at": "2026-02-04T08:45:14+00:00"
+                },
+                "description_validation": {
+                    "valid": true,
+                    "hard_failures": [],
+                    "soft_failures": [],
+                    "metrics": {
+                        "word_count": 52,
+                        "target_words": 50,
+                        "min_words": 33,
+                        "max_words": 58
+                    },
+                    "rule_hits": {},
+                    "validated_at": "2026-02-04T08:46:02+00:00"
+                },
                 "exits": {"north": "other_room"},
                 "items": []
             }
@@ -70,7 +97,8 @@ Basic Structure
         "items": {}
     }
 
-**Key difference from zone files:** Rooms include ``coords`` field.
+**Key difference from zone files:** Rooms include authoring metadata
+(``coords``, ``llm_generation``, and ``description_validation``).
 
 Zone File Format
 ----------------
@@ -149,6 +177,16 @@ coords
     **Map files only**. Array of three integers ``[x, y, z]``
     representing the room's position in 3D space. Used by the mapper
     for rendering. Stripped when exporting to zone files.
+
+llm_generation
+    **Map files only**. Metadata about how a description was generated
+    via Ollama (model, prompts, and parameters). Authoring scaffolding
+    only; stripped when exporting to zone files.
+
+description_validation
+    **Map files only**. Latest validator output for the room description.
+    Includes rule hits and word count metrics. Authoring scaffolding
+    only; stripped when exporting to zone files.
 
 exits
     *Optional*. Dictionary mapping direction names to target room IDs.
