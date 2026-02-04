@@ -135,6 +135,11 @@ def _should_throttle_snapshot(snapshot_key: str) -> bool:
     return False
 
 
+def _room_feedback_payload(content: Any) -> dict[str, Any]:
+    """Build a timestamped payload for room form feedback."""
+    return {"content": content, "ts": time.monotonic()}
+
+
 # =============================================================================
 # File List Callbacks
 # =============================================================================
@@ -561,7 +566,7 @@ def update_save_status(has_unsaved: bool, selected_file: str | None) -> tuple:
 
 @callback(
     Output("has-unsaved-changes", "data", allow_duplicate=True),
-    Output("room-form-feedback", "children", allow_duplicate=True),
+    Output("room-feedback-save", "data"),
     Input("save-map-btn", "n_clicks"),
     State("current-zone-data", "data"),
     State("selected-file", "data"),
@@ -629,14 +634,14 @@ def save_map_to_file(
             className="mb-0 py-2",
             duration=3000,
         )
-        return False, feedback
+        return False, _room_feedback_payload(feedback)
     except Exception as e:
         feedback = dbc.Alert(
             f"Error saving: {e}",
             color="danger",
             className="mb-0 py-2",
         )
-        return no_update, feedback
+        return no_update, _room_feedback_payload(feedback)
 
 
 @callback(
@@ -747,7 +752,7 @@ def handle_dev_snapshotting(
 
 
 @callback(
-    Output("room-form-feedback", "children", allow_duplicate=True),
+    Output("room-feedback-export", "data"),
     Input("export-zone-btn", "n_clicks"),
     State("current-zone-data", "data"),
     State("selected-file", "data"),
@@ -796,11 +801,11 @@ def export_zone_to_file(n_clicks: int, zone_data: dict | None, selected_file: st
             className="mb-0 py-2",
             duration=4000,
         )
-        return feedback
+        return _room_feedback_payload(feedback)
     except Exception as e:
         feedback = dbc.Alert(
             f"Error exporting: {e}",
             color="danger",
             className="mb-0 py-2",
         )
-        return feedback
+        return _room_feedback_payload(feedback)

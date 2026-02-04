@@ -64,6 +64,7 @@ from pipeworks_mud_mapper.callbacks.room_callbacks import (
     clear_form_for_new_room,
     confirm_delete_room,
     populate_room_form,
+    render_room_form_feedback,
     undo_delete_room,
     update_delete_button_state,
     update_room_properties,
@@ -662,6 +663,18 @@ class TestRoomCallbacks:
         assert updated_zone["rooms"]["spawn"]["description"] == "Updated description."
         assert updated_zone["rooms"]["spawn"]["coords"] == [10, 20, 0]
         assert unsaved is True
+
+    def test_render_room_form_feedback_no_payloads(self):
+        """render_room_form_feedback should return no_update when empty."""
+        result = render_room_form_feedback(None, None, None, None, None, None, None)
+        assert result is no_update
+
+    def test_render_room_form_feedback_latest_payload(self):
+        """render_room_form_feedback should return latest feedback content."""
+        older = {"content": "Old", "ts": 1.0}
+        newer = {"content": "New", "ts": 2.0}
+        result = render_room_form_feedback(older, None, newer, None, None, None, None)
+        assert "New" in str(result)
 
 
 # =============================================================================

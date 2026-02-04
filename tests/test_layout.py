@@ -392,6 +392,21 @@ class TestPropertiesPanel:
         result = create_properties_panel()
         assert component_has_id(result, "room-form-feedback")
 
+    def test_create_properties_panel_has_feedback_stores(self):
+        """create_properties_panel should include room feedback stores."""
+        result = create_properties_panel()
+        store_ids = [
+            "room-feedback-add",
+            "room-feedback-new",
+            "room-feedback-update",
+            "room-feedback-delete",
+            "room-feedback-undo",
+            "room-feedback-save",
+            "room-feedback-export",
+        ]
+        for store_id in store_ids:
+            assert component_has_id(result, store_id)
+
     def test_create_properties_panel_exit_checkboxes_has_six_options(self):
         """create_properties_panel exit-checkboxes should have N,E,S,W,U,D."""
         result = create_properties_panel()
@@ -486,6 +501,19 @@ class TestOllamaPanel:
         """create_ollama_panel should include ollama-status."""
         result = create_ollama_panel()
         assert component_has_id(result, "ollama-status")
+
+    def test_create_ollama_panel_has_status_stores(self):
+        """create_ollama_panel should include Ollama status stores."""
+        result = create_ollama_panel()
+        store_ids = [
+            "ollama-status-generation",
+            "ollama-status-send",
+            "ollama-status-prompt",
+            "ollama-status-system",
+            "ollama-status-template",
+        ]
+        for store_id in store_ids:
+            assert component_has_id(result, store_id)
 
     def test_create_ollama_panel_has_ollama_connection_status(self):
         """create_ollama_panel should include ollama-connection-status."""
@@ -896,6 +924,8 @@ class TestLayoutIntegration:
             "dev-snapshot-status",
             "has-unsaved-changes",
             "status-indicator",
+            "room-feedback-save",
+            "room-feedback-export",
         ]
         for id_ in file_callback_ids:
             assert id_ in ids, f"Missing ID for file callbacks: {id_}"
@@ -921,6 +951,11 @@ class TestLayoutIntegration:
             "room-coord-y",
             "room-coord-z",
             "room-form-feedback",
+            "room-feedback-add",
+            "room-feedback-new",
+            "room-feedback-update",
+            "room-feedback-delete",
+            "room-feedback-undo",
         ]
         for id_ in room_callback_ids:
             assert id_ in ids, f"Missing ID for room callbacks: {id_}"
@@ -950,6 +985,11 @@ class TestLayoutIntegration:
             "ollama-send-to-description-btn",
             "ollama-clipboard",
             "ollama-clipboard-feedback",
+            "ollama-status-generation",
+            "ollama-status-send",
+            "ollama-status-prompt",
+            "ollama-status-system",
+            "ollama-status-template",
             "ollama-validator-status",
             "ollama-validator-summary",
             "ollama-validator-hits",

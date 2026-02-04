@@ -34,6 +34,8 @@ See Also
 """
 
 import re
+import time
+from typing import Any
 
 import dash_bootstrap_components as dbc
 from dash import Input, Output, State, callback, html, no_update
@@ -41,9 +43,14 @@ from dash import Input, Output, State, callback, html, no_update
 from pipeworks_mud_mapper.utils.zone_io import DIRECTION_SHORT
 
 
+def _room_feedback_payload(content: Any) -> dict[str, Any]:
+    """Build a timestamped payload for room form feedback."""
+    return {"content": content, "ts": time.monotonic()}
+
+
 @callback(
     Output("current-zone-data", "data", allow_duplicate=True),
-    Output("room-form-feedback", "children"),
+    Output("room-feedback-add", "data"),
     Output("room-id", "value"),
     Output("room-name", "value"),
     Output("room-description", "value"),
@@ -113,13 +120,13 @@ def add_room_to_zone(
             color="warning",
             className="mb-0 py-2",
         )
-        return (no_update, feedback) + (no_update,) * 7
+        return (no_update, _room_feedback_payload(feedback)) + (no_update,) * 7
 
     # Validate room_id
     room_id = (room_id or "").strip()
     if not room_id:
         feedback = dbc.Alert("Room ID is required.", color="danger", className="mb-0 py-2")
-        return (no_update, feedback) + (no_update,) * 7
+        return (no_update, _room_feedback_payload(feedback)) + (no_update,) * 7
 
     if not re.match(r"^[a-zA-Z][a-zA-Z0-9_]*$", room_id):
         feedback = dbc.Alert(
@@ -127,7 +134,7 @@ def add_room_to_zone(
             color="danger",
             className="mb-0 py-2",
         )
-        return (no_update, feedback) + (no_update,) * 7
+        return (no_update, _room_feedback_payload(feedback)) + (no_update,) * 7
 
     # Check for duplicate room ID
     if room_id in zone_data.get("rooms", {}):
@@ -136,7 +143,7 @@ def add_room_to_zone(
             color="warning",
             className="mb-0 py-2",
         )
-        return (no_update, feedback) + (no_update,) * 7
+        return (no_update, _room_feedback_payload(feedback)) + (no_update,) * 7
 
     # Validate coordinates
     try:
@@ -145,7 +152,7 @@ def add_room_to_zone(
         z = int(coord_z) if coord_z is not None else 0
     except (ValueError, TypeError):
         feedback = dbc.Alert("Coordinates must be integers.", color="danger", className="mb-0 py-2")
-        return (no_update, feedback) + (no_update,) * 7
+        return (no_update, _room_feedback_payload(feedback)) + (no_update,) * 7
 
     # Create the new room
     new_room = {
@@ -171,11 +178,11 @@ def add_room_to_zone(
     )
 
     # Return updated zone, clear form, mark unsaved
-    return updated_zone, feedback, "", "", "", 0, 0, 0, True
+    return updated_zone, _room_feedback_payload(feedback), "", "", "", 0, 0, 0, True
 
 
 @callback(
-    Output("room-form-feedback", "children", allow_duplicate=True),
+    Output("room-feedback-new", "data"),
     Output("selected-room", "data", allow_duplicate=True),
     Output("room-id", "value", allow_duplicate=True),
     Output("room-name", "value", allow_duplicate=True),
@@ -212,7 +219,7 @@ def clear_form_for_new_room(n_clicks: int):
         Reset values for all form components.
     """
     if n_clicks:
-        return "", None, "", "", "", 0, 0, 0, True, False, [], ""
+        return _room_feedback_payload(""), None, "", "", "", 0, 0, 0, True, False, [], ""
     return (no_update,) * 12
 
 
@@ -309,7 +316,7 @@ def populate_room_form(selected_room: str | None, zone_data: dict | None) -> tup
 
 @callback(
     Output("current-zone-data", "data", allow_duplicate=True),
-    Output("room-form-feedback", "children", allow_duplicate=True),
+    Output("room-feedback-update", "data"),
     Output("has-unsaved-changes", "data", allow_duplicate=True),
     Input("update-room-btn", "n_clicks"),
     State("selected-room", "data"),
@@ -365,7 +372,7 @@ def update_room_properties(
             color="warning",
             className="mb-0 py-2",
         )
-        return no_update, feedback, no_update
+        return no_update, _room_feedback_payload(feedback), no_update
 
     rooms = zone_data.get("rooms", {})
     if selected_room not in rooms:
@@ -374,7 +381,7 @@ def update_room_properties(
             color="danger",
             className="mb-0 py-2",
         )
-        return no_update, feedback, no_update
+        return no_update, _room_feedback_payload(feedback), no_update
 
     # Validate coordinates
     try:
@@ -387,7 +394,7 @@ def update_room_properties(
             color="danger",
             className="mb-0 py-2",
         )
-        return no_update, feedback, no_update
+        return no_update, _room_feedback_payload(feedback), no_update
 
     # Create updated zone data (copies for Dash reactivity)
     updated_zone = dict(zone_data)
@@ -409,7 +416,7 @@ def update_room_properties(
     )
 
     print(f"[DEBUG] update_room_properties: setting has_unsaved=True for room '{selected_room}'")
-    return updated_zone, feedback, True
+    return updated_zone, _room_feedback_payload(feedback), True
 
 
 # =============================================================================
@@ -555,7 +562,7 @@ def close_delete_confirmation(n_clicks: int):
     Output("delete-undo-data", "data"),
     Output("undo-delete-container", "style"),
     Output("has-unsaved-changes", "data", allow_duplicate=True),
-    Output("room-form-feedback", "children", allow_duplicate=True),
+    Output("room-feedback-delete", "data"),
     Input("delete-confirm-btn", "n_clicks"),
     State("selected-room", "data"),
     State("current-zone-data", "data"),
@@ -649,7 +656,7 @@ def confirm_delete_room(n_clicks: int, selected_room: str | None, zone_data: dic
         undo_data,  # delete-undo-data
         {"display": "block"},  # undo-delete-container (show)
         True,  # has-unsaved-changes
-        feedback,  # room-form-feedback
+        _room_feedback_payload(feedback),  # room feedback
     )
 
 
@@ -657,7 +664,7 @@ def confirm_delete_room(n_clicks: int, selected_room: str | None, zone_data: dic
     Output("current-zone-data", "data", allow_duplicate=True),
     Output("delete-undo-data", "data", allow_duplicate=True),
     Output("undo-delete-container", "style", allow_duplicate=True),
-    Output("room-form-feedback", "children", allow_duplicate=True),
+    Output("room-feedback-undo", "data"),
     Input("undo-delete-btn", "n_clicks"),
     State("delete-undo-data", "data"),
     State("current-zone-data", "data"),
@@ -725,5 +732,42 @@ def undo_delete_room(n_clicks: int, undo_data: dict | None, zone_data: dict | No
         updated_zone,  # current-zone-data
         None,  # delete-undo-data (clear)
         {"display": "none"},  # undo-delete-container (hide)
-        feedback,  # room-form-feedback
+        _room_feedback_payload(feedback),  # room feedback
     )
+
+
+def _latest_room_feedback(payloads: list[dict | None]) -> dict | None:
+    """Return the most recent room feedback payload from a list."""
+    latest: dict | None = None
+    for payload in payloads:
+        if not isinstance(payload, dict):
+            continue
+        timestamp = payload.get("ts")
+        if timestamp is None:
+            continue
+        if latest is None or timestamp > latest.get("ts", -1):
+            latest = payload
+    return latest
+
+
+@callback(
+    Output("room-form-feedback", "children"),
+    Input("room-feedback-add", "data"),
+    Input("room-feedback-new", "data"),
+    Input("room-feedback-update", "data"),
+    Input("room-feedback-delete", "data"),
+    Input("room-feedback-undo", "data"),
+    Input("room-feedback-save", "data"),
+    Input("room-feedback-export", "data"),
+)
+def render_room_form_feedback(*payloads: dict | None) -> Any:
+    """Render the latest room feedback payload from any source."""
+    latest = _latest_room_feedback(list(payloads))
+    if not latest:
+        return no_update
+
+    content = latest.get("content")
+    if content is None:
+        return no_update
+
+    return content
