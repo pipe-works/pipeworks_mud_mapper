@@ -29,7 +29,8 @@
       "description": "The air hums with haggling, a cacophony of bartering and coin clinking as vendors hawk their wares.  Copper pipes hiss steam from overflowing kettles, the scent of fish stew hangs heavy in the humid air.   Rust stains the wooden stalls, each one crammed with trinkets and tools.",
       "exits": {
         "east": "spawn",
-        "north": "the_markect_arms_inn"
+        "north": "the_markect_arms_inn",
+        "west": "the_small_stores"
       },
       "items": []
     },
@@ -39,6 +40,15 @@
       "description": "A worn sign hangs crookedly above the door, its paint flaking off in patches. The air smells of stale ale and damp wood, a faint aroma of roasted meat lingering nearby.  Outside, the sounds of haggling and shouting clash with the rhythmic clatter of rain against the roof.",
       "exits": {
         "south": "ledgerfall_market"
+      },
+      "items": []
+    },
+    "the_small_stores": {
+      "id": "the_small_stores",
+      "name": "The Small Stores",
+      "description": "The air hangs thick with the scent of damp wood and stale ink, a faint metallic tang clinging to the back of your throat.  A single flickering lamp casts dancing shadows on the chipped paint, revealing rusted gears exposed beneath a cracked wooden lid.",
+      "exits": {
+        "east": "ledgerfall_market"
       },
       "items": []
     }
