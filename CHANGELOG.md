@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.1.9](https://github.com/pipe-works/pipeworks_mud_mapper/compare/pipeworks-mud-mapper-v0.1.8...pipeworks-mud-mapper-v0.1.9) (2026-02-04)
+
+
+### Fixes
+
+* **file:** stabilize dev snapshot callbacks ([19fd229](https://github.com/pipe-works/pipeworks_mud_mapper/commit/19fd2298393416e623cf66feb850d1a32af2006b))
+* **file:** stabilize dev snapshot callbacks ([46b9af7](https://github.com/pipe-works/pipeworks_mud_mapper/commit/46b9af73a6c74c38bf038048d18fdd4434fae2dd))
+
+
+### Documentation
+
+* **sphinx:** avoid duplicate autoapi fields ([8cf2a3b](https://github.com/pipe-works/pipeworks_mud_mapper/commit/8cf2a3bff9732188d4878092171d764e5f341f35))
+
+
+### Internal Changes
+
+* **file:** consolidate new map modal ([e7ae2a9](https://github.com/pipe-works/pipeworks_mud_mapper/commit/e7ae2a9f700011f62a0f4e7431539dc78ac3855a))
+* **state:** add state manager and io queue ([8ab48d3](https://github.com/pipe-works/pipeworks_mud_mapper/commit/8ab48d3ec6d5f10caca49cfed9a52731a02674c8))
+* **state:** route load and generation ([2122f53](https://github.com/pipe-works/pipeworks_mud_mapper/commit/2122f538cd4f9bf3227c0832bce96ccc5735aecf))
+* **ui:** centralize feedback outputs ([ec03d96](https://github.com/pipe-works/pipeworks_mud_mapper/commit/ec03d9600c912408fdd31a76b3095ca676a821eb))
+
 ## [0.1.8](https://github.com/pipe-works/pipeworks_mud_mapper/compare/pipeworks-mud-mapper-v0.1.7...pipeworks-mud-mapper-v0.1.8) (2026-02-04)
 
 
