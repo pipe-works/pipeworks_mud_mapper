@@ -146,6 +146,19 @@ not distance. Use for determining which direction a target room lies relative
 to a source room.
 """
 
+DIRECTION_SHORT: dict[Direction, str] = {
+    "north": "N",
+    "south": "S",
+    "east": "E",
+    "west": "W",
+    "up": "U",
+    "down": "D",
+}
+"""Short labels used in the UI for direction indicators."""
+
+SHORT_TO_DIRECTION: dict[str, Direction] = {v: k for k, v in DIRECTION_SHORT.items()}
+"""Reverse mapping for checkbox values back to full direction names."""
+
 
 # =============================================================================
 # Coordinate Model

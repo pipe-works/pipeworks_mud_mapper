@@ -9,7 +9,6 @@ Test Organization
 Tests are grouped by service module:
 
 - **TestZoneService**: File I/O operations (load, save, export)
-- **TestRoomService**: Room CRUD and exit management
 - **TestValidationService**: Map validation checks
 
 Each test class covers:
@@ -21,7 +20,6 @@ Each test class covers:
 See Also
 --------
 - ``services/zone_service.py``: File I/O service
-- ``services/room_service.py``: Room CRUD service
 - ``services/validation_service.py``: Validation service
 """
 
@@ -35,16 +33,11 @@ import pytest
 from pipeworks_mud_mapper.models import Coords, MapFile, MapRoom
 from pipeworks_mud_mapper.services import (
     ValidationWarning,
-    create_exit,
     create_new_map_file,
-    create_room,
-    delete_room,
     export_zone,
-    find_room_in_direction,
+    list_map_files,
     load_map_file,
-    remove_exit,
     save_map_file,
-    update_room,
     validate_all,
     validate_connectivity,
     validate_exit_consistency,
@@ -171,6 +164,21 @@ class TestZoneService:
         save_map_file(simple_map_file, path)
         assert path.exists()
 
+    def test_list_map_files_filters_extension(self, temp_dir):
+        """list_map_files should return only *.map.json files."""
+        maps_dir = temp_dir / "maps"
+        maps_dir.mkdir(parents=True, exist_ok=True)
+        (maps_dir / "alpha.map.json").write_text("{}")
+        (maps_dir / "beta.map.json").write_text("{}")
+        (maps_dir / "ignore.json").write_text("{}")
+
+        results = list_map_files(maps_dir)
+        names = [p.name for p in results]
+
+        assert "alpha.map.json" in names
+        assert "beta.map.json" in names
+        assert "ignore.json" not in names
+
     def test_load_map_file_preserves_exits(self, connected_map_file, temp_dir):
         """load_map_file should preserve room exits."""
         path = temp_dir / "connected.map.json"
@@ -280,7 +288,7 @@ class TestZoneService:
         gen_info = OllamaGenerationInfo(
             model="llama3:8b",
             actual_seed=99999,
-            template_id="__custom__",
+            template_id="ledgerfall_goblin",
             temperature=0.5,
             top_k=30,
             top_p=0.8,
@@ -335,131 +343,6 @@ class TestZoneService:
         # Load as map file
         map_file = load_map_file(zone_path)
         assert map_file.rooms["spawn"].coords == Coords(x=0, y=0, z=0)
-
-
-# =============================================================================
-# Room Service Tests
-# =============================================================================
-
-
-class TestRoomService:
-    """Tests for room_service module."""
-
-    def test_create_room(self, simple_map_file):
-        """create_room should add a new room."""
-        room = create_room(
-            simple_map_file,
-            room_id="hallway",
-            name="Hallway",
-            coords=Coords(x=0, y=5, z=0),
-            description="A long hallway.",
-        )
-
-        assert room.id == "hallway"
-        assert "hallway" in simple_map_file.rooms
-        assert simple_map_file.rooms["hallway"].coords.y == 5
-
-    def test_create_room_duplicate_raises(self, simple_map_file):
-        """create_room with existing ID should raise."""
-        with pytest.raises(ValueError, match="already exists"):
-            create_room(simple_map_file, "spawn", "Duplicate", Coords())
-
-    def test_update_room_name(self, simple_map_file):
-        """update_room should update room name."""
-        update_room(simple_map_file, "spawn", name="Grand Entrance")
-        assert simple_map_file.rooms["spawn"].name == "Grand Entrance"
-
-    def test_update_room_description(self, simple_map_file):
-        """update_room should update room description."""
-        update_room(simple_map_file, "spawn", description="A dark room.")
-        assert simple_map_file.rooms["spawn"].description == "A dark room."
-
-    def test_update_room_coords(self, simple_map_file):
-        """update_room should update room coordinates."""
-        update_room(simple_map_file, "spawn", coords=Coords(x=10, y=20, z=30))
-        assert simple_map_file.rooms["spawn"].coords == Coords(x=10, y=20, z=30)
-
-    def test_update_room_nonexistent_raises(self, simple_map_file):
-        """update_room on nonexistent room should raise."""
-        with pytest.raises(ValueError, match="does not exist"):
-            update_room(simple_map_file, "nonexistent", name="New Name")
-
-    def test_delete_room(self, connected_map_file):
-        """delete_room should remove a room."""
-        delete_room(connected_map_file, "treasury")
-        assert "treasury" not in connected_map_file.rooms
-
-    def test_delete_room_removes_exits(self, connected_map_file):
-        """delete_room should remove exits pointing to the deleted room."""
-        delete_room(connected_map_file, "treasury")
-        assert "east" not in connected_map_file.rooms["hallway"].exits
-
-    def test_delete_room_keeps_exits_if_requested(self, connected_map_file):
-        """delete_room with remove_exits=False should keep dangling exits."""
-        delete_room(connected_map_file, "treasury", remove_exits=False)
-        # Exit still exists but points to deleted room
-        assert connected_map_file.rooms["hallway"].exits.get("east") == "treasury"
-
-    def test_delete_spawn_room_raises(self, simple_map_file):
-        """delete_room on spawn room should raise."""
-        with pytest.raises(ValueError, match="Cannot delete spawn room"):
-            delete_room(simple_map_file, "spawn")
-
-    def test_delete_nonexistent_room_raises(self, simple_map_file):
-        """delete_room on nonexistent room should raise."""
-        with pytest.raises(ValueError, match="does not exist"):
-            delete_room(simple_map_file, "nonexistent")
-
-    def test_create_exit_bidirectional(self, simple_map_file):
-        """create_exit should create bidirectional exits by default."""
-        create_room(simple_map_file, "hallway", "Hallway", Coords(x=0, y=5, z=0))
-        create_exit(simple_map_file, "spawn", "north", "hallway")
-
-        assert simple_map_file.rooms["spawn"].exits["north"] == "hallway"
-        assert simple_map_file.rooms["hallway"].exits["south"] == "spawn"
-
-    def test_create_exit_unidirectional(self, simple_map_file):
-        """create_exit with bidirectional=False should create one-way exit."""
-        create_room(simple_map_file, "pit", "Pit", Coords(x=0, y=0, z=-1))
-        create_exit(simple_map_file, "spawn", "down", "pit", bidirectional=False)
-
-        assert simple_map_file.rooms["spawn"].exits["down"] == "pit"
-        assert "up" not in simple_map_file.rooms["pit"].exits
-
-    def test_remove_exit_bidirectional(self, connected_map_file):
-        """remove_exit should remove both directions by default."""
-        remove_exit(connected_map_file, "spawn", "north")
-
-        assert "north" not in connected_map_file.rooms["spawn"].exits
-        assert "south" not in connected_map_file.rooms["hallway"].exits
-
-    def test_remove_exit_unidirectional(self, connected_map_file):
-        """remove_exit with bidirectional=False should remove one direction."""
-        remove_exit(connected_map_file, "spawn", "north", bidirectional=False)
-
-        assert "north" not in connected_map_file.rooms["spawn"].exits
-        assert connected_map_file.rooms["hallway"].exits["south"] == "spawn"
-
-    def test_find_room_in_direction(self, connected_map_file):
-        """find_room_in_direction should find the nearest room."""
-        room = find_room_in_direction(
-            connected_map_file,
-            Coords(x=0, y=0, z=0),
-            "north",
-            exclude_room="spawn",
-        )
-        assert room is not None
-        assert room.id == "hallway"
-
-    def test_find_room_in_direction_not_found(self, simple_map_file):
-        """find_room_in_direction should return None if no room found."""
-        room = find_room_in_direction(
-            simple_map_file,
-            Coords(x=0, y=0, z=0),
-            "north",
-            exclude_room="spawn",
-        )
-        assert room is None
 
 
 # =============================================================================
@@ -830,14 +713,32 @@ class TestServiceIntegration:
         )
 
         # 2. Add rooms
-        create_room(map_file, "hallway", "Dark Hallway", Coords(x=0, y=5, z=0))
-        create_room(map_file, "treasury", "Treasury", Coords(x=5, y=5, z=0))
-        create_room(map_file, "cellar", "Cellar", Coords(x=0, y=0, z=-1))
+        map_file.rooms["hallway"] = MapRoom(
+            id="hallway",
+            name="Dark Hallway",
+            coords=Coords(x=0, y=5, z=0),
+            exits={},
+        )
+        map_file.rooms["treasury"] = MapRoom(
+            id="treasury",
+            name="Treasury",
+            coords=Coords(x=5, y=5, z=0),
+            exits={},
+        )
+        map_file.rooms["cellar"] = MapRoom(
+            id="cellar",
+            name="Cellar",
+            coords=Coords(x=0, y=0, z=-1),
+            exits={},
+        )
 
         # 3. Create exits
-        create_exit(map_file, "spawn", "north", "hallway")
-        create_exit(map_file, "hallway", "east", "treasury")
-        create_exit(map_file, "spawn", "down", "cellar")
+        map_file.rooms["spawn"].exits["north"] = "hallway"
+        map_file.rooms["hallway"].exits["south"] = "spawn"
+        map_file.rooms["hallway"].exits["east"] = "treasury"
+        map_file.rooms["treasury"].exits["west"] = "hallway"
+        map_file.rooms["spawn"].exits["down"] = "cellar"
+        map_file.rooms["cellar"].exits["up"] = "spawn"
 
         # 4. Validate
         warnings = validate_all(map_file)

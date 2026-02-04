@@ -127,6 +127,9 @@ def generate_description(
     if not user_prompt:
         return "", _ollama_status_payload(status_warning("Please enter a user prompt")), None
 
+    if not template_id:
+        return "", _ollama_status_payload(status_warning("Please select a template")), None
+
     # =========================================================================
     # Apply Default Values for Parameters
     # =========================================================================

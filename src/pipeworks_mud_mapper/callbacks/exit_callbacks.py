@@ -33,8 +33,8 @@ Component Dependencies
 
 See Also
 --------
-- ``services/room_service.py``: Exit business logic
-- ``utils/zone_io.py``: Direction constants
+- ``services/state``: Exit state transitions via the state manager
+- ``models/room.py``: Direction constants
 """
 
 from dash import Input, Output, State, callback, no_update

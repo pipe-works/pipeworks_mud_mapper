@@ -64,9 +64,6 @@ from pipeworks_mud_mapper.services.io_queue import (
     submit_io_job,
 )
 from pipeworks_mud_mapper.services.state import ZoneAction, apply_zone_action
-from pipeworks_mud_mapper.utils.zone_io import (
-    list_map_files,
-)
 
 # Directory paths for two-file workflow
 DATA_DIR = Path(__file__).parent.parent.parent.parent / "data"
@@ -113,7 +110,7 @@ def _get_cached_map_files(directory: Path, *, force_refresh: bool = False) -> li
             return files
 
     # Refresh listing from disk and update cache timestamp.
-    files = list_map_files(directory)
+    files = zone_service.list_map_files(directory)
     _FILE_LIST_CACHE[directory] = (now, files)
     return files
 
@@ -517,7 +514,7 @@ def handle_new_map_modal(
     zone_service.save_map_file(map_file, file_path)
 
     # Refresh file list after creation.
-    files = list_map_files(MAPS_DIR)
+    files = zone_service.list_map_files(MAPS_DIR)
     file_names = [f.name for f in files]
 
     # Close modal and clear form on success.

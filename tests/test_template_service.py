@@ -11,7 +11,6 @@ Tests are grouped by function:
 - **TestListTemplates**: Template enumeration for dropdowns
 - **TestLoadTemplate**: Template loading and validation
 - **TestCompileSystemPrompt**: Template-to-prompt compilation
-- **TestGetDefaultSystemPrompt**: Default prompt retrieval
 - **TestTemplateIntegration**: End-to-end template workflows
 
 Design Notes
@@ -38,9 +37,7 @@ from pipeworks_mud_mapper.models import OllamaTemplate
 from pipeworks_mud_mapper.services import template_service
 from pipeworks_mud_mapper.services.template_service import (
     CORE_RULES,
-    DEFAULT_SYSTEM_PROMPT,
     compile_system_prompt,
-    get_default_system_prompt,
     get_templates_directory,
     list_templates,
     load_template,
@@ -459,36 +456,6 @@ class TestCompileSystemPrompt:
         # Should be substantial but not excessively long
         assert len(result) > 1000  # Has meaningful content
         assert len(result) < 20000  # Not excessive
-
-
-# =============================================================================
-# Test get_default_system_prompt
-# =============================================================================
-
-
-class TestGetDefaultSystemPrompt:
-    """Tests for get_default_system_prompt function."""
-
-    def test_returns_string(self):
-        """Should return a string."""
-        result = get_default_system_prompt()
-        assert isinstance(result, str)
-
-    def test_returns_non_empty(self):
-        """Should return a non-empty prompt."""
-        result = get_default_system_prompt()
-        assert len(result) > 0
-
-    def test_matches_constant(self):
-        """Should return the DEFAULT_SYSTEM_PROMPT constant."""
-        result = get_default_system_prompt()
-        assert result == DEFAULT_SYSTEM_PROMPT
-
-    def test_contains_creative_writer_guidance(self):
-        """Should contain guidance for room descriptions."""
-        result = get_default_system_prompt()
-        assert "creative writer" in result.lower()
-        assert "MUD" in result
 
 
 # =============================================================================

@@ -30,7 +30,7 @@ Component Dependencies
 
 See Also
 --------
-- ``services/room_service.py``: Room business logic
+- ``services/state``: Room state transitions via the state manager
 """
 
 import time
@@ -38,8 +38,8 @@ from typing import Any
 
 from dash import Input, Output, State, callback, html, no_update
 
+from pipeworks_mud_mapper.models.room import DIRECTION_SHORT
 from pipeworks_mud_mapper.services.state import ZoneAction, apply_zone_action
-from pipeworks_mud_mapper.utils.zone_io import DIRECTION_SHORT
 
 
 def _room_feedback_payload(content: Any) -> dict[str, Any]:

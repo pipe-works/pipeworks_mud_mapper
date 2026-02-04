@@ -360,3 +360,14 @@ def get_suggested_export_path(map_path: Path) -> Path:
         return Path(*parts[:-1]) / f"{base_name}.json"
     else:
         return map_path.parent / f"{base_name}.json"
+
+
+def list_map_files(directory: Path) -> list[Path]:
+    """List map files in a directory.
+
+    Returns sorted ``*.map.json`` files for the map file browser.
+    """
+    directory = Path(directory)
+    if not directory.exists():
+        return []
+    return sorted(directory.glob("*.map.json"))

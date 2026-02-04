@@ -9,7 +9,6 @@ Template Operations
 - ``list_templates()``: List available templates for dropdown population
 - ``load_template()``: Load and validate a single template
 - ``compile_system_prompt()``: Convert template to system prompt string
-- ``get_default_system_prompt()``: Get legacy hardcoded prompt for "Custom" mode
 
 Template Location
 -----------------
@@ -91,15 +90,6 @@ BANNED PHRASES (never use these):
    "opens onto", "leads to", "beyond", "offering a glimpse",
    "into the unknown", "promise of", "ahead"
 """.strip()
-
-# =============================================================================
-# Default System Prompt (for "Custom" mode)
-# =============================================================================
-
-DEFAULT_SYSTEM_PROMPT = """You are a creative writer for a MUD (text-based adventure game). \
-Write atmospheric, evocative room descriptions. Keep descriptions \
-concise (2-3 sentences). Focus on sensory details and mood."""
-
 
 # =============================================================================
 # Directory Functions
@@ -454,17 +444,3 @@ def compile_system_prompt(template: OllamaTemplate, target_words: int = 300) -> 
     sections.append("Begin your description now.")
 
     return "\n".join(sections)
-
-
-def get_default_system_prompt() -> str:
-    """Get the default system prompt for "Custom" mode.
-
-    Returns the legacy hardcoded system prompt used when no template
-    is selected, allowing users to write their own prompts.
-
-    Returns
-    -------
-    str
-        The default system prompt string.
-    """
-    return DEFAULT_SYSTEM_PROMPT
