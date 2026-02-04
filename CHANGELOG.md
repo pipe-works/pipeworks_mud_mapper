@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.7](https://github.com/pipe-works/pipeworks_mud_mapper/compare/pipeworks-mud-mapper-v0.1.6...pipeworks-mud-mapper-v0.1.7) (2026-02-04)
+
+
+### Fixes
+
+* snapshot uses latest Ollama output ([6de4184](https://github.com/pipe-works/pipeworks_mud_mapper/commit/6de41843cf5b7496abe6802fea0fecf27ccf6b85))
+
 ## [0.1.6](https://github.com/pipe-works/pipeworks_mud_mapper/compare/pipeworks-mud-mapper-v0.1.5...pipeworks-mud-mapper-v0.1.6) (2026-02-04)
 
 
