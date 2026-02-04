@@ -7,7 +7,7 @@
     "spawn": {
       "id": "spawn",
       "name": "A Quiet Alley",
-      "description": "The air here is thick with the smell of stale ale and wet earth. A thin, wavering haze hangs over the cobblestones, making the shadows stretch longer than they should.  You're pressed against the rough brick wall on your left, the faintest whisper of haggling from the Ledgerfall Market a distant hum to your right. The east end is obscured by",
+      "description": "Cobblestones slick with rainwater, a faint scent of rust and fish hangs in the air, and the only light comes from flickering gas lamps that cast long shadows.  A low murmur of haggling drifts from the direction of a nearby stall.",
       "exits": {
         "east": "broken_door",
         "west": "ledgerfall_market"
@@ -17,7 +17,7 @@
     "broken_door": {
       "id": "broken_door",
       "name": "Broken Door",
-      "description": "Skittering sounds can be heard from behind the door.",
+      "description": "Dust motes dance in a sliver of moonlight, illuminating cobwebs strung like macabre chandeliers. The air hangs thick with the scent of mildew and stale ink.  A single rusted ledger lies open on the floor, its pages whispering tales of lost deals and unpaid debts.",
       "exits": {
         "west": "spawn"
       },
@@ -26,9 +26,19 @@
     "ledgerfall_market": {
       "id": "ledgerfall_market",
       "name": "Ledgerfall Market",
-      "description": "To the West you see a bustling market place.",
+      "description": "The air hums with haggling, a cacophony of bartering and coin clinking as vendors hawk their wares.  Copper pipes hiss steam from overflowing kettles, the scent of fish stew hangs heavy in the humid air.   Rust stains the wooden stalls, each one crammed with trinkets and tools.",
       "exits": {
-        "east": "spawn"
+        "east": "spawn",
+        "north": "the_markect_arms_inn"
+      },
+      "items": []
+    },
+    "the_markect_arms_inn": {
+      "id": "the_markect_arms_inn",
+      "name": "The Merkect Arms Inn",
+      "description": "A worn sign hangs crookedly above the door, its paint flaking off in patches. The air smells of stale ale and damp wood, a faint aroma of roasted meat lingering nearby.  Outside, the sounds of haggling and shouting clash with the rhythmic clatter of rain against the roof.",
+      "exits": {
+        "south": "ledgerfall_market"
       },
       "items": []
     }
