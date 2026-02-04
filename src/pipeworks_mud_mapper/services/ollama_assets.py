@@ -30,6 +30,11 @@ def _prompt_prefixes_path() -> Path:
     return Path(__file__).parent.parent.parent.parent / "data" / "ollama" / "prompt_prefixes.json"
 
 
+def _parameter_presets_dir() -> Path:
+    """Return the absolute path to the parameter presets directory."""
+    return Path(__file__).parent.parent.parent.parent / "data" / "ollama" / "presets"
+
+
 # =============================================================================
 # Loading Functions
 # =============================================================================
@@ -76,3 +81,34 @@ def load_prompt_prefixes(*, reload: bool = False) -> list[dict[str, Any]]:
     if reload:
         _load_prompt_prefixes_cached.cache_clear()
     return _load_prompt_prefixes_cached()
+
+
+@lru_cache(maxsize=1)
+def _load_parameter_presets_cached() -> list[dict[str, Any]]:
+    """Load parameter presets from disk (cached)."""
+    presets_dir = _parameter_presets_dir()
+    if not presets_dir.exists():
+        return []
+
+    presets: list[dict[str, Any]] = []
+    for path in sorted(presets_dir.glob("*.preset.json")):
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            continue
+        if isinstance(data, dict):
+            presets.append(data)
+    return presets
+
+
+def load_parameter_presets(*, reload: bool = False) -> list[dict[str, Any]]:
+    """Return the list of parameter preset dictionaries.
+
+    Parameters
+    ----------
+    reload : bool
+        When True, clears the cache and reloads from disk.
+    """
+    if reload:
+        _load_parameter_presets_cached.cache_clear()
+    return _load_parameter_presets_cached()

@@ -1,0 +1,9 @@
+{
+  "label": "Target 30 Words",
+  "value": "target_30_words",
+  "target_words": 30,
+  "temperature": 0.4,
+  "top_p": 0.7,
+  "top_k": 20,
+  "num_predict": 70
+}

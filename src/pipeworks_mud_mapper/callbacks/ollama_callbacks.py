@@ -21,9 +21,11 @@ from pipeworks_mud_mapper.callbacks.ollama_models_callbacks import (  # noqa: F4
     refresh_ollama_models,
 )
 from pipeworks_mud_mapper.callbacks.ollama_template_callbacks import (  # noqa: F401
+    apply_param_preset,
     apply_prompt_prefix,
     handle_seed_controls,
     handle_template_selection,
+    load_param_preset_options,
     load_prompt_prefix_options,
     load_template_options,
     toggle_params_collapse,
@@ -35,12 +37,14 @@ from pipeworks_mud_mapper.callbacks.ollama_validation_callbacks import (  # noqa
 )
 
 __all__ = [
+    "apply_param_preset",
     "apply_prompt_prefix",
     "copy_system_prompt",
     "generate_description",
     "handle_clipboard_copy",
     "handle_seed_controls",
     "handle_template_selection",
+    "load_param_preset_options",
     "load_prompt_prefix_options",
     "load_template_options",
     "populate_prompt_from_description",
