@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.6](https://github.com/pipe-works/pipeworks_mud_mapper/compare/pipeworks-mud-mapper-v0.1.5...pipeworks-mud-mapper-v0.1.6) (2026-02-04)
+
+
+### Features
+
+* **ollama:** add description validator staging ([300dff5](https://github.com/pipe-works/pipeworks_mud_mapper/commit/300dff558b0c22c898ebee6e7ffe36a38b959df5))
+* **ollama:** add description validator staging ([27c1c21](https://github.com/pipe-works/pipeworks_mud_mapper/commit/27c1c215aa0d664457b3f4b73d6ca0d3c2fd1bc7))
+
 ## [0.1.5](https://github.com/pipe-works/pipeworks_mud_mapper/compare/pipeworks-mud-mapper-v0.1.4...pipeworks-mud-mapper-v0.1.5) (2026-02-03)
 
 
