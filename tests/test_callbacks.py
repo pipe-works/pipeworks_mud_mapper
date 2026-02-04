@@ -970,12 +970,28 @@ class TestFileCallbacks:
 
     def test_auto_snapshot_on_generation_disabled(self, simple_zone_data, tmp_path):
         """auto_snapshot_on_generation should no-op when toggle is off."""
+        generation_info = {
+            "model": "gemma2:2b",
+            "actual_seed": 12345,
+            "template_id": "__custom__",
+            "temperature": 0.7,
+            "top_k": 40,
+            "top_p": 0.9,
+            "num_ctx": 4096,
+            "num_predict": 128,
+            "system_prompt": "System",
+            "user_prompt": "User",
+            "generated_at": "2026-02-04T10:30:00+00:00",
+        }
         with patch(
             "pipeworks_mud_mapper.callbacks.file_callbacks.DEV_MAPS_DIR",
             tmp_path,
         ):
             result = auto_snapshot_on_generation(
-                generation_info={"model": "gemma2:2b"},
+                generation_info=generation_info,
+                response_text="Generated text.",
+                validation_info=None,
+                selected_room="spawn",
                 zone_data=simple_zone_data,
                 selected_file="test.map.json",
                 dev_save_enabled=False,
@@ -986,12 +1002,28 @@ class TestFileCallbacks:
 
     def test_auto_snapshot_on_generation_disabled_list(self, simple_zone_data, tmp_path):
         """auto_snapshot_on_generation should no-op for empty checkbox list."""
+        generation_info = {
+            "model": "gemma2:2b",
+            "actual_seed": 12345,
+            "template_id": "__custom__",
+            "temperature": 0.7,
+            "top_k": 40,
+            "top_p": 0.9,
+            "num_ctx": 4096,
+            "num_predict": 128,
+            "system_prompt": "System",
+            "user_prompt": "User",
+            "generated_at": "2026-02-04T10:30:00+00:00",
+        }
         with patch(
             "pipeworks_mud_mapper.callbacks.file_callbacks.DEV_MAPS_DIR",
             tmp_path,
         ):
             result = auto_snapshot_on_generation(
-                generation_info={"model": "gemma2:2b"},
+                generation_info=generation_info,
+                response_text="Generated text.",
+                validation_info=None,
+                selected_room="spawn",
                 zone_data=simple_zone_data,
                 selected_file="test.map.json",
                 dev_save_enabled=[],
@@ -1002,12 +1034,28 @@ class TestFileCallbacks:
 
     def test_auto_snapshot_on_generation_success(self, simple_zone_data, tmp_path):
         """auto_snapshot_on_generation should write a snapshot on generation."""
+        generation_info = {
+            "model": "gemma2:2b",
+            "actual_seed": 12345,
+            "template_id": "__custom__",
+            "temperature": 0.7,
+            "top_k": 40,
+            "top_p": 0.9,
+            "num_ctx": 4096,
+            "num_predict": 128,
+            "system_prompt": "System",
+            "user_prompt": "User",
+            "generated_at": "2026-02-04T10:30:00+00:00",
+        }
         with patch(
             "pipeworks_mud_mapper.callbacks.file_callbacks.DEV_MAPS_DIR",
             tmp_path,
         ):
             result = auto_snapshot_on_generation(
-                generation_info={"model": "gemma2:2b"},
+                generation_info=generation_info,
+                response_text="Generated text.",
+                validation_info={"valid": True},
+                selected_room="spawn",
                 zone_data=simple_zone_data,
                 selected_file="test.map.json",
                 dev_save_enabled=True,
@@ -1015,7 +1063,48 @@ class TestFileCallbacks:
 
         assert isinstance(result, dict)
         assert result.get("trigger") == "generation"
-        assert any(tmp_path.glob("test_*.map.json"))
+        snapshot_files = list(tmp_path.glob("test_*.map.json"))
+        assert snapshot_files
+
+        snapshot = snapshot_files[0].read_text(encoding="utf-8")
+        assert "Generated text." in snapshot
+
+    def test_auto_snapshot_on_generation_no_selected_room(self, simple_zone_data, tmp_path):
+        """auto_snapshot_on_generation should snapshot without injecting when no room selected."""
+        generation_info = {
+            "model": "gemma2:2b",
+            "actual_seed": 12345,
+            "template_id": "__custom__",
+            "temperature": 0.7,
+            "top_k": 40,
+            "top_p": 0.9,
+            "num_ctx": 4096,
+            "num_predict": 128,
+            "system_prompt": "System",
+            "user_prompt": "User",
+            "generated_at": "2026-02-04T10:30:00+00:00",
+        }
+        with patch(
+            "pipeworks_mud_mapper.callbacks.file_callbacks.DEV_MAPS_DIR",
+            tmp_path,
+        ):
+            result = auto_snapshot_on_generation(
+                generation_info=generation_info,
+                response_text="Generated text.",
+                validation_info={"valid": True},
+                selected_room=None,
+                zone_data=simple_zone_data,
+                selected_file="test.map.json",
+                dev_save_enabled=True,
+            )
+
+        assert isinstance(result, dict)
+        snapshot_files = list(tmp_path.glob("test_*.map.json"))
+        assert snapshot_files
+
+        snapshot = snapshot_files[0].read_text(encoding="utf-8")
+        # Original description should remain when no room is selected.
+        assert "The starting room." in snapshot
 
     def test_export_zone_to_file_no_click(self, simple_zone_data):
         """export_zone_to_file should return no_update when not clicked."""
