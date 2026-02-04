@@ -11,7 +11,8 @@
       "exits": {
         "east": "broken_door",
         "west": "ledgerfall_market",
-        "north": "quiet_alley_n1"
+        "north": "quiet_alley_n1",
+        "south": "quiet_alley_s1"
       },
       "items": []
     },
@@ -59,6 +60,15 @@
       "description": "A narrow, cobbled alley smells of damp earth and stale ale.  Rust-tinged pipes snake along the walls, and a single flickering lamp casts long shadows.  The air is thick with the murmur of voices and the clatter of feet.",
       "exits": {
         "south": "spawn"
+      },
+      "items": []
+    },
+    "quiet_alley_s1": {
+      "id": "quiet_alley_s1",
+      "name": "A Quiet Alley",
+      "description": "A narrow, cobbled alleyway. The air hangs thick with the scent of mildew and fish guts.  A single flickering oil lamp casts dancing shadows on the rough-hewn walls.  The silence is broken only by a distant, rhythmic clang.",
+      "exits": {
+        "north": "spawn"
       },
       "items": []
     }
