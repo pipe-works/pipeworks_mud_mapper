@@ -24,6 +24,7 @@ Component IDs
 - ``save-map-btn``: Button to save current map with coordinates
 - ``export-zone-btn``: Button to export zone JSON without coordinates
 - ``validate-zone-btn``: Button to run validation checks on the map
+- ``dev-save-toggle``: Toggle to save snapshots to data/maps/dev_snapshots
 - ``status-indicator``: Text showing current file state (saved/unsaved)
 
 Notes
@@ -103,6 +104,12 @@ def create_file_browser() -> dbc.Card:
                         size="sm",
                         className="w-100 mb-2",
                         disabled=True,
+                    ),
+                    dbc.Checkbox(
+                        id="dev-save-toggle",
+                        label="Dev snapshots (maps/dev_snapshots)",
+                        value=False,
+                        className="small mb-2",
                     ),
                     # Export Zone JSON button
                     dbc.Button(

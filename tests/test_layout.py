@@ -504,6 +504,9 @@ class TestOllamaPanel:
         assert component_has_id(result, "ollama-validator-summary")
         assert component_has_id(result, "ollama-validator-hits")
         assert component_has_id(result, "ollama-validator-history")
+        assert component_has_id(result, "ollama-target-words-hint")
+        assert component_has_id(result, "ollama-params-help-btn")
+        assert component_has_id(result, "ollama-prompt-prefix-dropdown")
 
     def test_create_ollama_panel_ollama_server_default(self):
         """create_ollama_panel ollama-server-url should default to localhost."""
@@ -873,6 +876,8 @@ class TestLayoutIntegration:
             "new-map-feedback",
             "save-map-btn",
             "export-zone-btn",
+            "dev-save-toggle",
+            "dev-snapshot-status",
             "has-unsaved-changes",
             "status-indicator",
         ]
@@ -933,6 +938,9 @@ class TestLayoutIntegration:
             "ollama-validator-summary",
             "ollama-validator-hits",
             "ollama-validator-history",
+            "ollama-target-words-hint",
+            "ollama-params-help-btn",
+            "ollama-prompt-prefix-dropdown",
             # Parameters section IDs
             "ollama-params-toggle",
             "ollama-params-chevron",

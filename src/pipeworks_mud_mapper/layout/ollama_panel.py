@@ -17,7 +17,7 @@ Component Structure
     │                                                                    │
     │ ▶ System Prompt              ▶ Parameters                          │
     │                                                                    │
-    │ User Prompt:                                    [Use Description]  │
+    │ User Prompt: [Preset ▾]                         [Use Description]  │
     │ [________________________]                                         │
     │                                                                    │
     │ [Generate ✨]                                                       │
@@ -619,9 +619,9 @@ def create_ollama_panel() -> dbc.Card:
                                                                     [
                                                                         dbc.Label(
                                                                             [
-                                                                                "Max Tokens ",
+                                                                                "num_predict ",
                                                                                 html.Small(
-                                                                                    "(output limit)",
+                                                                                    "(max tokens)",
                                                                                     className="text-muted",
                                                                                 ),
                                                                             ],
@@ -664,6 +664,26 @@ def create_ollama_panel() -> dbc.Card:
                                                                                     "(for template)",
                                                                                     className="text-muted",
                                                                                 ),
+                                                                                dbc.Button(
+                                                                                    [
+                                                                                        html.I(
+                                                                                            className=(
+                                                                                                "bi bi-sliders "
+                                                                                                "me-1"
+                                                                                            )
+                                                                                        ),
+                                                                                        "Presets",
+                                                                                    ],
+                                                                                    id="ollama-params-help-btn",
+                                                                                    color="link",
+                                                                                    size="sm",
+                                                                                    className=(
+                                                                                        "p-0 align-baseline"
+                                                                                    ),
+                                                                                    title=(
+                                                                                        "Show parameter examples"
+                                                                                    ),
+                                                                                ),
                                                                             ],
                                                                             html_for="ollama-target-words",
                                                                             size="sm",
@@ -678,7 +698,7 @@ def create_ollama_panel() -> dbc.Card:
                                                                             size="sm",
                                                                         ),
                                                                         html.Small(
-                                                                            "25-500: Guides LLM output length",
+                                                                            id="ollama-target-words-hint",
                                                                             className="text-muted",
                                                                             style={
                                                                                 "fontSize": "0.65rem"
@@ -729,6 +749,40 @@ def create_ollama_panel() -> dbc.Card:
                                                             ],
                                                             className="mt-2",
                                                         ),
+                                                        dbc.Popover(
+                                                            [
+                                                                dbc.PopoverHeader(
+                                                                    "Short Output Baselines"
+                                                                ),
+                                                                dbc.PopoverBody(
+                                                                    [
+                                                                        html.Div(
+                                                                            "Target 30 words:"
+                                                                        ),
+                                                                        html.Div(
+                                                                            "temp=0.4, top_p=0.7, top_k=20, num_predict=70"
+                                                                        ),
+                                                                        html.Hr(className="my-2"),
+                                                                        html.Div(
+                                                                            "If truncation happens:"
+                                                                        ),
+                                                                        html.Div(
+                                                                            "raise num_predict to 80 or reduce prompt length"
+                                                                        ),
+                                                                        html.Hr(className="my-2"),
+                                                                        html.Div(
+                                                                            "Longer output (60-80 words):"
+                                                                        ),
+                                                                        html.Div(
+                                                                            "temp=0.7, top_p=0.9, top_k=40, num_predict=140+"
+                                                                        ),
+                                                                    ]
+                                                                ),
+                                                            ],
+                                                            target="ollama-params-help-btn",
+                                                            trigger="click",
+                                                            placement="top",
+                                                        ),
                                                     ],
                                                     className="py-2",
                                                 ),
@@ -750,6 +804,17 @@ def create_ollama_panel() -> dbc.Card:
                                                 html_for="ollama-user-prompt",
                                                 size="sm",
                                                 className="me-auto",
+                                            ),
+                                            dcc.Dropdown(
+                                                id="ollama-prompt-prefix-dropdown",
+                                                options=[],
+                                                placeholder="Prompt preset...",
+                                                clearable=True,
+                                                className="ms-2",
+                                                style={
+                                                    "minWidth": "220px",
+                                                    "fontSize": "0.75rem",
+                                                },
                                             ),
                                             dbc.Button(
                                                 [

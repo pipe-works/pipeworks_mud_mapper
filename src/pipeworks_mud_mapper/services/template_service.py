@@ -432,10 +432,14 @@ def compile_system_prompt(template: OllamaTemplate, target_words: int = 300) -> 
     )
     sections.append("")
     sections.append(f"Write a room description for {template.theme.name.split(',')[0]}:")
-    # Calculate word count range: approximately 67%-117% of target for flexibility
-    words_low = int(target_words * 0.67)
-    words_high = int(target_words * 1.17)
-    sections.append(f"- {words_low}-{words_high} words (aim for ~{target_words})")
+    # Calculate word count guidance.
+    # For short targets, enforce exact length to avoid conflicting instructions.
+    if target_words <= 40:
+        sections.append(f"- Exactly {target_words} words (do not exceed)")
+    else:
+        words_low = int(target_words * 0.67)
+        words_high = int(target_words * 1.17)
+        sections.append(f"- {words_low}-{words_high} words (aim for ~{target_words})")
     sections.append("- Present tense, second person (you/your)")
     sections.append("- Sensory: focus on what you see, hear, smell, feel, taste")
     sections.append("- Atmospheric: capture the mood of the room")
