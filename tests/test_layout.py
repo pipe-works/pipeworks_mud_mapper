@@ -905,6 +905,8 @@ class TestLayoutIntegration:
             "zone-files-store",
             "dev-snapshot-files-store",
             "initial-load",
+            "io-job-poll",
+            "io-jobs",
             "file-list-container",
             "dev-snapshot-list-container",
             "selected-file",

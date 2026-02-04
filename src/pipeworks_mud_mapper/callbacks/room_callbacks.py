@@ -33,13 +33,12 @@ See Also
 - ``services/room_service.py``: Room business logic
 """
 
-import re
 import time
 from typing import Any
 
-import dash_bootstrap_components as dbc
 from dash import Input, Output, State, callback, html, no_update
 
+from pipeworks_mud_mapper.services.state import ZoneAction, apply_zone_action
 from pipeworks_mud_mapper.utils.zone_io import DIRECTION_SHORT
 
 
@@ -112,73 +111,31 @@ def add_room_to_zone(
     """
     if not n_clicks:
         return (no_update,) * 9
-
-    # Validate zone is loaded
-    if not zone_data:
-        feedback = dbc.Alert(
-            "No zone loaded. Create or select a zone first.",
-            color="warning",
-            className="mb-0 py-2",
-        )
-        return (no_update, _room_feedback_payload(feedback)) + (no_update,) * 7
-
-    # Validate room_id
-    room_id = (room_id or "").strip()
-    if not room_id:
-        feedback = dbc.Alert("Room ID is required.", color="danger", className="mb-0 py-2")
-        return (no_update, _room_feedback_payload(feedback)) + (no_update,) * 7
-
-    if not re.match(r"^[a-zA-Z][a-zA-Z0-9_]*$", room_id):
-        feedback = dbc.Alert(
-            "Room ID must start with a letter and contain only letters, numbers, underscores.",
-            color="danger",
-            className="mb-0 py-2",
-        )
-        return (no_update, _room_feedback_payload(feedback)) + (no_update,) * 7
-
-    # Check for duplicate room ID
-    if room_id in zone_data.get("rooms", {}):
-        feedback = dbc.Alert(
-            f"Room '{room_id}' already exists in this zone.",
-            color="warning",
-            className="mb-0 py-2",
-        )
-        return (no_update, _room_feedback_payload(feedback)) + (no_update,) * 7
-
-    # Validate coordinates
-    try:
-        x = int(coord_x) if coord_x is not None else 0
-        y = int(coord_y) if coord_y is not None else 0
-        z = int(coord_z) if coord_z is not None else 0
-    except (ValueError, TypeError):
-        feedback = dbc.Alert("Coordinates must be integers.", color="danger", className="mb-0 py-2")
-        return (no_update, _room_feedback_payload(feedback)) + (no_update,) * 7
-
-    # Create the new room
-    new_room = {
-        "id": room_id,
-        "name": (room_name or "").strip() or room_id,
-        "description": (room_description or "").strip(),
-        "coords": [x, y, z],
-        "exits": {},
-        "items": [],
-    }
-
-    # Add to zone data (create copies to trigger Dash update)
-    updated_zone = dict(zone_data)
-    updated_zone["rooms"] = dict(zone_data.get("rooms", {}))
-    updated_zone["rooms"][room_id] = new_room
-
-    # Success feedback
-    feedback = dbc.Alert(
-        f"Room '{room_id}' added at ({x}, {y}, {z})",
-        color="success",
-        className="mb-0 py-2",
-        duration=3000,
+    action = ZoneAction(
+        type="ADD_ROOM",
+        payload={
+            "room_id": room_id,
+            "room_name": room_name,
+            "room_description": room_description,
+            "coord_x": coord_x,
+            "coord_y": coord_y,
+            "coord_z": coord_z,
+        },
     )
+    transition = apply_zone_action(zone_data, action)
 
-    # Return updated zone, clear form, mark unsaved
-    return updated_zone, _room_feedback_payload(feedback), "", "", "", 0, 0, 0, True
+    zone_out = transition.zone_data if transition.zone_data is not None else no_update
+    feedback_out = (
+        _room_feedback_payload(transition.feedback)
+        if transition.feedback is not None
+        else no_update
+    )
+    unsaved_out = transition.unsaved if transition.unsaved is not None else no_update
+
+    if transition.changed:
+        return zone_out, feedback_out, "", "", "", 0, 0, 0, unsaved_out
+
+    return (zone_out, feedback_out) + (no_update,) * 7
 
 
 @callback(
@@ -365,58 +322,33 @@ def update_room_properties(
     """
     if not n_clicks:
         return no_update, no_update, no_update
-
-    if not selected_room or not zone_data:
-        feedback = dbc.Alert(
-            "No room selected to update.",
-            color="warning",
-            className="mb-0 py-2",
-        )
-        return no_update, _room_feedback_payload(feedback), no_update
-
-    rooms = zone_data.get("rooms", {})
-    if selected_room not in rooms:
-        feedback = dbc.Alert(
-            f"Room '{selected_room}' not found.",
-            color="danger",
-            className="mb-0 py-2",
-        )
-        return no_update, _room_feedback_payload(feedback), no_update
-
-    # Validate coordinates
-    try:
-        x = int(coord_x) if coord_x is not None else 0
-        y = int(coord_y) if coord_y is not None else 0
-        z = int(coord_z) if coord_z is not None else 0
-    except (ValueError, TypeError):
-        feedback = dbc.Alert(
-            "Coordinates must be integers.",
-            color="danger",
-            className="mb-0 py-2",
-        )
-        return no_update, _room_feedback_payload(feedback), no_update
-
-    # Create updated zone data (copies for Dash reactivity)
-    updated_zone = dict(zone_data)
-    updated_zone["rooms"] = dict(zone_data.get("rooms", {}))
-    updated_room = dict(rooms[selected_room])
-
-    # Update room properties
-    updated_room["name"] = (room_name or "").strip() or selected_room
-    updated_room["description"] = (room_description or "").strip()
-    updated_room["coords"] = [x, y, z]
-
-    updated_zone["rooms"][selected_room] = updated_room
-
-    feedback = dbc.Alert(
-        f"Room '{selected_room}' updated.",
-        color="success",
-        className="mb-0 py-2",
-        duration=3000,
+    action = ZoneAction(
+        type="UPDATE_ROOM",
+        payload={
+            "selected_room": selected_room,
+            "room_name": room_name,
+            "room_description": room_description,
+            "coord_x": coord_x,
+            "coord_y": coord_y,
+            "coord_z": coord_z,
+        },
     )
+    transition = apply_zone_action(zone_data, action)
 
-    print(f"[DEBUG] update_room_properties: setting has_unsaved=True for room '{selected_room}'")
-    return updated_zone, _room_feedback_payload(feedback), True
+    zone_out = transition.zone_data if transition.zone_data is not None else no_update
+    feedback_out = (
+        _room_feedback_payload(transition.feedback)
+        if transition.feedback is not None
+        else no_update
+    )
+    unsaved_out = transition.unsaved if transition.unsaved is not None else no_update
+
+    if transition.changed:
+        print(
+            f"[DEBUG] update_room_properties: setting has_unsaved=True for room '{selected_room}'"
+        )
+
+    return zone_out, feedback_out, unsaved_out
 
 
 # =============================================================================
@@ -586,77 +518,37 @@ def confirm_delete_room(n_clicks: int, selected_room: str | None, zone_data: dic
         Updated zone, cleared selection, modal closed, undo data,
         undo container style, unsaved flag, feedback.
     """
-    if not n_clicks or not selected_room or not zone_data:
+    if not n_clicks:
         return (no_update,) * 7
 
-    rooms = zone_data.get("rooms", {})
-    if selected_room not in rooms:
+    action = ZoneAction(
+        type="DELETE_ROOM",
+        payload={
+            "selected_room": selected_room,
+        },
+    )
+    transition = apply_zone_action(zone_data, action)
+
+    if not transition.changed or transition.zone_data is None:
         return (no_update,) * 7
 
-    # Store the deleted room for undo
-    deleted_room = dict(rooms[selected_room])
-
-    # Find and store exits from other rooms that point to this room
-    removed_exits = []
-    for room_id, other_room in rooms.items():
-        if room_id == selected_room:
-            continue
-        for direction, target in list(other_room.get("exits", {}).items()):
-            if target == selected_room:
-                removed_exits.append(
-                    {
-                        "room_id": room_id,
-                        "direction": direction,
-                        "target": selected_room,
-                    }
-                )
-
-    # Create undo data
-    undo_data = {
-        "room_id": selected_room,
-        "room_data": deleted_room,
-        "removed_exits": removed_exits,
-    }
-
-    # Create updated zone data
-    updated_zone = dict(zone_data)
-    updated_zone["rooms"] = dict(zone_data.get("rooms", {}))
-
-    # Remove the room
-    del updated_zone["rooms"][selected_room]
-
-    # Remove exits from other rooms that pointed to this room
-    for exit_info in removed_exits:
-        room_id = exit_info["room_id"]
-        direction = exit_info["direction"]
-        if room_id in updated_zone["rooms"]:
-            updated_zone["rooms"][room_id] = dict(updated_zone["rooms"][room_id])
-            updated_zone["rooms"][room_id]["exits"] = dict(
-                updated_zone["rooms"][room_id].get("exits", {})
-            )
-            if direction in updated_zone["rooms"][room_id]["exits"]:
-                del updated_zone["rooms"][room_id]["exits"][direction]
-
-    feedback = dbc.Alert(
-        [
-            html.I(className="bi bi-trash me-2"),
-            f"Room '{selected_room}' deleted.",
-        ],
-        color="warning",
-        className="mb-0 py-2",
-        duration=5000,
+    undo_data = transition.effects.get("undo_data")
+    feedback_out = (
+        _room_feedback_payload(transition.feedback)
+        if transition.feedback is not None
+        else no_update
     )
 
     print(f"[DEBUG] confirm_delete_room: deleted room '{selected_room}'")
 
     return (
-        updated_zone,  # current-zone-data
-        None,  # selected-room (clear selection)
-        False,  # delete-confirm-modal (close)
-        undo_data,  # delete-undo-data
-        {"display": "block"},  # undo-delete-container (show)
-        True,  # has-unsaved-changes
-        _room_feedback_payload(feedback),  # room feedback
+        transition.zone_data,
+        None,
+        False,
+        undo_data,
+        {"display": "block"},
+        True,
+        feedback_out,
     )
 
 
@@ -687,52 +579,34 @@ def undo_delete_room(n_clicks: int, undo_data: dict | None, zone_data: dict | No
     tuple
         Updated zone, cleared undo data, hidden undo container, feedback.
     """
-    if not n_clicks or not undo_data or not zone_data:
+    if not n_clicks:
         return (no_update,) * 4
 
-    room_id = undo_data.get("room_id")
-    room_data = undo_data.get("room_data")
-    removed_exits = undo_data.get("removed_exits", [])
+    action = ZoneAction(
+        type="UNDO_DELETE",
+        payload={
+            "undo_data": undo_data,
+        },
+    )
+    transition = apply_zone_action(zone_data, action)
 
-    if not room_id or not room_data:
+    if not transition.changed or transition.zone_data is None:
         return (no_update,) * 4
 
-    # Create updated zone data
-    updated_zone = dict(zone_data)
-    updated_zone["rooms"] = dict(zone_data.get("rooms", {}))
-
-    # Restore the room
-    updated_zone["rooms"][room_id] = room_data
-
-    # Restore exits from other rooms
-    for exit_info in removed_exits:
-        other_room_id = exit_info["room_id"]
-        direction = exit_info["direction"]
-        target = exit_info["target"]
-        if other_room_id in updated_zone["rooms"]:
-            updated_zone["rooms"][other_room_id] = dict(updated_zone["rooms"][other_room_id])
-            updated_zone["rooms"][other_room_id]["exits"] = dict(
-                updated_zone["rooms"][other_room_id].get("exits", {})
-            )
-            updated_zone["rooms"][other_room_id]["exits"][direction] = target
-
-    feedback = dbc.Alert(
-        [
-            html.I(className="bi bi-arrow-counterclockwise me-2"),
-            f"Room '{room_id}' restored.",
-        ],
-        color="success",
-        className="mb-0 py-2",
-        duration=3000,
+    feedback_out = (
+        _room_feedback_payload(transition.feedback)
+        if transition.feedback is not None
+        else no_update
     )
 
-    print(f"[DEBUG] undo_delete_room: restored room '{room_id}'")
+    restored_id = undo_data.get("room_id") if isinstance(undo_data, dict) else "unknown"
+    print(f"[DEBUG] undo_delete_room: restored room '{restored_id}'")
 
     return (
-        updated_zone,  # current-zone-data
-        None,  # delete-undo-data (clear)
-        {"display": "none"},  # undo-delete-container (hide)
-        _room_feedback_payload(feedback),  # room feedback
+        transition.zone_data,
+        None,
+        {"display": "none"},
+        feedback_out,
     )
 
 

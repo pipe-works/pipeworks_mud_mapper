@@ -50,6 +50,7 @@ from pipeworks_mud_mapper.callbacks.file_callbacks import (
     handle_new_map_modal,
     load_dev_snapshot_files_list,
     load_map_files_list,
+    poll_io_jobs,
     render_dev_snapshot_list,
     render_file_list,
     save_map_to_file,
@@ -1006,8 +1007,9 @@ class TestFileCallbacks:
             zone_data=simple_zone_data,
             selected_file="test.map.json",
             dev_save_enabled=False,
+            io_jobs=None,
         )
-        assert result == (no_update, no_update)
+        assert result == (no_update, no_update, no_update)
 
     def test_save_map_to_file_no_data(self):
         """save_map_to_file should return no_update when no zone data."""
@@ -1016,11 +1018,12 @@ class TestFileCallbacks:
             zone_data=None,
             selected_file="test.map.json",
             dev_save_enabled=False,
+            io_jobs=None,
         )
-        assert result == (no_update, no_update)
+        assert result == (no_update, no_update, no_update)
 
     def test_save_map_to_file_success(self, simple_zone_data, temp_maps_dir):
-        """save_map_to_file should save file on success."""
+        """save_map_to_file should queue a save job on success."""
         with patch(
             "pipeworks_mud_mapper.callbacks.file_callbacks.MAPS_DIR",
             temp_maps_dir,
@@ -1030,14 +1033,15 @@ class TestFileCallbacks:
                 zone_data=simple_zone_data,
                 selected_file="test.map.json",
                 dev_save_enabled=False,
+                io_jobs=None,
             )
 
-        unsaved, feedback = result
-        assert unsaved is False  # Marked as saved
-        assert (temp_maps_dir / "test.map.json").exists()
+        unsaved, feedback, job_store = result
+        assert unsaved is True  # Save queued, still unsaved until job completes
+        assert job_store and job_store["jobs"]
 
     def test_save_map_to_file_dev_snapshot(self, simple_zone_data, temp_maps_dir, tmp_path):
-        """save_map_to_file should create a dev snapshot when enabled."""
+        """save_map_to_file should queue a dev snapshot when enabled."""
         with (
             patch(
                 "pipeworks_mud_mapper.callbacks.file_callbacks.MAPS_DIR",
@@ -1053,11 +1057,12 @@ class TestFileCallbacks:
                 zone_data=simple_zone_data,
                 selected_file="test.map.json",
                 dev_save_enabled=True,
+                io_jobs=None,
             )
 
-        unsaved, feedback = result
-        assert unsaved is False
-        assert any(tmp_path.glob("test_*.map.json"))
+        unsaved, feedback, job_store = result
+        assert unsaved is True
+        assert job_store and job_store["jobs"]
 
     def test_dev_snapshot_map_disabled(self, simple_zone_data, tmp_path):
         """handle_dev_snapshotting should no-op when toggle is off."""
@@ -1078,10 +1083,10 @@ class TestFileCallbacks:
                 validation_info=None,
                 selected_room=None,
                 selected_file="test.map.json",
+                io_jobs=None,
             )
 
-        assert result is no_update
-        assert not any(tmp_path.glob("test_*.map.json"))
+        assert result == (no_update, no_update)
 
     def test_dev_snapshot_map_disabled_list(self, simple_zone_data, tmp_path):
         """handle_dev_snapshotting should no-op when checkbox list is empty."""
@@ -1102,10 +1107,10 @@ class TestFileCallbacks:
                 validation_info=None,
                 selected_room=None,
                 selected_file="test.map.json",
+                io_jobs=None,
             )
 
-        assert result is no_update
-        assert not any(tmp_path.glob("test_*.map.json"))
+        assert result == (no_update, no_update)
 
     def test_dev_snapshot_map_success(self, simple_zone_data, tmp_path):
         """handle_dev_snapshotting should write a snapshot on map change."""
@@ -1126,11 +1131,13 @@ class TestFileCallbacks:
                 validation_info=None,
                 selected_room=None,
                 selected_file="test.map.json",
+                io_jobs=None,
             )
 
-        assert isinstance(result, dict)
-        assert "snapshot" in result
-        assert any(tmp_path.glob("test_*.map.json"))
+        payload, job_store = result
+        assert isinstance(payload, dict)
+        assert "snapshot" in payload
+        assert job_store and job_store["jobs"]
 
     def test_dev_snapshot_map_fallback_name(self, simple_zone_data, tmp_path):
         """handle_dev_snapshotting should use zone id if no selected_file."""
@@ -1151,10 +1158,12 @@ class TestFileCallbacks:
                 validation_info=None,
                 selected_room=None,
                 selected_file=None,
+                io_jobs=None,
             )
 
-        assert isinstance(result, dict)
-        assert any(tmp_path.glob("test_zone_*.map.json"))
+        payload, job_store = result
+        assert isinstance(payload, dict)
+        assert job_store and job_store["jobs"]
 
     def test_dev_snapshot_generation_disabled(self, simple_zone_data, tmp_path):
         """handle_dev_snapshotting should no-op for generation when toggle is off."""
@@ -1188,10 +1197,10 @@ class TestFileCallbacks:
                 validation_info=None,
                 selected_room="spawn",
                 selected_file="test.map.json",
+                io_jobs=None,
             )
 
-        assert result is no_update
-        assert not any(tmp_path.glob("test_*.map.json"))
+        assert result == (no_update, no_update)
 
     def test_dev_snapshot_generation_disabled_list(self, simple_zone_data, tmp_path):
         """handle_dev_snapshotting should no-op for generation with empty list toggle."""
@@ -1225,10 +1234,10 @@ class TestFileCallbacks:
                 validation_info=None,
                 selected_room="spawn",
                 selected_file="test.map.json",
+                io_jobs=None,
             )
 
-        assert result is no_update
-        assert not any(tmp_path.glob("test_*.map.json"))
+        assert result == (no_update, no_update)
 
     def test_dev_snapshot_generation_success(self, simple_zone_data, tmp_path):
         """handle_dev_snapshotting should write a snapshot on generation."""
@@ -1262,15 +1271,13 @@ class TestFileCallbacks:
                 validation_info={"valid": True},
                 selected_room="spawn",
                 selected_file="test.map.json",
+                io_jobs=None,
             )
 
-        assert isinstance(result, dict)
-        assert result.get("trigger") == "generation"
-        snapshot_files = list(tmp_path.glob("test_*.map.json"))
-        assert snapshot_files
-
-        snapshot = snapshot_files[0].read_text(encoding="utf-8")
-        assert "Generated text." in snapshot
+        payload, job_store = result
+        assert isinstance(payload, dict)
+        assert payload.get("trigger") == "generation"
+        assert job_store and job_store["jobs"]
 
     def test_dev_snapshot_generation_no_selected_room(self, simple_zone_data, tmp_path):
         """handle_dev_snapshotting should snapshot without injecting when no room selected."""
@@ -1304,15 +1311,12 @@ class TestFileCallbacks:
                 validation_info={"valid": True},
                 selected_room=None,
                 selected_file="test.map.json",
+                io_jobs=None,
             )
 
-        assert isinstance(result, dict)
-        snapshot_files = list(tmp_path.glob("test_*.map.json"))
-        assert snapshot_files
-
-        snapshot = snapshot_files[0].read_text(encoding="utf-8")
-        # Original description should remain when no room is selected.
-        assert "The starting room." in snapshot
+        payload, job_store = result
+        assert isinstance(payload, dict)
+        assert job_store and job_store["jobs"]
 
     def test_export_zone_to_file_no_click(self, simple_zone_data):
         """export_zone_to_file should return no_update when not clicked."""
@@ -1320,8 +1324,9 @@ class TestFileCallbacks:
             n_clicks=0,
             zone_data=simple_zone_data,
             selected_file="test.map.json",
+            io_jobs=None,
         )
-        assert result is no_update
+        assert result == (no_update, no_update)
 
     def test_export_zone_to_file_no_data(self):
         """export_zone_to_file should return no_update when no zone data."""
@@ -1329,11 +1334,12 @@ class TestFileCallbacks:
             n_clicks=1,
             zone_data=None,
             selected_file="test.map.json",
+            io_jobs=None,
         )
-        assert result is no_update
+        assert result == (no_update, no_update)
 
     def test_export_zone_to_file_success(self, simple_zone_data, temp_maps_dir):
-        """export_zone_to_file should export to zones directory."""
+        """export_zone_to_file should queue an export job."""
         temp_zones_dir = temp_maps_dir.parent / "zones"
 
         with (
@@ -1350,11 +1356,37 @@ class TestFileCallbacks:
                 n_clicks=1,
                 zone_data=simple_zone_data,
                 selected_file="test.map.json",
+                io_jobs=None,
             )
 
-        # Should have exported
-        assert temp_zones_dir.exists()
-        assert (temp_zones_dir / "test.json").exists()
+        feedback, job_store = result
+        assert job_store and job_store["jobs"]
+
+    def test_poll_io_jobs_no_jobs(self):
+        """poll_io_jobs should no-op when no jobs are queued."""
+        result = poll_io_jobs(n_intervals=1, io_jobs={"jobs": []})
+        assert result == (no_update, no_update, no_update, no_update, no_update)
+
+    def test_poll_io_jobs_save_complete(self):
+        """poll_io_jobs should emit save feedback on completion."""
+        io_jobs = {"jobs": [{"id": "job-1", "type": "save", "display_name": "test"}]}
+        with (
+            patch(
+                "pipeworks_mud_mapper.callbacks.file_callbacks.get_io_job_status",
+                return_value={"status": "done"},
+            ),
+            patch("pipeworks_mud_mapper.callbacks.file_callbacks.forget_io_job"),
+        ):
+            job_store, save_feedback, export_feedback, snapshot_status, unsaved = poll_io_jobs(
+                n_intervals=1,
+                io_jobs=io_jobs,
+            )
+
+        assert job_store == {"jobs": []}
+        assert save_feedback is not no_update
+        assert export_feedback is no_update
+        assert snapshot_status is no_update
+        assert unsaved is False
 
 
 # =============================================================================

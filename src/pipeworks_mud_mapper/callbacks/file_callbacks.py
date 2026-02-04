@@ -58,6 +58,11 @@ import dash_bootstrap_components as dbc
 from dash import ALL, Input, Output, State, callback, ctx, html, no_update
 
 from pipeworks_mud_mapper.services import zone_service
+from pipeworks_mud_mapper.services.io_queue import (
+    forget_io_job,
+    get_io_job_status,
+    submit_io_job,
+)
 from pipeworks_mud_mapper.utils.zone_io import (
     list_map_files,
 )
@@ -138,6 +143,18 @@ def _should_throttle_snapshot(snapshot_key: str) -> bool:
 def _room_feedback_payload(content: Any) -> dict[str, Any]:
     """Build a timestamped payload for room form feedback."""
     return {"content": content, "ts": time.monotonic()}
+
+
+def _save_map_job(map_file: Any, file_path: Path, snapshot_path: Path | None) -> None:
+    """Persist a map file and optional snapshot in a background thread."""
+    zone_service.save_map_file(map_file, file_path)
+    if snapshot_path is not None:
+        zone_service.save_map_file(map_file, snapshot_path)
+
+
+def _export_zone_job(map_file: Any, export_path: Path) -> None:
+    """Export a zone file in a background thread."""
+    zone_service.export_zone(map_file, export_path)
 
 
 # =============================================================================
@@ -567,10 +584,12 @@ def update_save_status(has_unsaved: bool, selected_file: str | None) -> tuple:
 @callback(
     Output("has-unsaved-changes", "data", allow_duplicate=True),
     Output("room-feedback-save", "data"),
+    Output("io-jobs", "data", allow_duplicate=True),
     Input("save-map-btn", "n_clicks"),
     State("current-zone-data", "data"),
     State("selected-file", "data"),
     State("dev-save-toggle", "value"),
+    State("io-jobs", "data"),
     prevent_initial_call=True,
 )
 def save_map_to_file(
@@ -578,6 +597,7 @@ def save_map_to_file(
     zone_data: dict | None,
     selected_file: str | None,
     dev_save_enabled: bool | None,
+    io_jobs: dict | None,
 ) -> tuple:
     """Save the current map data to the file.
 
@@ -600,7 +620,7 @@ def save_map_to_file(
         On error: no_update and error message.
     """
     if not n_clicks or not zone_data or not selected_file:
-        return no_update, no_update
+        return no_update, no_update, no_update
 
     file_path = MAPS_DIR / selected_file
     try:
@@ -608,7 +628,6 @@ def save_map_to_file(
         from pipeworks_mud_mapper.models import MapFile
 
         map_file = MapFile.from_dict(zone_data)
-        zone_service.save_map_file(map_file, file_path)
 
         display_name = selected_file
         if selected_file.endswith(".map.json"):
@@ -620,32 +639,45 @@ def save_map_to_file(
         else:
             dev_enabled = bool(dev_save_enabled)
 
+        snapshot_name = None
+        snapshot_path = None
         if dev_enabled:
             DEV_MAPS_DIR.mkdir(parents=True, exist_ok=True)
             timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S_%f")
             snapshot_name = f"{display_name}_{timestamp}.map.json"
             snapshot_path = DEV_MAPS_DIR / snapshot_name
-            zone_service.save_map_file(map_file, snapshot_path)
-            dev_note = " (dev snapshot saved)"
+            dev_note = " (dev snapshot queued)"
+
+        job_id = submit_io_job(_save_map_job, map_file, file_path, snapshot_path)
+        jobs = list((io_jobs or {}).get("jobs", []))
+        jobs.append(
+            {
+                "id": job_id,
+                "type": "save",
+                "display_name": display_name,
+                "snapshot": snapshot_name,
+            }
+        )
 
         feedback = dbc.Alert(
-            f"Saved: {display_name}{dev_note}",
-            color="success",
+            f"Saving: {display_name}{dev_note}",
+            color="info",
             className="mb-0 py-2",
             duration=3000,
         )
-        return False, _room_feedback_payload(feedback)
+        return True, _room_feedback_payload(feedback), {"jobs": jobs}
     except Exception as e:
         feedback = dbc.Alert(
             f"Error saving: {e}",
             color="danger",
             className="mb-0 py-2",
         )
-        return no_update, _room_feedback_payload(feedback)
+        return no_update, _room_feedback_payload(feedback), no_update
 
 
 @callback(
     Output("dev-snapshot-status", "data"),
+    Output("io-jobs", "data", allow_duplicate=True),
     Input("current-zone-data", "data"),
     Input("ollama-last-generation-info", "data"),
     Input("dev-save-toggle", "value"),
@@ -653,6 +685,7 @@ def save_map_to_file(
     State("ollama-validation-info", "data"),
     State("selected-room", "data"),
     State("selected-file", "data"),
+    State("io-jobs", "data"),
     prevent_initial_call=True,
 )
 def handle_dev_snapshotting(
@@ -663,6 +696,7 @@ def handle_dev_snapshotting(
     validation_info: dict | None,
     selected_room: str | None,
     selected_file: str | None,
+    io_jobs: dict | None,
 ) -> Any:
     """Persist dev snapshots for both map changes and LLM generations.
 
@@ -672,7 +706,7 @@ def handle_dev_snapshotting(
     """
     # No zone data means there's nothing to snapshot.
     if not zone_data:
-        return no_update
+        return no_update, no_update
 
     # Normalize the toggle state (Dash checkbox may return list).
     if isinstance(dev_save_enabled, list):
@@ -684,7 +718,7 @@ def handle_dev_snapshotting(
 
     # Toggle is off - dev snapshots are disabled.
     if not dev_enabled:
-        return no_update
+        return no_update, no_update
 
     # Identify what fired the callback to decide which snapshot path to run.
     trigger = ctx.triggered_id
@@ -695,7 +729,7 @@ def handle_dev_snapshotting(
         trigger_key = "generation"
         # If no generation metadata, there's nothing to snapshot for this path.
         if not generation_info:
-            return no_update
+            return no_update, no_update
 
     from pipeworks_mud_mapper.models import MapFile
 
@@ -729,7 +763,7 @@ def handle_dev_snapshotting(
     # Use trigger + display name so map/generation snapshots are throttled separately.
     snapshot_key = f"{trigger_key}:{display_name}"
     if _should_throttle_snapshot(snapshot_key):
-        return no_update
+        return no_update, no_update
 
     # Ensure dev snapshots directory exists before writing.
     DEV_MAPS_DIR.mkdir(parents=True, exist_ok=True)
@@ -737,7 +771,19 @@ def handle_dev_snapshotting(
     snapshot_name = f"{display_name}_{timestamp}.map.json"
     snapshot_path = DEV_MAPS_DIR / snapshot_name
     # Persist the snapshot map file to disk.
-    zone_service.save_map_file(MapFile.from_dict(snapshot_zone), snapshot_path)
+    map_file = MapFile.from_dict(snapshot_zone)
+    job_id = submit_io_job(_save_map_job, map_file, snapshot_path, None)
+    jobs = list((io_jobs or {}).get("jobs", []))
+    jobs.append(
+        {
+            "id": job_id,
+            "type": "snapshot",
+            "display_name": display_name,
+            "snapshot": snapshot_name,
+            "timestamp": timestamp,
+            "trigger": trigger_key,
+        }
+    )
 
     # Return metadata for downstream callbacks that refresh the list.
     payload = {
@@ -748,17 +794,24 @@ def handle_dev_snapshotting(
         # Mark generation snapshot explicitly so UI can reflect the source.
         payload["trigger"] = "generation"
 
-    return payload
+    return payload, {"jobs": jobs}
 
 
 @callback(
     Output("room-feedback-export", "data"),
+    Output("io-jobs", "data", allow_duplicate=True),
     Input("export-zone-btn", "n_clicks"),
     State("current-zone-data", "data"),
     State("selected-file", "data"),
+    State("io-jobs", "data"),
     prevent_initial_call=True,
 )
-def export_zone_to_file(n_clicks: int, zone_data: dict | None, selected_file: str | None) -> Any:
+def export_zone_to_file(
+    n_clicks: int,
+    zone_data: dict | None,
+    selected_file: str | None,
+    io_jobs: dict | None,
+) -> Any:
     """Export the current map as a zone file (strips coordinates).
 
     Exports to data/zones/{name}.json, creating the game truth file
@@ -779,7 +832,7 @@ def export_zone_to_file(n_clicks: int, zone_data: dict | None, selected_file: st
         Feedback alert component.
     """
     if not n_clicks or not zone_data or not selected_file:
-        return no_update
+        return no_update, no_update
 
     # Derive export path from map file name
     map_path = MAPS_DIR / selected_file
@@ -793,19 +846,117 @@ def export_zone_to_file(n_clicks: int, zone_data: dict | None, selected_file: st
         from pipeworks_mud_mapper.models import MapFile
 
         map_file = MapFile.from_dict(zone_data)
-        zone_service.export_zone(map_file, export_path)
+        job_id = submit_io_job(_export_zone_job, map_file, export_path)
+
+        jobs = list((io_jobs or {}).get("jobs", []))
+        jobs.append(
+            {
+                "id": job_id,
+                "type": "export",
+                "display_name": export_path.stem,
+            }
+        )
 
         feedback = dbc.Alert(
-            f"Exported: {export_path.name} (coordinates stripped)",
+            f"Export queued: {export_path.name} (coordinates stripped)",
             color="info",
             className="mb-0 py-2",
             duration=4000,
         )
-        return _room_feedback_payload(feedback)
+        return _room_feedback_payload(feedback), {"jobs": jobs}
     except Exception as e:
         feedback = dbc.Alert(
             f"Error exporting: {e}",
             color="danger",
             className="mb-0 py-2",
         )
-        return _room_feedback_payload(feedback)
+        return _room_feedback_payload(feedback), no_update
+
+
+@callback(
+    Output("io-jobs", "data"),
+    Output("room-feedback-save", "data", allow_duplicate=True),
+    Output("room-feedback-export", "data", allow_duplicate=True),
+    Output("dev-snapshot-status", "data", allow_duplicate=True),
+    Output("has-unsaved-changes", "data", allow_duplicate=True),
+    Input("io-job-poll", "n_intervals"),
+    State("io-jobs", "data"),
+    prevent_initial_call="initial_duplicate",
+)
+def poll_io_jobs(n_intervals: int, io_jobs: dict | None) -> tuple:
+    """Poll background I/O jobs and surface completion feedback."""
+    jobs = list((io_jobs or {}).get("jobs", []))
+    if not jobs:
+        return no_update, no_update, no_update, no_update, no_update
+
+    updated_jobs: list[dict[str, Any]] = []
+    save_feedback = no_update
+    export_feedback = no_update
+    snapshot_status = no_update
+    unsaved_update = no_update
+
+    for job in jobs:
+        job_id = job.get("id")
+        if not job_id:
+            continue
+
+        status = get_io_job_status(job_id)
+        if status is None or status.get("status") == "pending":
+            updated_jobs.append(job)
+            continue
+
+        forget_io_job(job_id)
+        job_type = job.get("type")
+
+        if status.get("status") == "error":
+            error_message = status.get("error", "Unknown error")
+            feedback = dbc.Alert(
+                f"I/O error: {error_message}",
+                color="danger",
+                className="mb-0 py-2",
+            )
+            if job_type == "save":
+                save_feedback = _room_feedback_payload(feedback)
+                unsaved_update = True
+            elif job_type == "export":
+                export_feedback = _room_feedback_payload(feedback)
+            elif job_type == "snapshot":
+                snapshot_status = {
+                    "snapshot": job.get("snapshot"),
+                    "timestamp": job.get("timestamp"),
+                    "error": error_message,
+                }
+            continue
+
+        if job_type == "save":
+            dev_note = ""
+            if job.get("snapshot"):
+                dev_note = " (dev snapshot saved)"
+            feedback = dbc.Alert(
+                f"Saved: {job.get('display_name')}{dev_note}",
+                color="success",
+                className="mb-0 py-2",
+                duration=3000,
+            )
+            save_feedback = _room_feedback_payload(feedback)
+            unsaved_update = False
+        elif job_type == "export":
+            feedback = dbc.Alert(
+                f"Exported: {job.get('display_name')}.json",
+                color="success",
+                className="mb-0 py-2",
+                duration=3000,
+            )
+            export_feedback = _room_feedback_payload(feedback)
+        elif job_type == "snapshot":
+            snapshot_status = {
+                "snapshot": job.get("snapshot"),
+                "timestamp": job.get("timestamp"),
+            }
+            if job.get("trigger") == "generation":
+                snapshot_status["trigger"] = "generation"
+
+    if updated_jobs == jobs and save_feedback is no_update and export_feedback is no_update:
+        return no_update, no_update, no_update, no_update, no_update
+
+    return {"jobs": updated_jobs}, save_feedback, export_feedback, snapshot_status, unsaved_update

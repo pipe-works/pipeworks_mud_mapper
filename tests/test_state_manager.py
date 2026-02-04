@@ -1,0 +1,120 @@
+"""Tests for the zone state manager and action handlers."""
+
+from pipeworks_mud_mapper.services.state import ZoneAction, apply_zone_action
+
+
+def simple_zone() -> dict:
+    """Build a minimal zone dict for action testing."""
+    return {
+        "id": "test_zone",
+        "name": "Test Zone",
+        "spawn_room": "spawn",
+        "rooms": {
+            "spawn": {
+                "id": "spawn",
+                "name": "Spawn",
+                "description": "Start",
+                "coords": [0, 0, 0],
+                "exits": {},
+                "items": [],
+            }
+        },
+        "items": {},
+    }
+
+
+def test_apply_zone_action_add_room_success():
+    """ADD_ROOM should update zone data and mark unsaved."""
+    action = ZoneAction(
+        type="ADD_ROOM",
+        payload={
+            "room_id": "hall",
+            "room_name": "Hall",
+            "room_description": "A long hall.",
+            "coord_x": 1,
+            "coord_y": 0,
+            "coord_z": 0,
+        },
+    )
+    transition = apply_zone_action(simple_zone(), action)
+
+    assert transition.changed is True
+    assert transition.unsaved is True
+    assert transition.zone_data is not None
+    assert "hall" in transition.zone_data.get("rooms", {})
+
+
+def test_apply_zone_action_add_room_invalid_id():
+    """ADD_ROOM should reject invalid IDs without changing zone data."""
+    action = ZoneAction(
+        type="ADD_ROOM",
+        payload={
+            "room_id": "123",
+            "room_name": "Bad",
+            "room_description": "",
+            "coord_x": 0,
+            "coord_y": 0,
+            "coord_z": 0,
+        },
+    )
+    transition = apply_zone_action(simple_zone(), action)
+
+    assert transition.changed is False
+    assert transition.zone_data is None
+    assert transition.feedback is not None
+
+
+def test_apply_zone_action_update_room_success():
+    """UPDATE_ROOM should update room fields."""
+    action = ZoneAction(
+        type="UPDATE_ROOM",
+        payload={
+            "selected_room": "spawn",
+            "room_name": "Updated",
+            "room_description": "Updated desc",
+            "coord_x": 2,
+            "coord_y": 3,
+            "coord_z": 0,
+        },
+    )
+    transition = apply_zone_action(simple_zone(), action)
+
+    assert transition.changed is True
+    assert transition.zone_data is not None
+    updated = transition.zone_data["rooms"]["spawn"]
+    assert updated["name"] == "Updated"
+    assert updated["description"] == "Updated desc"
+    assert updated["coords"] == [2, 3, 0]
+
+
+def test_apply_zone_action_delete_and_undo():
+    """DELETE_ROOM and UNDO_DELETE should round-trip room removal."""
+    zone = simple_zone()
+    zone["rooms"]["hall"] = {
+        "id": "hall",
+        "name": "Hall",
+        "description": "",
+        "coords": [1, 0, 0],
+        "exits": {},
+        "items": [],
+    }
+
+    delete_action = ZoneAction(
+        type="DELETE_ROOM",
+        payload={"selected_room": "hall"},
+    )
+    delete_transition = apply_zone_action(zone, delete_action)
+
+    assert delete_transition.changed is True
+    assert delete_transition.zone_data is not None
+    assert "hall" not in delete_transition.zone_data["rooms"]
+
+    undo_action = ZoneAction(
+        type="UNDO_DELETE",
+        payload={"undo_data": delete_transition.effects.get("undo_data")},
+    )
+    undo_transition = apply_zone_action(delete_transition.zone_data, undo_action)
+
+    assert undo_transition.changed is True
+    assert undo_transition.zone_data is not None
+    assert "hall" in undo_transition.zone_data["rooms"]

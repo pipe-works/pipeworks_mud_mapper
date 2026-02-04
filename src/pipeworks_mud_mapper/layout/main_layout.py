@@ -115,8 +115,12 @@ def create_app_layout() -> dbc.Container:
             dcc.Store(id="ollama-validation-info", data=None),
             # In-memory validator history for the Ollama panel staging area.
             dcc.Store(id="ollama-validation-history", data=[]),
+            # Background I/O job tracking for saves/exports/snapshots.
+            dcc.Store(id="io-jobs", data={"jobs": []}),
             # Interval to trigger initial file load
             dcc.Interval(id="initial-load", interval=100, max_intervals=1),
+            # Interval to poll background I/O jobs.
+            dcc.Interval(id="io-job-poll", interval=1000),
             # -----------------------------------------------------------------
             # Modal Dialogs
             # -----------------------------------------------------------------
