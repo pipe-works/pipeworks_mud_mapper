@@ -36,21 +36,21 @@
         "valid": false,
         "hard_failures": [
           "word_count_out_of_bounds",
-          "banned_phrase:ahead"
+          "traversal_verb:stretches"
         ],
         "soft_failures": [],
         "metrics": {
-          "word_count": 41,
+          "word_count": 40,
           "target_words": 30,
           "min_words": 20,
           "max_words": 35
         },
         "rule_hits": {
-          "banned_phrases": [
-            "ahead"
+          "traversal_verbs": [
+            "stretches"
           ]
         },
-        "validated_at": "2026-02-04T15:39:58.253045Z"
+        "validated_at": "2026-02-04T15:39:17.965272Z"
       }
     },
     "broken_door": {
