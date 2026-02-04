@@ -44,6 +44,7 @@ Component Dependencies
 """
 
 import re
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -59,6 +60,7 @@ from pipeworks_mud_mapper.utils.zone_io import (
 DATA_DIR = Path(__file__).parent.parent.parent.parent / "data"
 MAPS_DIR = DATA_DIR / "maps"
 ZONES_DIR = DATA_DIR / "zones"
+DEV_MAPS_DIR = MAPS_DIR / "dev_snapshots"
 
 
 # =============================================================================
@@ -409,17 +411,23 @@ def update_save_status(has_unsaved: bool, selected_file: str | None) -> tuple:
         print("[DEBUG] update_save_status: no file loaded")
         return True, True, "No file loaded", "no-file"
 
-    # Display name without .map.json
+    # Display full file name for clarity
     display_name = selected_file
-    if selected_file.endswith(".map.json"):
-        display_name = selected_file[:-9]
 
     if has_unsaved:
         print("[DEBUG] update_save_status: unsaved changes - save=ENABLED")
         return False, True, f"Unsaved: {display_name}", "unsaved"
 
     print("[DEBUG] update_save_status: saved - export=ENABLED")
-    return True, False, f"Saved: {display_name}", "saved"
+    saved_alert = dbc.Alert(
+        f"Saved: {display_name}",
+        color="success",
+        className="mb-0 py-1",
+        duration=3000,
+        dismissable=True,
+        fade=True,
+    )
+    return True, False, saved_alert, "saved"
 
 
 @callback(
@@ -428,9 +436,15 @@ def update_save_status(has_unsaved: bool, selected_file: str | None) -> tuple:
     Input("save-map-btn", "n_clicks"),
     State("current-zone-data", "data"),
     State("selected-file", "data"),
+    State("dev-save-toggle", "value"),
     prevent_initial_call=True,
 )
-def save_map_to_file(n_clicks: int, zone_data: dict | None, selected_file: str | None) -> tuple:
+def save_map_to_file(
+    n_clicks: int,
+    zone_data: dict | None,
+    selected_file: str | None,
+    dev_save_enabled: bool | None,
+) -> tuple:
     """Save the current map data to the file.
 
     Parameters
@@ -441,6 +455,8 @@ def save_map_to_file(n_clicks: int, zone_data: dict | None, selected_file: str |
         Current map data to save.
     selected_file : str | None
         Target file name.
+    dev_save_enabled : bool | None
+        When True, also save a snapshot to data/maps/dev_snapshots.
 
     Returns
     -------
@@ -464,8 +480,22 @@ def save_map_to_file(n_clicks: int, zone_data: dict | None, selected_file: str |
         if selected_file.endswith(".map.json"):
             display_name = selected_file[:-9]
 
+        dev_note = ""
+        if isinstance(dev_save_enabled, list):
+            dev_enabled = len(dev_save_enabled) > 0
+        else:
+            dev_enabled = bool(dev_save_enabled)
+
+        if dev_enabled:
+            DEV_MAPS_DIR.mkdir(parents=True, exist_ok=True)
+            timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S_%f")
+            snapshot_name = f"{display_name}_{timestamp}.map.json"
+            snapshot_path = DEV_MAPS_DIR / snapshot_name
+            zone_service.save_map_file(map_file, snapshot_path)
+            dev_note = " (dev snapshot saved)"
+
         feedback = dbc.Alert(
-            f"Saved: {display_name}",
+            f"Saved: {display_name}{dev_note}",
             color="success",
             className="mb-0 py-2",
             duration=3000,
@@ -478,6 +508,117 @@ def save_map_to_file(n_clicks: int, zone_data: dict | None, selected_file: str |
             className="mb-0 py-2",
         )
         return no_update, feedback
+
+
+@callback(
+    Output("dev-snapshot-status", "data"),
+    Input("current-zone-data", "data"),
+    Input("dev-save-toggle", "value"),
+    State("selected-file", "data"),
+    prevent_initial_call=True,
+)
+def auto_snapshot_map(
+    zone_data: dict | None,
+    dev_save_enabled: bool | None,
+    selected_file: str | None,
+) -> Any:
+    """Persist dev snapshots on every map change when toggled.
+
+    Parameters
+    ----------
+    zone_data : dict | None
+        Current map data to snapshot.
+    selected_file : str | None
+        Active map file name (used for snapshot naming).
+    dev_save_enabled : bool | None
+        Toggle state for dev snapshots.
+    Returns
+    -------
+    dict | None
+        Snapshot metadata, or no_update when no snapshot is written.
+    """
+    if not zone_data:
+        return no_update
+
+    if isinstance(dev_save_enabled, list):
+        dev_enabled = len(dev_save_enabled) > 0
+    else:
+        dev_enabled = bool(dev_save_enabled)
+
+    if not dev_enabled:
+        return no_update
+
+    from pipeworks_mud_mapper.models import MapFile
+
+    map_file = MapFile.from_dict(zone_data)
+    display_name = selected_file
+    if not display_name:
+        display_name = zone_data.get("id") or "unsaved_zone"
+    if display_name.endswith(".map.json"):
+        display_name = display_name[:-9]
+
+    DEV_MAPS_DIR.mkdir(parents=True, exist_ok=True)
+    timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S_%f")
+    snapshot_name = f"{display_name}_{timestamp}.map.json"
+    snapshot_path = DEV_MAPS_DIR / snapshot_name
+    zone_service.save_map_file(map_file, snapshot_path)
+
+    return {
+        "snapshot": snapshot_name,
+        "timestamp": timestamp,
+    }
+
+
+@callback(
+    Output("dev-snapshot-status", "data", allow_duplicate=True),
+    Input("ollama-last-generation-info", "data"),
+    State("current-zone-data", "data"),
+    State("selected-file", "data"),
+    State("dev-save-toggle", "value"),
+    prevent_initial_call=True,
+)
+def auto_snapshot_on_generation(
+    generation_info: dict | None,
+    zone_data: dict | None,
+    selected_file: str | None,
+    dev_save_enabled: bool | None,
+) -> Any:
+    """Persist dev snapshots when a new Ollama generation completes.
+
+    This allows snapshotting even if the user doesn't apply the response
+    to a room description (current-zone-data remains unchanged).
+    """
+    if not generation_info or not zone_data:
+        return no_update
+
+    if isinstance(dev_save_enabled, list):
+        dev_enabled = len(dev_save_enabled) > 0
+    else:
+        dev_enabled = bool(dev_save_enabled)
+
+    if not dev_enabled:
+        return no_update
+
+    from pipeworks_mud_mapper.models import MapFile
+
+    map_file = MapFile.from_dict(zone_data)
+    display_name = selected_file
+    if not display_name:
+        display_name = zone_data.get("id") or "unsaved_zone"
+    if display_name.endswith(".map.json"):
+        display_name = display_name[:-9]
+
+    DEV_MAPS_DIR.mkdir(parents=True, exist_ok=True)
+    timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S_%f")
+    snapshot_name = f"{display_name}_{timestamp}.map.json"
+    snapshot_path = DEV_MAPS_DIR / snapshot_name
+    zone_service.save_map_file(map_file, snapshot_path)
+
+    return {
+        "snapshot": snapshot_name,
+        "timestamp": timestamp,
+        "trigger": "generation",
+    }
 
 
 @callback(

@@ -1,0 +1,52 @@
+{
+  "template_name": "Ledgerfall Goblin (Short)",
+  "template_id": "ledgerfall_goblin_short",
+  "version": "1.0.0",
+  "description": "Short-form Ledgerfall voice tuned for 25-40 word outputs. Minimal example set and compact constraint guidance for small models.",
+
+  "theme": {
+    "name": "Ledgerfall, a goblin-run urban realm of trade, governance, and petty bureaucracy",
+    "tone": "Whimsical, deadpan, slightly chaotic, notices small governance failures",
+    "era": "Victorian-inspired but with goblins, magic, and anarchic commerce",
+    "aesthetic": "Copper pipes, ink smudges, warped wood, rust, haggling, notices, paperwork, small deals"
+  },
+
+  "voice_guidance": {
+    "style": "Observant, pragmatic, dryly amused. You report what goblins do, not what they claim.",
+    "register": "Matter-of-fact with dry humor. Keep it tight.",
+    "keyword_include": [
+      "bureaucracy",
+      "trade",
+      "haggling",
+      "paperwork",
+      "rust",
+      "ledgers"
+    ],
+    "keyword_exclude": [
+      "heroic",
+      "destiny",
+      "prophetic",
+      "noble"
+    ]
+  },
+
+  "craft_constraints": {
+    "multi_part_spaces": "Describe density and flow, not distant ends. Use immediate sensory pressure only.",
+    "locked_things_approach": "Describe resistance without explanation. No keys, no solutions, no judgement.",
+    "silence_tone": "Silence is conspicuous. Describe absence without commentary.",
+    "exit_hints": "Exits are shifts in air, sound, or light. Never name destinations."
+  },
+
+  "examples": {
+    "good_crossroads": "Rain slicks the cobbles here. A crooked post lists rules no one follows. North smells of solder, east carries haggling, south opens into a wet quiet, west tastes of rust.",
+    "bad_crossroads": "To the north lies the foundry, east the market, west the carpenters, south the houses.",
+    "good_locked_thing": "The iron chest sits heavy. The latch shifts a fraction, then settles back with a dull click. Scratches crowd the metal where older attempts left their arguments.",
+    "bad_locked_thing": "The chest is locked. You need a key to open it.",
+    "good_multi_part": "Stalls crowd this stretch, deals traded in murmurs. The air is layered: bread, fish, coin, damp wool. Foot traffic wears a narrow shine through the grit.",
+    "bad_multi_part": "The market stretches east to the docks and west to the craftsman quarter."
+  },
+
+  "author_notes": "Use for 25-40 word outputs. Keep sentences short. Avoid extra clauses. If the prompt asks for brevity, obey it absolutely.",
+
+  "author_credit": "Parky (Pipe-works). Short-form variant. Built 2026-02-04."
+}

@@ -153,6 +153,54 @@ using LLMs.
 - A validator staging panel shows hard-rule hits without blocking authors
 - Validator results are saved into the map file as authoring metadata
 
+Template Strategy
+^^^^^^^^^^^^^^^^^
+
+Templates strongly influence length and style. The default Ledgerfall template
+is optimized for 60–120 word outputs. For short outputs, use the dedicated
+short template:
+
+- ``Ledgerfall Goblin (Short)`` (``ledgerfall_goblin_short``) for 25–40 words
+- ``Ledgerfall Goblin`` (``ledgerfall_goblin``) for 60–120 words
+
+If you request 30 words while using the long template, small models often drift
+longer because the examples are longer than your target.
+
+Length Control (Target Words vs Tokens)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Length is controlled by two knobs:
+
+- **Target Words** (template guidance): sets the suggested word range in the system prompt.
+- **Max Tokens (num_predict)**: hard ceiling on output length.
+
+For short descriptions, set **Max Tokens** low enough to prevent rambling:
+
+- 30 words ≈ 40–50 tokens → set ``num_predict`` to **60–80**
+- 60 words ≈ 80–90 tokens → set ``num_predict`` to **110–140**
+
+If ``num_predict`` is very high (e.g., 512), small models will often overshoot.
+
+Sampling Controls (Temperature, Top-P, Top-K)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+These parameters shape verbosity and drift:
+
+- **Temperature**: lower = tighter, higher = more wandering.
+  Try **0.4–0.6** for short outputs, **0.7–0.9** for longer.
+- **Top-P**: lower = less variety. Try **0.7–0.85** for short outputs.
+- **Top-K**: lower = more focused. Try **20–40** for short outputs.
+
+Short Output Checklist
+^^^^^^^^^^^^^^^^^^^^^^
+
+If you need 25–40 words:
+
+- Use ``ledgerfall_goblin_short``
+- Set ``num_predict`` to 60–80
+- Use a strict user prompt: “Write 30 words exactly. One paragraph.”
+- Keep Temperature ≤ 0.6 and Top-P ≤ 0.85
+
 Saving and Exporting
 --------------------
 

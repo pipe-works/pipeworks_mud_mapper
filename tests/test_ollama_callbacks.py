@@ -66,6 +66,7 @@ import pytest
 from dash import no_update
 
 from pipeworks_mud_mapper.callbacks.ollama_callbacks import (
+    apply_prompt_prefix,
     copy_system_prompt,
     generate_description,
     handle_clipboard_copy,
@@ -77,6 +78,7 @@ from pipeworks_mud_mapper.callbacks.ollama_callbacks import (
     send_to_description,
     toggle_params_collapse,
     toggle_system_prompt_collapse,
+    update_target_words_hint,
     validate_ollama_response,
 )
 from pipeworks_mud_mapper.layout.ollama_panel import (
@@ -1341,6 +1343,59 @@ class TestValidateOllamaResponse:
         assert len(history_data) == 1
         assert validation_info["valid"] is False
         assert "validated_at" in validation_info
+
+
+# =============================================================================
+# Test update_target_words_hint
+# =============================================================================
+
+
+class TestUpdateTargetWordsHint:
+    """Tests for the update_target_words_hint helper."""
+
+    def test_no_value(self):
+        """Should return generic guidance when target_words is missing."""
+        assert update_target_words_hint(None) == "25-500: Guides LLM output length"
+
+    def test_exact_length_for_short(self):
+        """Should describe exact length for short targets."""
+        assert update_target_words_hint(30) == "Exact length: 30 words"
+
+    def test_range_for_longer(self):
+        """Should describe a range for longer targets."""
+        assert update_target_words_hint(60) == "Range: 40-70 (aim ~60)"
+
+
+# =============================================================================
+# Test prompt prefix presets
+# =============================================================================
+
+
+class TestPromptPrefixPresets:
+    """Tests for prompt prefix preset loading and application."""
+
+    def test_apply_prompt_prefix(self, monkeypatch):
+        """Should prepend prefix when selected."""
+        import io
+        import json
+
+        config = [
+            {
+                "label": "Exact 30",
+                "value": "exact_30",
+                "prefix": "Write 30 words exactly.",
+            }
+        ]
+        fake_file = io.StringIO(json.dumps(config))
+
+        def fake_open(*_args, **_kwargs):
+            fake_file.seek(0)
+            return fake_file
+
+        monkeypatch.setattr("builtins.open", fake_open)
+
+        result = apply_prompt_prefix("exact_30", "a quiet alley")
+        assert result.startswith("Write 30 words exactly.")
 
 
 # =============================================================================
