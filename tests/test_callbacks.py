@@ -42,15 +42,15 @@ from dash import no_update
 
 from pipeworks_mud_mapper.callbacks.exit_callbacks import handle_exit_changes
 from pipeworks_mud_mapper.callbacks.file_callbacks import (
-    auto_snapshot_map,
-    auto_snapshot_on_generation,
-    close_new_map_modal,
-    create_new_map,
+    _get_cached_map_files,
+    _should_throttle_snapshot,
     export_zone_to_file,
+    handle_dev_snapshotting,
     handle_file_click,
+    handle_new_map_modal,
     load_dev_snapshot_files_list,
     load_map_files_list,
-    open_new_map_modal,
+    poll_io_jobs,
     render_dev_snapshot_list,
     render_file_list,
     save_map_to_file,
@@ -65,6 +65,7 @@ from pipeworks_mud_mapper.callbacks.room_callbacks import (
     clear_form_for_new_room,
     confirm_delete_room,
     populate_room_form,
+    render_room_form_feedback,
     undo_delete_room,
     update_delete_button_state,
     update_room_properties,
@@ -664,6 +665,18 @@ class TestRoomCallbacks:
         assert updated_zone["rooms"]["spawn"]["coords"] == [10, 20, 0]
         assert unsaved is True
 
+    def test_render_room_form_feedback_no_payloads(self):
+        """render_room_form_feedback should return no_update when empty."""
+        result = render_room_form_feedback(None, None, None, None, None, None, None)
+        assert result is no_update
+
+    def test_render_room_form_feedback_latest_payload(self):
+        """render_room_form_feedback should return latest feedback content."""
+        older = {"content": "Old", "ts": 1.0}
+        newer = {"content": "New", "ts": 2.0}
+        result = render_room_form_feedback(older, None, newer, None, None, None, None)
+        assert "New" in str(result)
+
 
 # =============================================================================
 # File Callbacks Tests
@@ -690,6 +703,62 @@ class TestFileCallbacks:
         assert "zone2.map.json" in result
         assert "other.json" not in result
 
+    def test_get_cached_map_files_uses_cache(self):
+        """_get_cached_map_files should return cached results within TTL."""
+        fake_dir = Path("/tmp/fake")
+        with (
+            patch("pipeworks_mud_mapper.callbacks.file_callbacks._FILE_LIST_CACHE", {}),
+            patch("pipeworks_mud_mapper.callbacks.file_callbacks.list_map_files") as mock_list,
+            patch("pipeworks_mud_mapper.callbacks.file_callbacks.time.monotonic") as mock_clock,
+        ):
+            mock_list.side_effect = [
+                [Path("first.map.json")],
+                [Path("second.map.json")],
+            ]
+            mock_clock.side_effect = [0.0, 0.1]
+
+            first = _get_cached_map_files(fake_dir)
+            second = _get_cached_map_files(fake_dir)
+
+        assert first == [Path("first.map.json")]
+        assert second == [Path("first.map.json")]
+        assert mock_list.call_count == 1
+
+    def test_get_cached_map_files_force_refresh(self):
+        """_get_cached_map_files should bypass cache when forced."""
+        fake_dir = Path("/tmp/fake")
+        with (
+            patch("pipeworks_mud_mapper.callbacks.file_callbacks._FILE_LIST_CACHE", {}),
+            patch("pipeworks_mud_mapper.callbacks.file_callbacks.list_map_files") as mock_list,
+            patch("pipeworks_mud_mapper.callbacks.file_callbacks.time.monotonic") as mock_clock,
+        ):
+            mock_list.side_effect = [
+                [Path("first.map.json")],
+                [Path("second.map.json")],
+            ]
+            mock_clock.side_effect = [0.0, 0.1]
+
+            first = _get_cached_map_files(fake_dir)
+            second = _get_cached_map_files(fake_dir, force_refresh=True)
+
+        assert first == [Path("first.map.json")]
+        assert second == [Path("second.map.json")]
+        assert mock_list.call_count == 2
+
+    def test_should_throttle_snapshot(self):
+        """_should_throttle_snapshot should return True within cooldown window."""
+        with (
+            patch("pipeworks_mud_mapper.callbacks.file_callbacks._LAST_SNAPSHOT_TS", {}),
+            patch("pipeworks_mud_mapper.callbacks.file_callbacks.time.monotonic") as mock_clock,
+        ):
+            mock_clock.side_effect = [0.0, 0.1]
+
+            first = _should_throttle_snapshot("zone:test")
+            second = _should_throttle_snapshot("zone:test")
+
+        assert first is False
+        assert second is True
+
     def test_load_dev_snapshot_files_list(self, temp_maps_dir):
         """load_dev_snapshot_files_list should return dev snapshot map files."""
         # Create dev snapshot files in a temp directory.
@@ -697,10 +766,14 @@ class TestFileCallbacks:
         (temp_maps_dir / "snapshot2.map.json").write_text("{}")
         (temp_maps_dir / "ignore.txt").write_text("nope")
 
-        with patch(
-            "pipeworks_mud_mapper.callbacks.file_callbacks.DEV_MAPS_DIR",
-            temp_maps_dir,
+        with (
+            patch(
+                "pipeworks_mud_mapper.callbacks.file_callbacks.DEV_MAPS_DIR",
+                temp_maps_dir,
+            ),
+            patch("pipeworks_mud_mapper.callbacks.file_callbacks.ctx") as mock_ctx,
         ):
+            mock_ctx.triggered_id = "initial-load"
             result = load_dev_snapshot_files_list(1, None, None)
 
         assert "snapshot1.map.json" in result
@@ -755,77 +828,113 @@ class TestFileCallbacks:
         )
         assert result == (no_update, no_update, no_update, no_update)
 
-    def test_open_new_map_modal(self):
-        """open_new_map_modal should return True when clicked."""
-        result = open_new_map_modal(n_clicks=1)
-        assert result is True
+    def test_handle_new_map_modal_open(self):
+        """handle_new_map_modal should open when the button is clicked."""
+        with patch("pipeworks_mud_mapper.callbacks.file_callbacks.ctx") as mock_ctx:
+            mock_ctx.triggered_id = "new-map-btn"
+            result = handle_new_map_modal(
+                open_clicks=1,
+                cancel_clicks=0,
+                create_clicks=0,
+                zone_id="",
+                zone_name="",
+                description="",
+            )
 
-    def test_open_new_map_modal_no_click(self):
-        """open_new_map_modal should return False when not clicked."""
-        result = open_new_map_modal(n_clicks=0)
-        assert result is False
+        assert result == (True, no_update, no_update, no_update, no_update, no_update)
 
-    def test_close_new_map_modal(self):
-        """close_new_map_modal should return False when clicked."""
-        result = close_new_map_modal(n_clicks=1)
-        assert result is False
+    def test_handle_new_map_modal_cancel(self):
+        """handle_new_map_modal should close when cancel is clicked."""
+        with patch("pipeworks_mud_mapper.callbacks.file_callbacks.ctx") as mock_ctx:
+            mock_ctx.triggered_id = "new-map-cancel-btn"
+            result = handle_new_map_modal(
+                open_clicks=0,
+                cancel_clicks=1,
+                create_clicks=0,
+                zone_id="",
+                zone_name="",
+                description="",
+            )
 
-    def test_close_new_map_modal_no_click(self):
-        """close_new_map_modal should return no_update when not clicked."""
-        result = close_new_map_modal(n_clicks=0)
-        assert result is no_update
+        assert result == (False, no_update, no_update, no_update, no_update, no_update)
 
-    def test_create_new_map_no_click(self):
-        """create_new_map should return no_update when not clicked."""
-        result = create_new_map(
-            n_clicks=0,
-            zone_id="test",
-            zone_name="Test",
-            description="",
-        )
+    def test_handle_new_map_modal_create_no_click(self):
+        """handle_new_map_modal should no-op when create is not clicked."""
+        with patch("pipeworks_mud_mapper.callbacks.file_callbacks.ctx") as mock_ctx:
+            mock_ctx.triggered_id = "new-map-create-btn"
+            result = handle_new_map_modal(
+                open_clicks=0,
+                cancel_clicks=0,
+                create_clicks=0,
+                zone_id="test",
+                zone_name="Test",
+                description="",
+            )
+
         assert result == (no_update,) * 6
 
-    def test_create_new_map_empty_id(self):
-        """create_new_map should reject empty zone ID."""
-        result = create_new_map(
-            n_clicks=1,
-            zone_id="",
-            zone_name="Test",
-            description="",
-        )
-        assert result[0] is no_update  # Modal stays open
+    def test_handle_new_map_modal_empty_id(self):
+        """handle_new_map_modal should reject empty zone ID."""
+        with patch("pipeworks_mud_mapper.callbacks.file_callbacks.ctx") as mock_ctx:
+            mock_ctx.triggered_id = "new-map-create-btn"
+            result = handle_new_map_modal(
+                open_clicks=0,
+                cancel_clicks=0,
+                create_clicks=1,
+                zone_id="",
+                zone_name="Test",
+                description="",
+            )
+
+        assert result[0] is True  # Modal stays open
         assert result[2] is not no_update  # feedback
 
-    def test_create_new_map_invalid_id(self):
-        """create_new_map should reject invalid zone ID format."""
-        result = create_new_map(
-            n_clicks=1,
-            zone_id="123invalid",  # Starts with number
-            zone_name="Test",
-            description="",
-        )
-        assert result[0] is no_update
+    def test_handle_new_map_modal_invalid_id(self):
+        """handle_new_map_modal should reject invalid zone ID format."""
+        with patch("pipeworks_mud_mapper.callbacks.file_callbacks.ctx") as mock_ctx:
+            mock_ctx.triggered_id = "new-map-create-btn"
+            result = handle_new_map_modal(
+                open_clicks=0,
+                cancel_clicks=0,
+                create_clicks=1,
+                zone_id="123invalid",  # Starts with number
+                zone_name="Test",
+                description="",
+            )
+
+        assert result[0] is True
         assert result[2] is not no_update  # feedback
 
-    def test_create_new_map_empty_name(self):
-        """create_new_map should reject empty zone name."""
-        result = create_new_map(
-            n_clicks=1,
-            zone_id="test",
-            zone_name="",
-            description="",
-        )
-        assert result[0] is no_update
+    def test_handle_new_map_modal_empty_name(self):
+        """handle_new_map_modal should reject empty zone name."""
+        with patch("pipeworks_mud_mapper.callbacks.file_callbacks.ctx") as mock_ctx:
+            mock_ctx.triggered_id = "new-map-create-btn"
+            result = handle_new_map_modal(
+                open_clicks=0,
+                cancel_clicks=0,
+                create_clicks=1,
+                zone_id="test",
+                zone_name="",
+                description="",
+            )
+
+        assert result[0] is True
         assert result[2] is not no_update  # feedback
 
-    def test_create_new_map_success(self, temp_maps_dir):
-        """create_new_map should create file on success."""
-        with patch(
-            "pipeworks_mud_mapper.callbacks.file_callbacks.MAPS_DIR",
-            temp_maps_dir,
+    def test_handle_new_map_modal_success(self, temp_maps_dir):
+        """handle_new_map_modal should create file on success."""
+        with (
+            patch(
+                "pipeworks_mud_mapper.callbacks.file_callbacks.MAPS_DIR",
+                temp_maps_dir,
+            ),
+            patch("pipeworks_mud_mapper.callbacks.file_callbacks.ctx") as mock_ctx,
         ):
-            result = create_new_map(
-                n_clicks=1,
+            mock_ctx.triggered_id = "new-map-create-btn"
+            result = handle_new_map_modal(
+                open_clicks=0,
+                cancel_clicks=0,
+                create_clicks=1,
                 zone_id="newzone",
                 zone_name="New Zone",
                 description="A new zone.",
@@ -836,23 +945,29 @@ class TestFileCallbacks:
         assert "newzone.map.json" in file_list
         assert (temp_maps_dir / "newzone.map.json").exists()
 
-    def test_create_new_map_duplicate(self, temp_maps_dir):
-        """create_new_map should reject duplicate zone ID."""
+    def test_handle_new_map_modal_duplicate(self, temp_maps_dir):
+        """handle_new_map_modal should reject duplicate zone ID."""
         # Create existing file
         (temp_maps_dir / "existing.map.json").write_text("{}")
 
-        with patch(
-            "pipeworks_mud_mapper.callbacks.file_callbacks.MAPS_DIR",
-            temp_maps_dir,
+        with (
+            patch(
+                "pipeworks_mud_mapper.callbacks.file_callbacks.MAPS_DIR",
+                temp_maps_dir,
+            ),
+            patch("pipeworks_mud_mapper.callbacks.file_callbacks.ctx") as mock_ctx,
         ):
-            result = create_new_map(
-                n_clicks=1,
+            mock_ctx.triggered_id = "new-map-create-btn"
+            result = handle_new_map_modal(
+                open_clicks=0,
+                cancel_clicks=0,
+                create_clicks=1,
                 zone_id="existing",
                 zone_name="Existing Zone",
                 description="",
             )
 
-        assert result[0] is no_update  # Modal stays open
+        assert result[0] is True  # Modal stays open
         assert result[2] is not no_update  # feedback about duplicate
 
     def test_update_save_status_no_file(self):
@@ -892,8 +1007,9 @@ class TestFileCallbacks:
             zone_data=simple_zone_data,
             selected_file="test.map.json",
             dev_save_enabled=False,
+            io_jobs=None,
         )
-        assert result == (no_update, no_update)
+        assert result == (no_update, no_update, no_update)
 
     def test_save_map_to_file_no_data(self):
         """save_map_to_file should return no_update when no zone data."""
@@ -902,11 +1018,12 @@ class TestFileCallbacks:
             zone_data=None,
             selected_file="test.map.json",
             dev_save_enabled=False,
+            io_jobs=None,
         )
-        assert result == (no_update, no_update)
+        assert result == (no_update, no_update, no_update)
 
     def test_save_map_to_file_success(self, simple_zone_data, temp_maps_dir):
-        """save_map_to_file should save file on success."""
+        """save_map_to_file should queue a save job on success."""
         with patch(
             "pipeworks_mud_mapper.callbacks.file_callbacks.MAPS_DIR",
             temp_maps_dir,
@@ -916,14 +1033,15 @@ class TestFileCallbacks:
                 zone_data=simple_zone_data,
                 selected_file="test.map.json",
                 dev_save_enabled=False,
+                io_jobs=None,
             )
 
-        unsaved, feedback = result
-        assert unsaved is False  # Marked as saved
-        assert (temp_maps_dir / "test.map.json").exists()
+        unsaved, feedback, job_store = result
+        assert unsaved is True  # Save queued, still unsaved until job completes
+        assert job_store and job_store["jobs"]
 
     def test_save_map_to_file_dev_snapshot(self, simple_zone_data, temp_maps_dir, tmp_path):
-        """save_map_to_file should create a dev snapshot when enabled."""
+        """save_map_to_file should queue a dev snapshot when enabled."""
         with (
             patch(
                 "pipeworks_mud_mapper.callbacks.file_callbacks.MAPS_DIR",
@@ -939,75 +1057,116 @@ class TestFileCallbacks:
                 zone_data=simple_zone_data,
                 selected_file="test.map.json",
                 dev_save_enabled=True,
+                io_jobs=None,
             )
 
-        unsaved, feedback = result
-        assert unsaved is False
-        assert any(tmp_path.glob("test_*.map.json"))
+        unsaved, feedback, job_store = result
+        assert unsaved is True
+        assert job_store and job_store["jobs"]
 
-    def test_auto_snapshot_map_disabled(self, simple_zone_data, tmp_path):
-        """auto_snapshot_map should no-op when toggle is off."""
-        with patch(
-            "pipeworks_mud_mapper.callbacks.file_callbacks.DEV_MAPS_DIR",
-            tmp_path,
+    def test_dev_snapshot_map_disabled(self, simple_zone_data, tmp_path):
+        """handle_dev_snapshotting should no-op when toggle is off."""
+        with (
+            patch("pipeworks_mud_mapper.callbacks.file_callbacks.DEV_MAPS_DIR", tmp_path),
+            patch(
+                "pipeworks_mud_mapper.callbacks.file_callbacks._should_throttle_snapshot",
+                lambda _k: False,
+            ),
+            patch("pipeworks_mud_mapper.callbacks.file_callbacks.ctx") as mock_ctx,
         ):
-            result = auto_snapshot_map(
+            mock_ctx.triggered_id = "current-zone-data"
+            result = handle_dev_snapshotting(
                 zone_data=simple_zone_data,
+                generation_info=None,
                 dev_save_enabled=False,
+                response_text=None,
+                validation_info=None,
+                selected_room=None,
                 selected_file="test.map.json",
+                io_jobs=None,
             )
 
-        assert result is no_update
-        assert not any(tmp_path.glob("test_*.map.json"))
+        assert result == (no_update, no_update)
 
-    def test_auto_snapshot_map_disabled_list(self, simple_zone_data, tmp_path):
-        """auto_snapshot_map should no-op when checkbox list is empty."""
-        with patch(
-            "pipeworks_mud_mapper.callbacks.file_callbacks.DEV_MAPS_DIR",
-            tmp_path,
+    def test_dev_snapshot_map_disabled_list(self, simple_zone_data, tmp_path):
+        """handle_dev_snapshotting should no-op when checkbox list is empty."""
+        with (
+            patch("pipeworks_mud_mapper.callbacks.file_callbacks.DEV_MAPS_DIR", tmp_path),
+            patch(
+                "pipeworks_mud_mapper.callbacks.file_callbacks._should_throttle_snapshot",
+                lambda _k: False,
+            ),
+            patch("pipeworks_mud_mapper.callbacks.file_callbacks.ctx") as mock_ctx,
         ):
-            result = auto_snapshot_map(
+            mock_ctx.triggered_id = "current-zone-data"
+            result = handle_dev_snapshotting(
                 zone_data=simple_zone_data,
+                generation_info=None,
                 dev_save_enabled=[],
+                response_text=None,
+                validation_info=None,
+                selected_room=None,
                 selected_file="test.map.json",
+                io_jobs=None,
             )
 
-        assert result is no_update
-        assert not any(tmp_path.glob("test_*.map.json"))
+        assert result == (no_update, no_update)
 
-    def test_auto_snapshot_map_success(self, simple_zone_data, tmp_path):
-        """auto_snapshot_map should write a snapshot when enabled."""
-        with patch(
-            "pipeworks_mud_mapper.callbacks.file_callbacks.DEV_MAPS_DIR",
-            tmp_path,
+    def test_dev_snapshot_map_success(self, simple_zone_data, tmp_path):
+        """handle_dev_snapshotting should write a snapshot on map change."""
+        with (
+            patch("pipeworks_mud_mapper.callbacks.file_callbacks.DEV_MAPS_DIR", tmp_path),
+            patch(
+                "pipeworks_mud_mapper.callbacks.file_callbacks._should_throttle_snapshot",
+                lambda _k: False,
+            ),
+            patch("pipeworks_mud_mapper.callbacks.file_callbacks.ctx") as mock_ctx,
         ):
-            result = auto_snapshot_map(
+            mock_ctx.triggered_id = "current-zone-data"
+            result = handle_dev_snapshotting(
                 zone_data=simple_zone_data,
+                generation_info=None,
                 dev_save_enabled=True,
+                response_text=None,
+                validation_info=None,
+                selected_room=None,
                 selected_file="test.map.json",
+                io_jobs=None,
             )
 
-        assert isinstance(result, dict)
-        assert "snapshot" in result
-        assert any(tmp_path.glob("test_*.map.json"))
+        payload, job_store = result
+        assert isinstance(payload, dict)
+        assert "snapshot" in payload
+        assert job_store and job_store["jobs"]
 
-    def test_auto_snapshot_map_fallback_name(self, simple_zone_data, tmp_path):
-        """auto_snapshot_map should use zone id if no selected_file."""
-        with patch(
-            "pipeworks_mud_mapper.callbacks.file_callbacks.DEV_MAPS_DIR",
-            tmp_path,
+    def test_dev_snapshot_map_fallback_name(self, simple_zone_data, tmp_path):
+        """handle_dev_snapshotting should use zone id if no selected_file."""
+        with (
+            patch("pipeworks_mud_mapper.callbacks.file_callbacks.DEV_MAPS_DIR", tmp_path),
+            patch(
+                "pipeworks_mud_mapper.callbacks.file_callbacks._should_throttle_snapshot",
+                lambda _k: False,
+            ),
+            patch("pipeworks_mud_mapper.callbacks.file_callbacks.ctx") as mock_ctx,
         ):
-            result = auto_snapshot_map(
+            mock_ctx.triggered_id = "current-zone-data"
+            result = handle_dev_snapshotting(
                 zone_data=simple_zone_data,
+                generation_info=None,
                 dev_save_enabled=True,
+                response_text=None,
+                validation_info=None,
+                selected_room=None,
                 selected_file=None,
+                io_jobs=None,
             )
 
-        assert isinstance(result, dict)
-        assert any(tmp_path.glob("test_zone_*.map.json"))
+        payload, job_store = result
+        assert isinstance(payload, dict)
+        assert job_store and job_store["jobs"]
 
-    def test_auto_snapshot_on_generation_disabled(self, simple_zone_data, tmp_path):
-        """auto_snapshot_on_generation should no-op when toggle is off."""
+    def test_dev_snapshot_generation_disabled(self, simple_zone_data, tmp_path):
+        """handle_dev_snapshotting should no-op for generation when toggle is off."""
         generation_info = {
             "model": "gemma2:2b",
             "actual_seed": 12345,
@@ -1021,57 +1180,30 @@ class TestFileCallbacks:
             "user_prompt": "User",
             "generated_at": "2026-02-04T10:30:00+00:00",
         }
-        with patch(
-            "pipeworks_mud_mapper.callbacks.file_callbacks.DEV_MAPS_DIR",
-            tmp_path,
+        with (
+            patch("pipeworks_mud_mapper.callbacks.file_callbacks.DEV_MAPS_DIR", tmp_path),
+            patch(
+                "pipeworks_mud_mapper.callbacks.file_callbacks._should_throttle_snapshot",
+                lambda _k: False,
+            ),
+            patch("pipeworks_mud_mapper.callbacks.file_callbacks.ctx") as mock_ctx,
         ):
-            result = auto_snapshot_on_generation(
-                generation_info=generation_info,
-                response_text="Generated text.",
-                validation_info=None,
-                selected_room="spawn",
+            mock_ctx.triggered_id = "ollama-last-generation-info"
+            result = handle_dev_snapshotting(
                 zone_data=simple_zone_data,
-                selected_file="test.map.json",
+                generation_info=generation_info,
                 dev_save_enabled=False,
-            )
-
-        assert result is no_update
-        assert not any(tmp_path.glob("test_*.map.json"))
-
-    def test_auto_snapshot_on_generation_disabled_list(self, simple_zone_data, tmp_path):
-        """auto_snapshot_on_generation should no-op for empty checkbox list."""
-        generation_info = {
-            "model": "gemma2:2b",
-            "actual_seed": 12345,
-            "template_id": "__custom__",
-            "temperature": 0.7,
-            "top_k": 40,
-            "top_p": 0.9,
-            "num_ctx": 4096,
-            "num_predict": 128,
-            "system_prompt": "System",
-            "user_prompt": "User",
-            "generated_at": "2026-02-04T10:30:00+00:00",
-        }
-        with patch(
-            "pipeworks_mud_mapper.callbacks.file_callbacks.DEV_MAPS_DIR",
-            tmp_path,
-        ):
-            result = auto_snapshot_on_generation(
-                generation_info=generation_info,
                 response_text="Generated text.",
                 validation_info=None,
                 selected_room="spawn",
-                zone_data=simple_zone_data,
                 selected_file="test.map.json",
-                dev_save_enabled=[],
+                io_jobs=None,
             )
 
-        assert result is no_update
-        assert not any(tmp_path.glob("test_*.map.json"))
+        assert result == (no_update, no_update)
 
-    def test_auto_snapshot_on_generation_success(self, simple_zone_data, tmp_path):
-        """auto_snapshot_on_generation should write a snapshot on generation."""
+    def test_dev_snapshot_generation_disabled_list(self, simple_zone_data, tmp_path):
+        """handle_dev_snapshotting should no-op for generation with empty list toggle."""
         generation_info = {
             "model": "gemma2:2b",
             "actual_seed": 12345,
@@ -1085,30 +1217,70 @@ class TestFileCallbacks:
             "user_prompt": "User",
             "generated_at": "2026-02-04T10:30:00+00:00",
         }
-        with patch(
-            "pipeworks_mud_mapper.callbacks.file_callbacks.DEV_MAPS_DIR",
-            tmp_path,
+        with (
+            patch("pipeworks_mud_mapper.callbacks.file_callbacks.DEV_MAPS_DIR", tmp_path),
+            patch(
+                "pipeworks_mud_mapper.callbacks.file_callbacks._should_throttle_snapshot",
+                lambda _k: False,
+            ),
+            patch("pipeworks_mud_mapper.callbacks.file_callbacks.ctx") as mock_ctx,
         ):
-            result = auto_snapshot_on_generation(
+            mock_ctx.triggered_id = "ollama-last-generation-info"
+            result = handle_dev_snapshotting(
+                zone_data=simple_zone_data,
                 generation_info=generation_info,
+                dev_save_enabled=[],
+                response_text="Generated text.",
+                validation_info=None,
+                selected_room="spawn",
+                selected_file="test.map.json",
+                io_jobs=None,
+            )
+
+        assert result == (no_update, no_update)
+
+    def test_dev_snapshot_generation_success(self, simple_zone_data, tmp_path):
+        """handle_dev_snapshotting should write a snapshot on generation."""
+        generation_info = {
+            "model": "gemma2:2b",
+            "actual_seed": 12345,
+            "template_id": "__custom__",
+            "temperature": 0.7,
+            "top_k": 40,
+            "top_p": 0.9,
+            "num_ctx": 4096,
+            "num_predict": 128,
+            "system_prompt": "System",
+            "user_prompt": "User",
+            "generated_at": "2026-02-04T10:30:00+00:00",
+        }
+        with (
+            patch("pipeworks_mud_mapper.callbacks.file_callbacks.DEV_MAPS_DIR", tmp_path),
+            patch(
+                "pipeworks_mud_mapper.callbacks.file_callbacks._should_throttle_snapshot",
+                lambda _k: False,
+            ),
+            patch("pipeworks_mud_mapper.callbacks.file_callbacks.ctx") as mock_ctx,
+        ):
+            mock_ctx.triggered_id = "ollama-last-generation-info"
+            result = handle_dev_snapshotting(
+                zone_data=simple_zone_data,
+                generation_info=generation_info,
+                dev_save_enabled=True,
                 response_text="Generated text.",
                 validation_info={"valid": True},
                 selected_room="spawn",
-                zone_data=simple_zone_data,
                 selected_file="test.map.json",
-                dev_save_enabled=True,
+                io_jobs=None,
             )
 
-        assert isinstance(result, dict)
-        assert result.get("trigger") == "generation"
-        snapshot_files = list(tmp_path.glob("test_*.map.json"))
-        assert snapshot_files
+        payload, job_store = result
+        assert isinstance(payload, dict)
+        assert payload.get("trigger") == "generation"
+        assert job_store and job_store["jobs"]
 
-        snapshot = snapshot_files[0].read_text(encoding="utf-8")
-        assert "Generated text." in snapshot
-
-    def test_auto_snapshot_on_generation_no_selected_room(self, simple_zone_data, tmp_path):
-        """auto_snapshot_on_generation should snapshot without injecting when no room selected."""
+    def test_dev_snapshot_generation_no_selected_room(self, simple_zone_data, tmp_path):
+        """handle_dev_snapshotting should snapshot without injecting when no room selected."""
         generation_info = {
             "model": "gemma2:2b",
             "actual_seed": 12345,
@@ -1122,27 +1294,29 @@ class TestFileCallbacks:
             "user_prompt": "User",
             "generated_at": "2026-02-04T10:30:00+00:00",
         }
-        with patch(
-            "pipeworks_mud_mapper.callbacks.file_callbacks.DEV_MAPS_DIR",
-            tmp_path,
+        with (
+            patch("pipeworks_mud_mapper.callbacks.file_callbacks.DEV_MAPS_DIR", tmp_path),
+            patch(
+                "pipeworks_mud_mapper.callbacks.file_callbacks._should_throttle_snapshot",
+                lambda _k: False,
+            ),
+            patch("pipeworks_mud_mapper.callbacks.file_callbacks.ctx") as mock_ctx,
         ):
-            result = auto_snapshot_on_generation(
+            mock_ctx.triggered_id = "ollama-last-generation-info"
+            result = handle_dev_snapshotting(
+                zone_data=simple_zone_data,
                 generation_info=generation_info,
+                dev_save_enabled=True,
                 response_text="Generated text.",
                 validation_info={"valid": True},
                 selected_room=None,
-                zone_data=simple_zone_data,
                 selected_file="test.map.json",
-                dev_save_enabled=True,
+                io_jobs=None,
             )
 
-        assert isinstance(result, dict)
-        snapshot_files = list(tmp_path.glob("test_*.map.json"))
-        assert snapshot_files
-
-        snapshot = snapshot_files[0].read_text(encoding="utf-8")
-        # Original description should remain when no room is selected.
-        assert "The starting room." in snapshot
+        payload, job_store = result
+        assert isinstance(payload, dict)
+        assert job_store and job_store["jobs"]
 
     def test_export_zone_to_file_no_click(self, simple_zone_data):
         """export_zone_to_file should return no_update when not clicked."""
@@ -1150,8 +1324,9 @@ class TestFileCallbacks:
             n_clicks=0,
             zone_data=simple_zone_data,
             selected_file="test.map.json",
+            io_jobs=None,
         )
-        assert result is no_update
+        assert result == (no_update, no_update)
 
     def test_export_zone_to_file_no_data(self):
         """export_zone_to_file should return no_update when no zone data."""
@@ -1159,11 +1334,12 @@ class TestFileCallbacks:
             n_clicks=1,
             zone_data=None,
             selected_file="test.map.json",
+            io_jobs=None,
         )
-        assert result is no_update
+        assert result == (no_update, no_update)
 
     def test_export_zone_to_file_success(self, simple_zone_data, temp_maps_dir):
-        """export_zone_to_file should export to zones directory."""
+        """export_zone_to_file should queue an export job."""
         temp_zones_dir = temp_maps_dir.parent / "zones"
 
         with (
@@ -1180,11 +1356,67 @@ class TestFileCallbacks:
                 n_clicks=1,
                 zone_data=simple_zone_data,
                 selected_file="test.map.json",
+                io_jobs=None,
             )
 
-        # Should have exported
-        assert temp_zones_dir.exists()
-        assert (temp_zones_dir / "test.json").exists()
+        feedback, job_store = result
+        assert job_store and job_store["jobs"]
+
+    def test_poll_io_jobs_no_jobs(self):
+        """poll_io_jobs should no-op when no jobs are queued."""
+        result = poll_io_jobs(n_intervals=1, io_jobs={"jobs": []})
+        assert result == (no_update, no_update, no_update, no_update, no_update)
+
+    def test_poll_io_jobs_save_complete(self):
+        """poll_io_jobs should emit save feedback on completion."""
+        io_jobs = {"jobs": [{"id": "job-1", "type": "save", "display_name": "test"}]}
+        with (
+            patch(
+                "pipeworks_mud_mapper.callbacks.file_callbacks.get_io_job_status",
+                return_value={"status": "done"},
+            ),
+            patch("pipeworks_mud_mapper.callbacks.file_callbacks.forget_io_job"),
+        ):
+            job_store, save_feedback, export_feedback, snapshot_status, unsaved = poll_io_jobs(
+                n_intervals=1,
+                io_jobs=io_jobs,
+            )
+
+        assert job_store == {"jobs": []}
+        assert save_feedback is not no_update
+        assert export_feedback is no_update
+        assert snapshot_status is no_update
+        assert unsaved is False
+
+    def test_poll_io_jobs_error_snapshot(self):
+        """poll_io_jobs should surface snapshot errors."""
+        io_jobs = {
+            "jobs": [
+                {
+                    "id": "job-2",
+                    "type": "snapshot",
+                    "snapshot": "snap.map.json",
+                    "timestamp": "123",
+                }
+            ]
+        }
+        with (
+            patch(
+                "pipeworks_mud_mapper.callbacks.file_callbacks.get_io_job_status",
+                return_value={"status": "error", "error": "boom"},
+            ),
+            patch("pipeworks_mud_mapper.callbacks.file_callbacks.forget_io_job"),
+        ):
+            job_store, save_feedback, export_feedback, snapshot_status, unsaved = poll_io_jobs(
+                n_intervals=1,
+                io_jobs=io_jobs,
+            )
+
+        assert job_store == {"jobs": []}
+        assert snapshot_status.get("error") == "boom"
+        assert save_feedback is no_update
+        assert export_feedback is no_update
+        assert unsaved is no_update
 
 
 # =============================================================================

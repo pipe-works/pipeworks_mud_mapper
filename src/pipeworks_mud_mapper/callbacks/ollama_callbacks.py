@@ -14,6 +14,7 @@ from pipeworks_mud_mapper.callbacks.ollama_generation_callbacks import (  # noqa
     generate_description,
     handle_clipboard_copy,
     populate_prompt_from_description,
+    render_ollama_status,
     send_to_description,
 )
 from pipeworks_mud_mapper.callbacks.ollama_models_callbacks import (  # noqa: F401
@@ -44,6 +45,7 @@ __all__ = [
     "load_template_options",
     "populate_prompt_from_description",
     "refresh_ollama_models",
+    "render_ollama_status",
     "send_to_description",
     "toggle_params_collapse",
     "toggle_system_prompt_collapse",

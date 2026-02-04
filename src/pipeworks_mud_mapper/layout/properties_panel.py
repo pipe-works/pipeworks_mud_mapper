@@ -51,7 +51,7 @@ See Also
 """
 
 import dash_bootstrap_components as dbc
-from dash import html
+from dash import dcc, html
 
 
 def create_properties_panel() -> dbc.Card:
@@ -111,6 +111,14 @@ def create_properties_panel() -> dbc.Card:
                 [
                     # Feedback area for validation messages
                     html.Div(id="room-form-feedback", className="mb-2"),
+                    # Internal feedback stores so a single renderer owns the output.
+                    dcc.Store(id="room-feedback-add"),
+                    dcc.Store(id="room-feedback-new"),
+                    dcc.Store(id="room-feedback-update"),
+                    dcc.Store(id="room-feedback-delete"),
+                    dcc.Store(id="room-feedback-undo"),
+                    dcc.Store(id="room-feedback-save"),
+                    dcc.Store(id="room-feedback-export"),
                     # Room ID field
                     dbc.Label("Room ID", html_for="room-id"),
                     dbc.Input(

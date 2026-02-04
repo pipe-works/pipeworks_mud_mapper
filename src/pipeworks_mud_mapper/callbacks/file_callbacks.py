@@ -49,6 +49,7 @@ Component Dependencies
 
 import copy
 import re
+import time
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -57,6 +58,12 @@ import dash_bootstrap_components as dbc
 from dash import ALL, Input, Output, State, callback, ctx, html, no_update
 
 from pipeworks_mud_mapper.services import zone_service
+from pipeworks_mud_mapper.services.io_queue import (
+    forget_io_job,
+    get_io_job_status,
+    submit_io_job,
+)
+from pipeworks_mud_mapper.services.state import ZoneAction, apply_zone_action
 from pipeworks_mud_mapper.utils.zone_io import (
     list_map_files,
 )
@@ -66,6 +73,89 @@ DATA_DIR = Path(__file__).parent.parent.parent.parent / "data"
 MAPS_DIR = DATA_DIR / "maps"
 ZONES_DIR = DATA_DIR / "zones"
 DEV_MAPS_DIR = MAPS_DIR / "dev_snapshots"
+
+# =============================================================================
+# File Listing Cache
+# =============================================================================
+# These cache structures reduce repeated filesystem scans when callbacks
+# are triggered in quick succession (e.g., when snapshot status updates).
+# The cache is intentionally short-lived to keep the UI responsive while
+# avoiding expensive directory scans on slower disks.
+
+FILE_LIST_CACHE_TTL_SECONDS = 1.0
+_FILE_LIST_CACHE: dict[Path, tuple[float, list[Path]]] = {}
+
+
+def _get_cached_map_files(directory: Path, *, force_refresh: bool = False) -> list[Path]:
+    """Return cached file listings with a short TTL.
+
+    Parameters
+    ----------
+    directory : Path
+        Directory to list.
+    force_refresh : bool
+        When True, bypasses the cache and rescans immediately.
+
+    Returns
+    -------
+    list[Path]
+        List of map file paths.
+    """
+    # Monotonic clock avoids issues if system time changes.
+    now = time.monotonic()
+    # Pull cached tuple if we have seen this directory before.
+    cached = _FILE_LIST_CACHE.get(directory)
+
+    if cached and not force_refresh:
+        last_scan, files = cached
+        # Use cached listing if it is still within the TTL window.
+        if now - last_scan <= FILE_LIST_CACHE_TTL_SECONDS:
+            return files
+
+    # Refresh listing from disk and update cache timestamp.
+    files = list_map_files(directory)
+    _FILE_LIST_CACHE[directory] = (now, files)
+    return files
+
+
+# =============================================================================
+# Dev Snapshot Throttling
+# =============================================================================
+# Auto-snapshots can fire rapidly when users edit rooms or generate text.
+# This throttle prevents excessive disk writes while preserving author intent.
+
+DEV_SNAPSHOT_MIN_SECONDS = 0.75
+_LAST_SNAPSHOT_TS: dict[str, float] = {}
+
+
+def _should_throttle_snapshot(snapshot_key: str) -> bool:
+    """Return True if a snapshot was written too recently for this key."""
+    # Track last write time per snapshot key.
+    now = time.monotonic()
+    last = _LAST_SNAPSHOT_TS.get(snapshot_key)
+    # Bail out if we're still inside the cool-down period.
+    if last is not None and (now - last) < DEV_SNAPSHOT_MIN_SECONDS:
+        return True
+    # Record write time for next call and allow the snapshot.
+    _LAST_SNAPSHOT_TS[snapshot_key] = now
+    return False
+
+
+def _room_feedback_payload(content: Any) -> dict[str, Any]:
+    """Build a timestamped payload for room form feedback."""
+    return {"content": content, "ts": time.monotonic()}
+
+
+def _save_map_job(map_file: Any, file_path: Path, snapshot_path: Path | None) -> None:
+    """Persist a map file and optional snapshot in a background thread."""
+    zone_service.save_map_file(map_file, file_path)
+    if snapshot_path is not None:
+        zone_service.save_map_file(map_file, snapshot_path)
+
+
+def _export_zone_job(map_file: Any, export_path: Path) -> None:
+    """Export a zone file in a background thread."""
+    zone_service.export_zone(map_file, export_path)
 
 
 # =============================================================================
@@ -97,7 +187,8 @@ def load_map_files_list(_: int) -> list[str]:
     # Ensure maps directory exists
     MAPS_DIR.mkdir(parents=True, exist_ok=True)
 
-    files = list_map_files(MAPS_DIR)
+    # Use cached listing to minimize repeated disk reads.
+    files = _get_cached_map_files(MAPS_DIR)
     return [f.name for f in files]
 
 
@@ -133,8 +224,11 @@ def load_dev_snapshot_files_list(_: int, __: dict | None, ___: int | None) -> li
     # Ensure dev snapshot directory exists so the UI remains stable.
     DEV_MAPS_DIR.mkdir(parents=True, exist_ok=True)
 
+    # If a snapshot was just written, bypass the cache to show it immediately.
+    force_refresh = ctx.triggered_id in {"dev-snapshot-status", "save-map-btn"}
+
     # Collect dev snapshot map files and return their names for display.
-    files = list_map_files(DEV_MAPS_DIR)
+    files = _get_cached_map_files(DEV_MAPS_DIR, force_refresh=force_refresh)
     return [f.name for f in files]
 
 
@@ -320,65 +414,20 @@ def handle_file_click(
         file_path = MAPS_DIR / filename
 
     # Load the selected map file and reset unsaved changes.
-    try:
-        map_file = zone_service.load_map_file(file_path)
-        zone_data = map_file.to_dict_with_list_coords()
-        zone_name = zone_data.get("name", filename)
-        return filename, zone_data, f"Zone: {zone_name}", False
-    except Exception as e:
-        print(f"Error loading map file {filename}: {e}")
+    action = ZoneAction(type="LOAD_MAP", payload={"file_path": file_path})
+    transition = apply_zone_action(None, action)
+
+    if not transition.changed or transition.zone_data is None:
+        print(f"Error loading map file {filename}")
         return no_update, no_update, no_update, no_update
+
+    zone_name = transition.effects.get("zone_name", filename)
+    return filename, transition.zone_data, f"Zone: {zone_name}", False
 
 
 # =============================================================================
 # New Map Modal Callbacks
 # =============================================================================
-
-
-@callback(
-    Output("new-map-modal", "is_open", allow_duplicate=True),
-    Input("new-map-btn", "n_clicks"),
-    prevent_initial_call=True,
-)
-def open_new_map_modal(n_clicks: int) -> bool:
-    """Open the New Map modal when the button is clicked.
-
-    Parameters
-    ----------
-    n_clicks : int
-        Click count for the "New Map" button.
-
-    Returns
-    -------
-    bool
-        True to open the modal.
-    """
-    if n_clicks:
-        return True
-    return False
-
-
-@callback(
-    Output("new-map-modal", "is_open", allow_duplicate=True),
-    Input("new-map-cancel-btn", "n_clicks"),
-    prevent_initial_call=True,
-)
-def close_new_map_modal(n_clicks: int) -> Any:
-    """Close the New Map modal when Cancel is clicked.
-
-    Parameters
-    ----------
-    n_clicks : int
-        Click count for the Cancel button.
-
-    Returns
-    -------
-    bool | no_update
-        False to close the modal, or no_update if not clicked.
-    """
-    if n_clicks:
-        return False
-    return no_update
 
 
 @callback(
@@ -388,53 +437,51 @@ def close_new_map_modal(n_clicks: int) -> Any:
     Output("new-zone-id", "value"),
     Output("new-zone-name", "value"),
     Output("new-zone-description", "value"),
+    Input("new-map-btn", "n_clicks"),
+    Input("new-map-cancel-btn", "n_clicks"),
     Input("new-map-create-btn", "n_clicks"),
     State("new-zone-id", "value"),
     State("new-zone-name", "value"),
     State("new-zone-description", "value"),
     prevent_initial_call=True,
 )
-def create_new_map(
-    n_clicks: int,
+def handle_new_map_modal(
+    open_clicks: int,
+    cancel_clicks: int,
+    create_clicks: int,
     zone_id: str,
     zone_name: str,
     description: str,
 ) -> tuple:
-    """Create a new map file when the Create button is clicked.
+    """Open, close, and create new maps from a single modal callback.
 
-    Validates input, creates the map file structure, saves to data/maps/,
-    and refreshes the file list.
-
-    Parameters
-    ----------
-    n_clicks : int
-        Click count for the Create button.
-    zone_id : str
-        Zone ID input value.
-    zone_name : str
-        Zone name input value.
-    description : str
-        Zone description input value.
-
-    Returns
-    -------
-    tuple
-        (modal_open, file_list, feedback, zone_id_val, name_val, desc_val).
-        On success: closes modal, updates list, clears form.
-        On error: keeps modal open, shows feedback alert.
+    This consolidates the previous open/close/create callbacks so only
+    one callback owns the modal state. It routes behavior based on the
+    triggering input and only runs creation logic for the Create button.
     """
-    if not n_clicks:
+    trigger = ctx.triggered_id
+
+    # Open the modal when the "New Map" button is clicked.
+    if trigger == "new-map-btn":
+        return True, no_update, no_update, no_update, no_update, no_update
+
+    # Close the modal when Cancel is clicked.
+    if trigger == "new-map-cancel-btn":
+        return False, no_update, no_update, no_update, no_update, no_update
+
+    # Only the Create button should run creation logic.
+    if trigger != "new-map-create-btn" or not create_clicks:
         return no_update, no_update, no_update, no_update, no_update, no_update
 
-    # Normalize inputs
+    # Normalize inputs to avoid whitespace and casing issues.
     zone_id = (zone_id or "").strip().lower()
     zone_name = (zone_name or "").strip()
     description = (description or "").strip()
 
-    # Validate zone_id
+    # Validate zone_id.
     if not zone_id:
         feedback = dbc.Alert("Zone ID is required.", color="danger", className="mb-0")
-        return no_update, no_update, feedback, no_update, no_update, no_update
+        return True, no_update, feedback, no_update, no_update, no_update
 
     if not re.match(r"^[a-z][a-z0-9_]*$", zone_id):
         feedback = dbc.Alert(
@@ -443,14 +490,14 @@ def create_new_map(
             color="danger",
             className="mb-0",
         )
-        return no_update, no_update, feedback, no_update, no_update, no_update
+        return True, no_update, feedback, no_update, no_update, no_update
 
-    # Validate zone_name
+    # Validate zone_name.
     if not zone_name:
         feedback = dbc.Alert("Zone Name is required.", color="danger", className="mb-0")
-        return no_update, no_update, feedback, no_update, no_update, no_update
+        return True, no_update, feedback, no_update, no_update, no_update
 
-    # Check if file already exists
+    # Check if file already exists.
     file_path = MAPS_DIR / f"{zone_id}.map.json"
     if file_path.exists():
         feedback = dbc.Alert(
@@ -458,9 +505,9 @@ def create_new_map(
             color="warning",
             className="mb-0",
         )
-        return no_update, no_update, feedback, no_update, no_update, no_update
+        return True, no_update, feedback, no_update, no_update, no_update
 
-    # Create and save the map file using zone_service
+    # Create and save the map file using zone_service.
     map_file = zone_service.create_new_map_file(
         zone_id=zone_id,
         name=zone_name,
@@ -469,11 +516,11 @@ def create_new_map(
     )
     zone_service.save_map_file(map_file, file_path)
 
-    # Refresh file list
+    # Refresh file list after creation.
     files = list_map_files(MAPS_DIR)
     file_names = [f.name for f in files]
 
-    # Close modal and clear form
+    # Close modal and clear form on success.
     return False, file_names, "", "", "", ""
 
 
@@ -538,11 +585,13 @@ def update_save_status(has_unsaved: bool, selected_file: str | None) -> tuple:
 
 @callback(
     Output("has-unsaved-changes", "data", allow_duplicate=True),
-    Output("room-form-feedback", "children", allow_duplicate=True),
+    Output("room-feedback-save", "data"),
+    Output("io-jobs", "data", allow_duplicate=True),
     Input("save-map-btn", "n_clicks"),
     State("current-zone-data", "data"),
     State("selected-file", "data"),
     State("dev-save-toggle", "value"),
+    State("io-jobs", "data"),
     prevent_initial_call=True,
 )
 def save_map_to_file(
@@ -550,6 +599,7 @@ def save_map_to_file(
     zone_data: dict | None,
     selected_file: str | None,
     dev_save_enabled: bool | None,
+    io_jobs: dict | None,
 ) -> tuple:
     """Save the current map data to the file.
 
@@ -572,7 +622,7 @@ def save_map_to_file(
         On error: no_update and error message.
     """
     if not n_clicks or not zone_data or not selected_file:
-        return no_update, no_update
+        return no_update, no_update, no_update
 
     file_path = MAPS_DIR / selected_file
     try:
@@ -580,7 +630,6 @@ def save_map_to_file(
         from pipeworks_mud_mapper.models import MapFile
 
         map_file = MapFile.from_dict(zone_data)
-        zone_service.save_map_file(map_file, file_path)
 
         display_name = selected_file
         if selected_file.endswith(".map.json"):
@@ -592,143 +641,105 @@ def save_map_to_file(
         else:
             dev_enabled = bool(dev_save_enabled)
 
+        snapshot_name = None
+        snapshot_path = None
         if dev_enabled:
             DEV_MAPS_DIR.mkdir(parents=True, exist_ok=True)
             timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S_%f")
             snapshot_name = f"{display_name}_{timestamp}.map.json"
             snapshot_path = DEV_MAPS_DIR / snapshot_name
-            zone_service.save_map_file(map_file, snapshot_path)
-            dev_note = " (dev snapshot saved)"
+            dev_note = " (dev snapshot queued)"
+
+        job_id = submit_io_job(_save_map_job, map_file, file_path, snapshot_path)
+        jobs = list((io_jobs or {}).get("jobs", []))
+        jobs.append(
+            {
+                "id": job_id,
+                "type": "save",
+                "display_name": display_name,
+                "snapshot": snapshot_name,
+            }
+        )
 
         feedback = dbc.Alert(
-            f"Saved: {display_name}{dev_note}",
-            color="success",
+            f"Saving: {display_name}{dev_note}",
+            color="info",
             className="mb-0 py-2",
             duration=3000,
         )
-        return False, feedback
+        return True, _room_feedback_payload(feedback), {"jobs": jobs}
     except Exception as e:
         feedback = dbc.Alert(
             f"Error saving: {e}",
             color="danger",
             className="mb-0 py-2",
         )
-        return no_update, feedback
+        return no_update, _room_feedback_payload(feedback), no_update
 
 
 @callback(
     Output("dev-snapshot-status", "data"),
+    Output("io-jobs", "data", allow_duplicate=True),
     Input("current-zone-data", "data"),
+    Input("ollama-last-generation-info", "data"),
     Input("dev-save-toggle", "value"),
+    State("ollama-response", "value"),
+    State("ollama-validation-info", "data"),
+    State("selected-room", "data"),
     State("selected-file", "data"),
+    State("io-jobs", "data"),
     prevent_initial_call=True,
 )
-def auto_snapshot_map(
+def handle_dev_snapshotting(
     zone_data: dict | None,
+    generation_info: dict | None,
     dev_save_enabled: bool | None,
+    response_text: str | None,
+    validation_info: dict | None,
+    selected_room: str | None,
     selected_file: str | None,
+    io_jobs: dict | None,
 ) -> Any:
-    """Persist dev snapshots on every map change when toggled.
+    """Persist dev snapshots for both map changes and LLM generations.
 
-    Parameters
-    ----------
-    zone_data : dict | None
-        Current map data to snapshot.
-    selected_file : str | None
-        Active map file name (used for snapshot naming).
-    dev_save_enabled : bool | None
-        Toggle state for dev snapshots.
-    Returns
-    -------
-    dict | None
-        Snapshot metadata, or no_update when no snapshot is written.
+    This callback replaces the two separate snapshot callbacks to reduce
+    shared outputs and centralize throttle logic. It inspects the triggering
+    input to decide which snapshot path to execute.
     """
     # No zone data means there's nothing to snapshot.
-    # This can happen during initial load or if a map is cleared.
     if not zone_data:
-        return no_update
+        return no_update, no_update
 
+    # Normalize the toggle state (Dash checkbox may return list).
     if isinstance(dev_save_enabled, list):
+        # Checkbox component returns list; non-empty means enabled.
         dev_enabled = len(dev_save_enabled) > 0
     else:
+        # Toggle component returns bool-like value.
         dev_enabled = bool(dev_save_enabled)
 
     # Toggle is off - dev snapshots are disabled.
     if not dev_enabled:
-        return no_update
+        return no_update, no_update
+
+    # Identify what fired the callback to decide which snapshot path to run.
+    trigger = ctx.triggered_id
+    # Default to map-change snapshots.
+    trigger_key = "map"
+    if trigger == "ollama-last-generation-info":
+        # Mark this as a generation snapshot so we can set payload metadata.
+        trigger_key = "generation"
+        # If no generation metadata, there's nothing to snapshot for this path.
+        if not generation_info:
+            return no_update, no_update
 
     from pipeworks_mud_mapper.models import MapFile
 
-    # Snapshot the current map state as-is (authoring truth).
-    # This path is used for any map change, not specifically LLM generations.
-    map_file = MapFile.from_dict(zone_data)
-    display_name = selected_file
-    if not display_name:
-        display_name = zone_data.get("id") or "unsaved_zone"
-    if display_name.endswith(".map.json"):
-        display_name = display_name[:-9]
-
-    DEV_MAPS_DIR.mkdir(parents=True, exist_ok=True)
-    timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S_%f")
-    snapshot_name = f"{display_name}_{timestamp}.map.json"
-    snapshot_path = DEV_MAPS_DIR / snapshot_name
-    zone_service.save_map_file(map_file, snapshot_path)
-
-    return {
-        "snapshot": snapshot_name,
-        "timestamp": timestamp,
-    }
-
-
-@callback(
-    Output("dev-snapshot-status", "data", allow_duplicate=True),
-    Input("ollama-last-generation-info", "data"),
-    State("ollama-response", "value"),
-    State("ollama-validation-info", "data"),
-    State("selected-room", "data"),
-    State("current-zone-data", "data"),
-    State("selected-file", "data"),
-    State("dev-save-toggle", "value"),
-    prevent_initial_call=True,
-)
-def auto_snapshot_on_generation(
-    generation_info: dict | None,
-    response_text: str | None,
-    validation_info: dict | None,
-    selected_room: str | None,
-    zone_data: dict | None,
-    selected_file: str | None,
-    dev_save_enabled: bool | None,
-) -> Any:
-    """Persist dev snapshots when a new Ollama generation completes.
-
-    This allows snapshotting even if the user doesn't apply the response
-    to a room description (current-zone-data remains unchanged).
-    """
-    # Require both a generation record and zone data.
-    # If a generation occurred but no map is loaded, we cannot snapshot.
-    if not generation_info or not zone_data:
-        return no_update
-
-    if isinstance(dev_save_enabled, list):
-        dev_enabled = len(dev_save_enabled) > 0
-    else:
-        dev_enabled = bool(dev_save_enabled)
-
-    # Toggle is off - do not write snapshots.
-    if not dev_enabled:
-        return no_update
-
-    from pipeworks_mud_mapper.models import MapFile
-
-    # Use a copy so we can inject the latest LLM output without mutating live state.
-    # The live map should only change when the user explicitly clicks
-    # "Send to Description".
+    # Use a copy so we can inject LLM output without mutating live state.
+    # Start with a deep copy so the live UI state remains unchanged.
     snapshot_zone = copy.deepcopy(zone_data)
-    # If a room is selected and we have an LLM response, stage that data
-    # into the snapshot so it reflects "what was just generated", even if
-    # the author hasn't applied it yet.
-    if selected_room and response_text:
+    if trigger_key == "generation" and selected_room and response_text:
+        # Update only the selected room with the new description.
         rooms = dict(snapshot_zone.get("rooms", {}))
         if selected_room in rooms:
             updated_room = dict(rooms[selected_room])
@@ -736,7 +747,7 @@ def auto_snapshot_on_generation(
             updated_room["description"] = response_text.strip()
             # Attach generation metadata for reproducibility.
             updated_room["llm_generation"] = generation_info
-            # Attach validator output for review; if none, remove any stale value.
+            # Attach validator output for review; if none, remove stale value.
             if validation_info:
                 updated_room["description_validation"] = validation_info
             else:
@@ -744,34 +755,65 @@ def auto_snapshot_on_generation(
             rooms[selected_room] = updated_room
             snapshot_zone["rooms"] = rooms
 
-    map_file = MapFile.from_dict(snapshot_zone)
-    display_name = selected_file
-    if not display_name:
-        display_name = zone_data.get("id") or "unsaved_zone"
+    # Resolve a stable display name for snapshot filenames.
+    # Prefer selected file for naming, fall back to zone id or a default.
+    display_name = selected_file or zone_data.get("id") or "unsaved_zone"
     if display_name.endswith(".map.json"):
         display_name = display_name[:-9]
 
+    # Throttle snapshot writes to avoid excessive I/O.
+    # Use trigger + display name so map/generation snapshots are throttled separately.
+    snapshot_key = f"{trigger_key}:{display_name}"
+    if _should_throttle_snapshot(snapshot_key):
+        return no_update, no_update
+
+    # Ensure dev snapshots directory exists before writing.
     DEV_MAPS_DIR.mkdir(parents=True, exist_ok=True)
     timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S_%f")
     snapshot_name = f"{display_name}_{timestamp}.map.json"
     snapshot_path = DEV_MAPS_DIR / snapshot_name
-    zone_service.save_map_file(map_file, snapshot_path)
+    # Persist the snapshot map file to disk.
+    map_file = MapFile.from_dict(snapshot_zone)
+    job_id = submit_io_job(_save_map_job, map_file, snapshot_path, None)
+    jobs = list((io_jobs or {}).get("jobs", []))
+    jobs.append(
+        {
+            "id": job_id,
+            "type": "snapshot",
+            "display_name": display_name,
+            "snapshot": snapshot_name,
+            "timestamp": timestamp,
+            "trigger": trigger_key,
+        }
+    )
 
-    return {
+    # Return metadata for downstream callbacks that refresh the list.
+    payload = {
         "snapshot": snapshot_name,
         "timestamp": timestamp,
-        "trigger": "generation",
     }
+    if trigger_key == "generation":
+        # Mark generation snapshot explicitly so UI can reflect the source.
+        payload["trigger"] = "generation"
+
+    return payload, {"jobs": jobs}
 
 
 @callback(
-    Output("room-form-feedback", "children", allow_duplicate=True),
+    Output("room-feedback-export", "data"),
+    Output("io-jobs", "data", allow_duplicate=True),
     Input("export-zone-btn", "n_clicks"),
     State("current-zone-data", "data"),
     State("selected-file", "data"),
+    State("io-jobs", "data"),
     prevent_initial_call=True,
 )
-def export_zone_to_file(n_clicks: int, zone_data: dict | None, selected_file: str | None) -> Any:
+def export_zone_to_file(
+    n_clicks: int,
+    zone_data: dict | None,
+    selected_file: str | None,
+    io_jobs: dict | None,
+) -> Any:
     """Export the current map as a zone file (strips coordinates).
 
     Exports to data/zones/{name}.json, creating the game truth file
@@ -792,7 +834,7 @@ def export_zone_to_file(n_clicks: int, zone_data: dict | None, selected_file: st
         Feedback alert component.
     """
     if not n_clicks or not zone_data or not selected_file:
-        return no_update
+        return no_update, no_update
 
     # Derive export path from map file name
     map_path = MAPS_DIR / selected_file
@@ -806,19 +848,117 @@ def export_zone_to_file(n_clicks: int, zone_data: dict | None, selected_file: st
         from pipeworks_mud_mapper.models import MapFile
 
         map_file = MapFile.from_dict(zone_data)
-        zone_service.export_zone(map_file, export_path)
+        job_id = submit_io_job(_export_zone_job, map_file, export_path)
+
+        jobs = list((io_jobs or {}).get("jobs", []))
+        jobs.append(
+            {
+                "id": job_id,
+                "type": "export",
+                "display_name": export_path.stem,
+            }
+        )
 
         feedback = dbc.Alert(
-            f"Exported: {export_path.name} (coordinates stripped)",
+            f"Export queued: {export_path.name} (coordinates stripped)",
             color="info",
             className="mb-0 py-2",
             duration=4000,
         )
-        return feedback
+        return _room_feedback_payload(feedback), {"jobs": jobs}
     except Exception as e:
         feedback = dbc.Alert(
             f"Error exporting: {e}",
             color="danger",
             className="mb-0 py-2",
         )
-        return feedback
+        return _room_feedback_payload(feedback), no_update
+
+
+@callback(
+    Output("io-jobs", "data"),
+    Output("room-feedback-save", "data", allow_duplicate=True),
+    Output("room-feedback-export", "data", allow_duplicate=True),
+    Output("dev-snapshot-status", "data", allow_duplicate=True),
+    Output("has-unsaved-changes", "data", allow_duplicate=True),
+    Input("io-job-poll", "n_intervals"),
+    State("io-jobs", "data"),
+    prevent_initial_call="initial_duplicate",
+)
+def poll_io_jobs(n_intervals: int, io_jobs: dict | None) -> tuple:
+    """Poll background I/O jobs and surface completion feedback."""
+    jobs = list((io_jobs or {}).get("jobs", []))
+    if not jobs:
+        return no_update, no_update, no_update, no_update, no_update
+
+    updated_jobs: list[dict[str, Any]] = []
+    save_feedback = no_update
+    export_feedback = no_update
+    snapshot_status = no_update
+    unsaved_update = no_update
+
+    for job in jobs:
+        job_id = job.get("id")
+        if not job_id:
+            continue
+
+        status = get_io_job_status(job_id)
+        if status is None or status.get("status") == "pending":
+            updated_jobs.append(job)
+            continue
+
+        forget_io_job(job_id)
+        job_type = job.get("type")
+
+        if status.get("status") == "error":
+            error_message = status.get("error", "Unknown error")
+            feedback = dbc.Alert(
+                f"I/O error: {error_message}",
+                color="danger",
+                className="mb-0 py-2",
+            )
+            if job_type == "save":
+                save_feedback = _room_feedback_payload(feedback)
+                unsaved_update = True
+            elif job_type == "export":
+                export_feedback = _room_feedback_payload(feedback)
+            elif job_type == "snapshot":
+                snapshot_status = {
+                    "snapshot": job.get("snapshot"),
+                    "timestamp": job.get("timestamp"),
+                    "error": error_message,
+                }
+            continue
+
+        if job_type == "save":
+            dev_note = ""
+            if job.get("snapshot"):
+                dev_note = " (dev snapshot saved)"
+            feedback = dbc.Alert(
+                f"Saved: {job.get('display_name')}{dev_note}",
+                color="success",
+                className="mb-0 py-2",
+                duration=3000,
+            )
+            save_feedback = _room_feedback_payload(feedback)
+            unsaved_update = False
+        elif job_type == "export":
+            feedback = dbc.Alert(
+                f"Exported: {job.get('display_name')}.json",
+                color="success",
+                className="mb-0 py-2",
+                duration=3000,
+            )
+            export_feedback = _room_feedback_payload(feedback)
+        elif job_type == "snapshot":
+            snapshot_status = {
+                "snapshot": job.get("snapshot"),
+                "timestamp": job.get("timestamp"),
+            }
+            if job.get("trigger") == "generation":
+                snapshot_status["trigger"] = "generation"
+
+    if updated_jobs == jobs and save_feedback is no_update and export_feedback is no_update:
+        return no_update, no_update, no_update, no_update, no_update
+
+    return {"jobs": updated_jobs}, save_feedback, export_feedback, snapshot_status, unsaved_update

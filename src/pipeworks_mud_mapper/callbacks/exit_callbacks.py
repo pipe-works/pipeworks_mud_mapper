@@ -37,16 +37,9 @@ See Also
 - ``utils/zone_io.py``: Direction constants
 """
 
-from typing import Any
+from dash import Input, Output, State, callback, no_update
 
-from dash import Input, Output, State, callback, html, no_update
-
-from pipeworks_mud_mapper.utils.zone_io import (
-    DIRECTION_SHORT,
-    OPPOSITE_DIRECTION,
-    SHORT_TO_DIRECTION,
-    find_room_in_direction,
-)
+from pipeworks_mud_mapper.services.state import ZoneAction, apply_zone_action
 
 
 @callback(
@@ -98,114 +91,19 @@ def handle_exit_changes(
     - Rejected directions (no room found) are unchecked automatically
     - Feedback shows current exits and any warnings
     """
-    if not selected_room or not zone_data:
+    action = ZoneAction(
+        type="EXIT_CHANGE",
+        payload={
+            "selected_room": selected_room,
+            "checked_values": checked_values,
+        },
+    )
+    transition = apply_zone_action(zone_data, action)
+
+    if not transition.changed or transition.zone_data is None:
         return no_update, no_update, no_update, no_update
 
-    rooms = zone_data.get("rooms", {})
-    room = rooms.get(selected_room)
-    if not room:
-        return no_update, no_update, no_update, no_update
+    final_checked = transition.effects.get("exit_values", no_update)
+    exit_info = transition.effects.get("exit_feedback", no_update)
 
-    coords = room.get("coords", [0, 0, 0])
-    current_exits = room.get("exits", {})
-
-    # Determine current checked directions from existing exits
-    current_checked = {DIRECTION_SHORT[d] for d in current_exits if d in DIRECTION_SHORT}
-    new_checked = set(checked_values)
-
-    # Find what was added and removed
-    added = new_checked - current_checked
-    removed = current_checked - new_checked
-
-    # If no changes, skip
-    if not added and not removed:
-        return no_update, no_update, no_update, no_update
-
-    # Create updated zone data - deep copy all rooms we might modify
-    updated_zone = dict(zone_data)
-    updated_zone["rooms"] = {rid: dict(r) for rid, r in zone_data.get("rooms", {}).items()}
-    updated_room = updated_zone["rooms"][selected_room]
-    updated_exits = dict(current_exits)
-
-    feedback_messages = []
-    rejected_directions = []
-
-    # Process removals (only remove from current room, not reverse)
-    for short_dir in removed:
-        direction = SHORT_TO_DIRECTION.get(short_dir)
-        if direction and direction in updated_exits:
-            del updated_exits[direction]
-            feedback_messages.append(f"Removed {short_dir}")
-
-    # Process additions
-    for short_dir in added:
-        direction = SHORT_TO_DIRECTION.get(short_dir)
-        if not direction:
-            continue
-
-        # Find nearest room in that direction
-        target_room_id = find_room_in_direction(
-            rooms, coords, direction, exclude_room=selected_room
-        )
-
-        if target_room_id:
-            # Valid exit - add it to current room
-            updated_exits[direction] = target_room_id
-            feedback_messages.append(f"{short_dir}→{target_room_id}")
-
-            # Add reverse exit to target room (bidirectional by default)
-            opposite_dir = OPPOSITE_DIRECTION.get(direction)
-            if opposite_dir:
-                target_room_data = updated_zone["rooms"][target_room_id]
-                target_exits = dict(target_room_data.get("exits", {}))
-                if opposite_dir not in target_exits:
-                    target_exits[opposite_dir] = selected_room
-                    target_room_data["exits"] = target_exits
-        else:
-            # No room in that direction - reject the checkbox
-            rejected_directions.append(short_dir)
-            feedback_messages.append(f"⚠️ {short_dir}: no room")
-
-    # Update room with new exits
-    updated_room["exits"] = updated_exits
-
-    # Build final checkbox values (exclude rejected)
-    final_checked = [v for v in checked_values if v not in rejected_directions]
-
-    # Build feedback display
-    exit_info: list[Any] = []
-    if updated_exits:
-        exit_info = [
-            html.Span(
-                [
-                    html.Span(DIRECTION_SHORT.get(d, d), className="fw-bold"),
-                    f"→{t} ",
-                ],
-                className="me-2",
-            )
-            for d, t in updated_exits.items()
-        ]
-        if rejected_directions:
-            exit_info.append(html.Br())
-            exit_info.extend(
-                [
-                    html.Span(
-                        f"⚠️ No room {d} ",
-                        className="text-warning small",
-                    )
-                    for d in rejected_directions
-                ]
-            )
-    else:
-        if rejected_directions:
-            exit_info = [
-                html.Span(
-                    f"⚠️ No room {d} ",
-                    className="text-warning small",
-                )
-                for d in rejected_directions
-            ]
-        else:
-            exit_info = [html.Small("No exits defined", className="text-muted")]
-
-    return updated_zone, final_checked, exit_info, True
+    return transition.zone_data, final_checked, exit_info, True

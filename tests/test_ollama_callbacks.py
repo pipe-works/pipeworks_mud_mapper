@@ -59,6 +59,7 @@ See Also
 """
 
 import random
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 import httpx
@@ -76,6 +77,7 @@ from pipeworks_mud_mapper.callbacks.ollama_callbacks import (
     load_template_options,
     populate_prompt_from_description,
     refresh_ollama_models,
+    render_ollama_status,
     send_to_description,
     toggle_params_collapse,
     toggle_system_prompt_collapse,
@@ -92,6 +94,16 @@ from pipeworks_mud_mapper.services.ollama_config import (
     DEFAULT_TOP_K,
     DEFAULT_TOP_P,
 )
+
+
+def status_text(status_payload: Any) -> str:
+    """Extract status text from a status payload or component."""
+    if status_payload is no_update:
+        return ""
+    if isinstance(status_payload, dict):
+        return str(status_payload.get("content", ""))
+    return str(status_payload)
+
 
 # =============================================================================
 # Fixtures
@@ -151,14 +163,14 @@ class TestRefreshOllamaModels:
         """Should return warning when server URL is empty."""
         options, status, placeholder = refresh_ollama_models(n_clicks=1, server_url="")
         assert options == []
-        assert "Please enter a server URL" in str(status)
+        assert "Please enter a server URL" in status_text(status)
         assert "Enter server URL" in placeholder
 
     def test_none_server_url(self):
         """Should return warning when server URL is None."""
         options, status, placeholder = refresh_ollama_models(n_clicks=1, server_url=None)
         assert options == []
-        assert "Please enter a server URL" in str(status)
+        assert "Please enter a server URL" in status_text(status)
 
     def test_successful_model_fetch(self, mock_models_response):
         """Should return model options on successful API call."""
@@ -175,8 +187,8 @@ class TestRefreshOllamaModels:
         assert options[0]["value"] == "llama3.2:latest"
         assert options[1]["value"] == "mistral:7b"
         assert options[2]["value"] == "codellama:13b"
-        assert "Connected" in str(status)
-        assert "3 model" in str(status)
+        assert "Connected" in status_text(status)
+        assert "3 model" in status_text(status)
         assert placeholder == "Select a model"
 
     def test_successful_fetch_normalizes_url(self, mock_models_response):
@@ -203,8 +215,8 @@ class TestRefreshOllamaModels:
             )
 
         assert options == []
-        assert "Connected" in str(status)
-        assert "no models" in str(status)
+        assert "Connected" in status_text(status)
+        assert "no models" in status_text(status)
         assert "No models" in placeholder
 
     def test_connection_error(self):
@@ -219,7 +231,7 @@ class TestRefreshOllamaModels:
             )
 
         assert options == []
-        assert "Not connected" in str(status)
+        assert "Not connected" in status_text(status)
         assert "Connection failed" in placeholder
 
     def test_http_status_error(self):
@@ -239,8 +251,8 @@ class TestRefreshOllamaModels:
             )
 
         assert options == []
-        assert "Not connected" in str(status)
-        assert "HTTP 500" in str(status)
+        assert "Not connected" in status_text(status)
+        assert "HTTP 500" in status_text(status)
 
     def test_generic_exception(self):
         """Should handle unexpected exceptions gracefully."""
@@ -254,7 +266,7 @@ class TestRefreshOllamaModels:
             )
 
         assert options == []
-        assert "Error:" in str(status)
+        assert "Error:" in status_text(status)
 
     def test_connection_status_shows_green_on_success(self, mock_models_response):
         """Should show green success indicator when connected."""
@@ -267,7 +279,7 @@ class TestRefreshOllamaModels:
                 n_clicks=1, server_url="http://localhost:11434"
             )
 
-        assert "text-success" in str(status)
+        assert "text-success" in status_text(status)
 
     def test_connection_status_shows_red_on_failure(self):
         """Should show red error indicator when connection fails."""
@@ -280,7 +292,7 @@ class TestRefreshOllamaModels:
                 n_clicks=1, server_url="http://localhost:11434"
             )
 
-        assert "text-danger" in str(status)
+        assert "text-danger" in status_text(status)
 
 
 # =============================================================================
@@ -333,7 +345,7 @@ class TestGenerateDescription:
             target_words=DEFAULT_TARGET_WORDS,
         )
         assert response == ""
-        assert "Please enter a server URL" in str(status)
+        assert "Please enter a server URL" in status_text(status)
         assert gen_info is None  # No metadata on validation error
 
     def test_no_model_selected(self):
@@ -354,7 +366,7 @@ class TestGenerateDescription:
             target_words=DEFAULT_TARGET_WORDS,
         )
         assert response == ""
-        assert "Please select a model" in str(status)
+        assert "Please select a model" in status_text(status)
         assert gen_info is None
 
     def test_empty_model_selected(self):
@@ -375,7 +387,7 @@ class TestGenerateDescription:
             target_words=DEFAULT_TARGET_WORDS,
         )
         assert response == ""
-        assert "Please select a model" in str(status)
+        assert "Please select a model" in status_text(status)
         assert gen_info is None
 
     def test_empty_user_prompt(self):
@@ -396,7 +408,7 @@ class TestGenerateDescription:
             target_words=DEFAULT_TARGET_WORDS,
         )
         assert response == ""
-        assert "Please enter a user prompt" in str(status)
+        assert "Please enter a user prompt" in status_text(status)
         assert gen_info is None
 
     def test_successful_generation(self, mock_chat_response):
@@ -422,7 +434,7 @@ class TestGenerateDescription:
             )
 
         assert "ancient stone hall" in response
-        assert "Generated successfully" in str(status)
+        assert "Generated successfully" in status_text(status)
         # Verify metadata is returned on success
         assert gen_info is not None
         assert gen_info["model"] == "llama3.2:latest"
@@ -522,7 +534,7 @@ class TestGenerateDescription:
             )
 
         assert response == ""
-        assert "Empty response" in str(status)
+        assert "Empty response" in status_text(status)
         assert gen_info is None  # No metadata on empty response
 
     def test_connection_error(self):
@@ -548,7 +560,7 @@ class TestGenerateDescription:
             )
 
         assert response == ""
-        assert "Cannot connect to server" in str(status)
+        assert "Cannot connect to server" in status_text(status)
         assert gen_info is None  # No metadata on error
 
     def test_timeout_error(self):
@@ -574,7 +586,7 @@ class TestGenerateDescription:
             )
 
         assert response == ""
-        assert "Request timed out" in str(status)
+        assert "Request timed out" in status_text(status)
         assert gen_info is None
 
     def test_http_status_error(self):
@@ -605,7 +617,7 @@ class TestGenerateDescription:
             )
 
         assert response == ""
-        assert "Server error: 404" in str(status)
+        assert "Server error: 404" in status_text(status)
         assert gen_info is None
 
 
@@ -703,7 +715,7 @@ class TestSendToDescription:
         assert description is no_update
         assert zone is no_update
         assert unsaved is no_update
-        assert "Nothing to send" in str(status)
+        assert "Nothing to send" in status_text(status)
 
     def test_none_response_text(self, sample_zone_data):
         """Should show 'Nothing to send' when response is None."""
@@ -716,7 +728,7 @@ class TestSendToDescription:
             validation_info=None,
         )
         assert description is no_update
-        assert "Nothing to send" in str(status)
+        assert "Nothing to send" in status_text(status)
 
     def test_no_room_selected_updates_form_only(self):
         """Should update form but not zone when no room selected."""
@@ -732,7 +744,7 @@ class TestSendToDescription:
         assert description == test_text
         assert zone is no_update
         assert unsaved is no_update
-        assert "select a room" in str(status).lower()
+        assert "select a room" in status_text(status).lower()
 
     def test_successful_send_updates_zone(self, sample_zone_data):
         """Should update zone data when room is selected."""
@@ -749,7 +761,7 @@ class TestSendToDescription:
         assert zone is not no_update
         assert zone["rooms"]["spawn"]["description"] == test_text
         assert unsaved is True
-        assert "Applied" in str(status)
+        assert "Applied" in status_text(status)
 
     def test_room_not_found(self, sample_zone_data):
         """Should handle room not found in zone."""
@@ -764,7 +776,7 @@ class TestSendToDescription:
         )
         assert description == test_text
         assert zone is no_update
-        assert "not found" in str(status).lower()
+        assert "not found" in status_text(status).lower()
 
     def test_does_not_mutate_original_zone(self, sample_zone_data):
         """Should create new zone dict, not mutate original."""
@@ -996,7 +1008,7 @@ class TestOllamaIntegration:
             )
 
         assert options == []
-        assert "Not connected" in str(status)
+        assert "Not connected" in status_text(status)
 
         # Second attempt - server back up
         with patch(
@@ -1009,7 +1021,7 @@ class TestOllamaIntegration:
             )
 
         assert len(options) == 3
-        assert "Connected" in str(status)
+        assert "Connected" in status_text(status)
 
 
 # =============================================================================
@@ -1046,7 +1058,7 @@ class TestPopulatePromptFromDescription:
             room_name="Test Room",
         )
         assert prompt is no_update
-        assert "No description to use" in str(status)
+        assert "No description to use" in status_text(status)
 
     def test_none_description_shows_message(self):
         """Should show message when description is None."""
@@ -1056,7 +1068,7 @@ class TestPopulatePromptFromDescription:
             room_name="Test Room",
         )
         assert prompt is no_update
-        assert "No description to use" in str(status)
+        assert "No description to use" in status_text(status)
 
     def test_populates_with_room_name(self):
         """Should include room name in generated prompt."""
@@ -1069,7 +1081,7 @@ class TestPopulatePromptFromDescription:
         assert "The Wine Cellar" in prompt
         assert test_description in prompt
         assert "Rewrite" in prompt
-        assert "copied to prompt" in str(status).lower()
+        assert "copied to prompt" in status_text(status).lower()
 
     def test_populates_without_room_name(self):
         """Should work without room name."""
@@ -1081,7 +1093,7 @@ class TestPopulatePromptFromDescription:
         )
         assert test_description in prompt
         assert "Rewrite this room description" in prompt
-        assert "copied to prompt" in str(status).lower()
+        assert "copied to prompt" in status_text(status).lower()
 
     def test_populates_with_empty_room_name(self):
         """Should work when room name is empty string."""
@@ -1159,7 +1171,7 @@ class TestHandleTemplateSelection:
         # Should have some prompt text
         assert len(prompt) > 0
         # Status should mention custom mode
-        assert "Custom" in str(status) or "edit" in str(status).lower()
+        assert "Custom" in status_text(status) or "edit" in status_text(status).lower()
 
     def test_template_selection_makes_readonly(self):
         """Should make prompt read-only when template selected."""
@@ -1205,7 +1217,7 @@ class TestHandleTemplateSelection:
         # Chevron should not update either
         assert chevron is no_update
         # Status should indicate error
-        assert "not found" in str(status).lower()
+        assert "not found" in status_text(status).lower()
 
 
 class TestToggleSystemPromptCollapse:
@@ -1246,17 +1258,49 @@ class TestCopySystemPrompt:
     def test_empty_prompt_shows_message(self):
         """Should show message when prompt is empty."""
         result = copy_system_prompt(n_clicks=1, system_prompt="")
-        assert "No system prompt" in str(result)
+        assert "No system prompt" in status_text(result)
 
     def test_none_prompt_shows_message(self):
         """Should show message when prompt is None."""
         result = copy_system_prompt(n_clicks=1, system_prompt=None)
-        assert "No system prompt" in str(result)
+        assert "No system prompt" in status_text(result)
 
     def test_successful_copy_feedback(self):
         """Should show success message when prompt exists."""
         result = copy_system_prompt(n_clicks=1, system_prompt="A valid system prompt")
-        assert "copied" in str(result).lower()
+        assert "copied" in status_text(result).lower()
+
+
+# =============================================================================
+# Test render_ollama_status
+# =============================================================================
+
+
+class TestRenderOllamaStatus:
+    """Tests for the render_ollama_status callback."""
+
+    def test_no_payloads_returns_no_update(self):
+        """render_ollama_status should return no_update when nothing provided."""
+        result = render_ollama_status(None, None, None, None, None)
+        assert result is no_update
+
+    def test_latest_payload_wins(self):
+        """render_ollama_status should return the latest payload content."""
+        older = {"content": "Older", "ts": 1.0}
+        newer = {"content": "Newer", "ts": 2.0}
+        result = render_ollama_status(newer, None, older, None, None)
+        assert "Newer" in str(result)
+
+    def test_ignores_payload_without_content(self):
+        """render_ollama_status should ignore payloads with no content."""
+        payload = {"content": None, "ts": 2.0}
+        result = render_ollama_status(payload, None, None, None, None)
+        assert result is no_update
+
+    def test_ignores_non_dict_payload(self):
+        """render_ollama_status should ignore non-dict payloads."""
+        result = render_ollama_status("bad", None, None, None, None)
+        assert result is no_update
 
 
 # =============================================================================
@@ -1275,7 +1319,7 @@ class TestValidateOllamaResponse:
             history=[],
         )
         status, summary, hits, history_display, history_data, validation_info = result
-        assert "Waiting for a response" in str(status)
+        assert "Waiting for a response" in status_text(status)
         assert "No response" in str(summary)
         assert "No rule hits" in str(hits)
         assert history_data is no_update
@@ -1302,7 +1346,7 @@ class TestValidateOllamaResponse:
         )
         status, summary, hits, history_display, history_data, validation_info = result
 
-        assert "Review needed" in str(status)
+        assert "Review needed" in status_text(status)
         assert "Hard failures" in str(summary)
         assert "cardinal directions" in str(hits)
         assert isinstance(history_data, list)
@@ -1627,8 +1671,8 @@ class TestGenerateDescriptionWithParameters:
                 target_words=DEFAULT_TARGET_WORDS,
             )
 
-        assert "seed" in str(status).lower()
-        assert "42" in str(status)
+        assert "seed" in status_text(status).lower()
+        assert "42" in status_text(status)
 
 
 class TestToggleParamsCollapse:

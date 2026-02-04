@@ -4,6 +4,7 @@ This module handles template dropdown population, system prompt compilation,
 prompt prefix presets, collapse toggles, and seed control logic.
 """
 
+import time
 from typing import Any
 
 from dash import Input, Output, State, callback, ctx, no_update
@@ -12,6 +13,12 @@ from pipeworks_mud_mapper.services import template_service
 from pipeworks_mud_mapper.services.ollama_assets import load_prompt_prefixes
 from pipeworks_mud_mapper.services.ollama_config import DEFAULT_TARGET_WORDS
 from pipeworks_mud_mapper.services.ollama_ui import status_info, status_ok, status_warning
+
+
+def _ollama_status_payload(content: Any) -> dict[str, Any]:
+    """Build a timestamped status payload for the status renderer."""
+    return {"content": content, "ts": time.monotonic()}
+
 
 # =============================================================================
 # Template Callbacks
@@ -96,7 +103,7 @@ def apply_prompt_prefix(prefix_id: str | None, current_prompt: str | None) -> An
     Output("ollama-system-prompt", "readOnly"),
     Output("ollama-system-prompt-collapse", "is_open"),
     Output("ollama-system-prompt-chevron", "className"),
-    Output("ollama-status", "children", allow_duplicate=True),
+    Output("ollama-status-template", "data"),
     Input("ollama-template-dropdown", "value"),
     Input("ollama-target-words", "value"),
     prevent_initial_call=True,
@@ -124,14 +131,20 @@ def handle_template_selection(template_id: str | None, target_words: int | None)
         status = status_info("Custom mode - edit system prompt freely")
         # Return: prompt text, NOT read-only (editable), collapse OPEN for custom mode,
         # chevron down (open state), status
-        return default_prompt, False, True, "bi bi-chevron-down me-1", status
+        return (
+            default_prompt,
+            False,
+            True,
+            "bi bi-chevron-down me-1",
+            _ollama_status_payload(status),
+        )
 
     # Load the selected template from data/ollama/templates/
     template = template_service.load_template(template_id)
     if not template:
         status = status_warning(f"Template '{template_id}' not found")
         # Don't update the prompt on error - keep whatever was there
-        return no_update, no_update, no_update, no_update, status
+        return no_update, no_update, no_update, no_update, _ollama_status_payload(status)
 
     # Compile the template JSON into a comprehensive system prompt string
     system_prompt = template_service.compile_system_prompt(template, target_words=target_words)
@@ -139,7 +152,13 @@ def handle_template_selection(template_id: str | None, target_words: int | None)
     status = status_ok(f"Loaded: {template.template_name} v{template.version}")
     # Return: compiled prompt, read-only (not editable), collapse CLOSED by default,
     # chevron right (closed state), status
-    return system_prompt, True, False, "bi bi-chevron-right me-1", status
+    return (
+        system_prompt,
+        True,
+        False,
+        "bi bi-chevron-right me-1",
+        _ollama_status_payload(status),
+    )
 
 
 @callback(

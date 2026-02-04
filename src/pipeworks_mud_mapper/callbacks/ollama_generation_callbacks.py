@@ -7,6 +7,8 @@ This module contains the callbacks that:
 """
 
 import random
+import time
+from typing import Any
 
 import httpx
 from dash import Input, Output, State, callback, html, no_update
@@ -21,21 +23,24 @@ from pipeworks_mud_mapper.services.ollama_config import (
     DEFAULT_TOP_K,
     DEFAULT_TOP_P,
 )
-from pipeworks_mud_mapper.services.ollama_state import (
-    apply_generation_to_room,
-    build_generation_metadata,
-)
+from pipeworks_mud_mapper.services.ollama_state import build_generation_metadata
 from pipeworks_mud_mapper.services.ollama_ui import (
     status_error,
     status_info,
     status_ok,
     status_warning,
 )
+from pipeworks_mud_mapper.services.state import ZoneAction, apply_zone_action
+
+
+def _ollama_status_payload(content: Any) -> dict[str, Any]:
+    """Build a timestamped status payload for the status renderer."""
+    return {"content": content, "ts": time.monotonic()}
 
 
 @callback(
     Output("ollama-response", "value"),
-    Output("ollama-status", "children"),
+    Output("ollama-status-generation", "data"),
     # Output metadata to store for later use when "Send to Description" is clicked.
     # This dict contains all generation parameters for reproducibility/provenance.
     Output("ollama-last-generation-info", "data"),
@@ -66,18 +71,8 @@ from pipeworks_mud_mapper.services.ollama_ui import (
         ),
         # Change button text to "Generating..."
         (Output("ollama-generate-text", "children"), "Generating...", "Generate"),
-        # Show status message during generation
-        (
-            Output("ollama-status", "children"),
-            html.Span(
-                [
-                    html.I(className="bi bi-hourglass-split text-info me-1 spinning"),
-                    "Generating description...",
-                ],
-                className="text-info",
-            ),
-            None,  # Will be replaced by callback output
-        ),
+        # We intentionally avoid writing to the shared status output here;
+        # generation feedback is handled by the status renderer callback.
         # Clear previous response while generating
         (Output("ollama-response", "value"), "", None),
     ],
@@ -105,7 +100,6 @@ def generate_description(
     The ``running`` callback parameter provides real-time feedback:
 
     - Button shows "Generating..." with spinner
-    - Status shows "Generating description..."
     - Previous response is cleared
 
     Metadata Output
@@ -125,13 +119,13 @@ def generate_description(
     # fails, return None for metadata since no generation occurred.
 
     if not server_url:
-        return "", status_warning("Please enter a server URL"), None
+        return "", _ollama_status_payload(status_warning("Please enter a server URL")), None
 
     if not model:
-        return "", status_warning("Please select a model"), None
+        return "", _ollama_status_payload(status_warning("Please select a model")), None
 
     if not user_prompt:
-        return "", status_warning("Please enter a user prompt"), None
+        return "", _ollama_status_payload(status_warning("Please enter a user prompt")), None
 
     # =========================================================================
     # Apply Default Values for Parameters
@@ -206,7 +200,7 @@ def generate_description(
         generated_text = data.get("message", {}).get("content", "").strip()
 
         if not generated_text:
-            return "", status_warning("Empty response from model"), None
+            return "", _ollama_status_payload(status_warning("Empty response from model")), None
 
         # Show success status with seed info for reproducibility
         if seed == -1:
@@ -234,27 +228,31 @@ def generate_description(
             user_prompt=user_prompt,
         )
 
-        return generated_text, status, generation_info
+        return generated_text, _ollama_status_payload(status), generation_info
 
     except httpx.ConnectError:
         # Server not reachable - return None for metadata since no generation occurred
-        return "", status_error("Cannot connect to server"), None
+        return "", _ollama_status_payload(status_error("Cannot connect to server")), None
     except httpx.TimeoutException:
         # Request timed out - return None for metadata
-        return "", status_error("Request timed out"), None
+        return "", _ollama_status_payload(status_error("Request timed out")), None
     except httpx.HTTPStatusError as e:
         # Server returned an error - return None for metadata
-        return "", status_error(f"Server error: {e.response.status_code}"), None
+        return (
+            "",
+            _ollama_status_payload(status_error(f"Server error: {e.response.status_code}")),
+            None,
+        )
     except Exception as e:
         # Unexpected error - return None for metadata
-        return "", status_error(f"Error: {str(e)[:50]}"), None
+        return "", _ollama_status_payload(status_error(f"Error: {str(e)[:50]}")), None
 
 
 @callback(
     Output("room-description", "value", allow_duplicate=True),
     Output("current-zone-data", "data", allow_duplicate=True),
     Output("has-unsaved-changes", "data", allow_duplicate=True),
-    Output("ollama-status", "children", allow_duplicate=True),
+    Output("ollama-status-send", "data"),
     Input("ollama-send-to-description-btn", "n_clicks"),
     State("ollama-response", "value"),
     State("selected-room", "data"),
@@ -282,29 +280,36 @@ def send_to_description(
         return no_update, no_update, no_update, no_update
 
     if not response_text:
-        return no_update, no_update, no_update, status_info("Nothing to send", muted=True)
+        return (
+            no_update,
+            no_update,
+            no_update,
+            _ollama_status_payload(status_info("Nothing to send", muted=True)),
+        )
 
     # If no room is selected, just update the form field.
     # Note: We can't store metadata without a room to attach it to.
     if not selected_room or not zone_data:
         status = status_info("Sent to form (select a room to apply)")
-        return response_text, no_update, no_update, status
+        return response_text, no_update, no_update, _ollama_status_payload(status)
 
-    # Update zone data using the shared state helper.
-    try:
-        updated_zone = apply_generation_to_room(
-            zone_data=zone_data,
-            room_id=selected_room,
-            description=response_text,
-            generation_info=generation_info,
-            validation_info=validation_info,
-        )
-    except KeyError:
+    action = ZoneAction(
+        type="APPLY_GENERATION",
+        payload={
+            "selected_room": selected_room,
+            "response_text": response_text,
+            "generation_info": generation_info,
+            "validation_info": validation_info,
+        },
+    )
+    transition = apply_zone_action(zone_data, action)
+
+    if not transition.changed or transition.zone_data is None:
         return (
             response_text,
             no_update,
             no_update,
-            status_warning("Room not found in zone"),
+            _ollama_status_payload(status_warning("Room not found in zone")),
         )
 
     # Emit debug logging for traceability.
@@ -320,7 +325,7 @@ def send_to_description(
 
     status = status_ok(f"Applied to '{selected_room}'")
     print(f"[DEBUG] send_to_description: setting has_unsaved=True for room '{selected_room}'")
-    return response_text, updated_zone, True, status
+    return response_text, transition.zone_data, True, _ollama_status_payload(status)
 
 
 @callback(
@@ -348,7 +353,7 @@ def handle_clipboard_copy(n_clicks: int, response_text: str):
 
 @callback(
     Output("ollama-user-prompt", "value"),
-    Output("ollama-status", "children", allow_duplicate=True),
+    Output("ollama-status-prompt", "data"),
     Input("ollama-populate-prompt-btn", "n_clicks"),
     State("room-description", "value"),
     State("room-name", "value"),
@@ -364,7 +369,7 @@ def populate_prompt_from_description(
         return no_update, no_update
 
     if not room_description:
-        return no_update, status_info("No description to use", muted=True)
+        return no_update, _ollama_status_payload(status_info("No description to use", muted=True))
 
     # Build a prompt that asks to improve/rewrite the existing description
     if room_name:
@@ -373,11 +378,11 @@ def populate_prompt_from_description(
         prompt = f"Rewrite this room description:\n\n{room_description}"
 
     status = status_ok("Description copied to prompt")
-    return prompt, status
+    return prompt, _ollama_status_payload(status)
 
 
 @callback(
-    Output("ollama-status", "children", allow_duplicate=True),
+    Output("ollama-status-system", "data"),
     Input("ollama-copy-system-prompt-btn", "n_clicks"),
     State("ollama-system-prompt", "value"),
     prevent_initial_call=True,
@@ -388,6 +393,41 @@ def copy_system_prompt(n_clicks: int, system_prompt: str) -> html.Span:
         return no_update
 
     if not system_prompt:
-        return status_info("No system prompt to copy", muted=True)
+        return _ollama_status_payload(status_info("No system prompt to copy", muted=True))
 
-    return status_ok("System prompt copied!")
+    return _ollama_status_payload(status_ok("System prompt copied!"))
+
+
+def _latest_status_payload(payloads: list[dict | None]) -> dict | None:
+    """Return the most recent status payload from a list."""
+    latest: dict | None = None
+    for payload in payloads:
+        if not isinstance(payload, dict):
+            continue
+        timestamp = payload.get("ts")
+        if timestamp is None:
+            continue
+        if latest is None or timestamp > latest.get("ts", -1):
+            latest = payload
+    return latest
+
+
+@callback(
+    Output("ollama-status", "children"),
+    Input("ollama-status-generation", "data"),
+    Input("ollama-status-send", "data"),
+    Input("ollama-status-prompt", "data"),
+    Input("ollama-status-system", "data"),
+    Input("ollama-status-template", "data"),
+)
+def render_ollama_status(*payloads: dict | None) -> Any:
+    """Render the latest Ollama status payload from any source."""
+    latest = _latest_status_payload(list(payloads))
+    if not latest:
+        return no_update
+
+    content = latest.get("content")
+    if content is None:
+        return no_update
+
+    return content

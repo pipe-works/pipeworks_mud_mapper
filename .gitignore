@@ -87,3 +87,6 @@ settings.local.json
 # Sphinx documentation
 docs/build/
 docs/source/autoapi/
+
+# Data authoring snapshots
+data/maps/dev_snapshots/

@@ -854,6 +854,13 @@ def create_ollama_panel() -> dbc.Card:
                                         id="ollama-status",
                                         className="small mb-2",
                                     ),
+                                    # Internal status stores so a single renderer callback
+                                    # owns the actual status output.
+                                    dcc.Store(id="ollama-status-generation"),
+                                    dcc.Store(id="ollama-status-send"),
+                                    dcc.Store(id="ollama-status-prompt"),
+                                    dcc.Store(id="ollama-status-system"),
+                                    dcc.Store(id="ollama-status-template"),
                                     # ---------------------------------------------------------
                                     # Response Section
                                     # ---------------------------------------------------------
