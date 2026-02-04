@@ -35,21 +35,22 @@
       "description_validation": {
         "valid": false,
         "hard_failures": [
-          "traversal_verb:opening"
+          "word_count_out_of_bounds",
+          "cardinal_direction:left"
         ],
         "soft_failures": [],
         "metrics": {
-          "word_count": 32,
+          "word_count": 42,
           "target_words": 30,
           "min_words": 20,
           "max_words": 35
         },
         "rule_hits": {
-          "traversal_verbs": [
-            "opening"
+          "cardinal_directions": [
+            "left"
           ]
         },
-        "validated_at": "2026-02-04T18:25:39.793966Z"
+        "validated_at": "2026-02-04T18:23:33.106604Z"
       }
     },
     "broken_door": {

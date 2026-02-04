@@ -25,6 +25,7 @@ Component IDs
 - ``export-zone-btn``: Button to export zone JSON without coordinates
 - ``validate-zone-btn``: Button to run validation checks on the map
 - ``dev-save-toggle``: Toggle to save snapshots to data/maps/dev_snapshots
+- ``dev-snapshot-list-container``: Container div for dev snapshot file list
 - ``status-indicator``: Text showing current file state (saved/unsaved)
 
 Notes
@@ -85,7 +86,7 @@ def create_file_browser() -> dbc.Card:
                         className="mb-2",
                     ),
                     # Dynamic file list (populated by callback)
-                    html.Div(id="file-list-container", className="ms-3 mb-3"),
+                    html.Div(id="file-list-container", className="ms-3 mb-3 file-list-scroll"),
                     html.Hr(),
                     # New Map button
                     dbc.Button(
@@ -104,6 +105,22 @@ def create_file_browser() -> dbc.Card:
                         size="sm",
                         className="w-100 mb-2",
                         disabled=True,
+                    ),
+                    # Dev snapshots browser header and list
+                    # This mirrors the main file list, but is scoped to data/maps/dev_snapshots.
+                    # The list is rendered by a dedicated callback so it can update when
+                    # snapshots are created.
+                    html.Div(
+                        [
+                            html.I(className="bi bi-folder-fill me-2 text-warning"),
+                            html.Span("dev_snapshots/"),
+                        ],
+                        className="mb-2",
+                    ),
+                    # Dynamic dev snapshot list (populated by callback)
+                    html.Div(
+                        id="dev-snapshot-list-container",
+                        className="ms-3 mb-3 file-list-scroll",
                     ),
                     dbc.Checkbox(
                         id="dev-save-toggle",

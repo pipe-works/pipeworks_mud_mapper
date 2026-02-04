@@ -23,8 +23,10 @@ Component Dependencies
 **Inputs:**
 - ``initial-load``: Interval trigger for startup
 - ``zone-files-store``: List of available files
+- ``dev-snapshot-files-store``: List of available dev snapshot files
 - ``selected-file``: Currently selected file
 - ``file-item`` (pattern): Clickable file list items
+- ``dev-snapshot-item`` (pattern): Clickable dev snapshot items
 - ``new-map-btn``: Open new map modal
 - ``new-map-cancel-btn``: Close modal
 - ``new-map-create-btn``: Create new zone
@@ -34,6 +36,8 @@ Component Dependencies
 **Outputs:**
 - ``zone-files-store``: Updated file list
 - ``file-list-container``: Rendered file list
+- ``dev-snapshot-files-store``: Updated dev snapshot list
+- ``dev-snapshot-list-container``: Rendered dev snapshot list
 - ``selected-file``: Selected file name
 - ``current-zone-data``: Loaded zone data
 - ``current-zone``: Zone name display
@@ -98,6 +102,43 @@ def load_map_files_list(_: int) -> list[str]:
 
 
 @callback(
+    Output("dev-snapshot-files-store", "data"),
+    Input("initial-load", "n_intervals"),
+    Input("dev-snapshot-status", "data"),
+    Input("save-map-btn", "n_clicks"),
+    prevent_initial_call=False,
+)
+def load_dev_snapshot_files_list(_: int, __: dict | None, ___: int | None) -> list[str]:
+    """Load list of dev snapshot files from the dev snapshots directory.
+
+    This callback is intentionally triggered by:
+    - Initial page load (to populate the list)
+    - Dev snapshot status updates (auto snapshot paths)
+    - Save button clicks (manual snapshots from Save Map)
+
+    Parameters
+    ----------
+    _ : int
+        Interval count (ignored; the trigger is all we need).
+    __ : dict | None
+        Latest dev snapshot metadata, used only to trigger refresh.
+    ___ : int | None
+        Save button click count, used only to trigger refresh.
+
+    Returns
+    -------
+    list[str]
+        List of dev snapshot map file names (e.g., ["zone_20240101.map.json"]).
+    """
+    # Ensure dev snapshot directory exists so the UI remains stable.
+    DEV_MAPS_DIR.mkdir(parents=True, exist_ok=True)
+
+    # Collect dev snapshot map files and return their names for display.
+    files = list_map_files(DEV_MAPS_DIR)
+    return [f.name for f in files]
+
+
+@callback(
     Output("file-list-container", "children"),
     Input("zone-files-store", "data"),
     Input("selected-file", "data"),
@@ -153,49 +194,108 @@ def render_file_list(files: list[str], selected_file: str | None) -> list:
 
 
 @callback(
+    Output("dev-snapshot-list-container", "children"),
+    Input("dev-snapshot-files-store", "data"),
+    Input("selected-file", "data"),
+)
+def render_dev_snapshot_list(files: list[str], selected_file: str | None) -> list:
+    """Render the dev snapshot file list with clickable items.
+
+    Parameters
+    ----------
+    files : list[str]
+        List of dev snapshot file names from dev-snapshot-files-store.
+    selected_file : str | None
+        Currently selected file name, or None.
+
+    Returns
+    -------
+    list
+        List of html.Div elements for each dev snapshot, or placeholder
+        message if no snapshots are found.
+    """
+    # Empty state to make it clear there are no snapshots yet.
+    if not files:
+        return [html.Span("No dev snapshots found", className="text-muted fst-italic")]
+
+    items = []
+    for filename in files:
+        # Reuse selected-file styling so the UI stays consistent.
+        is_selected = filename == selected_file
+        icon_class = "bi bi-file-earmark-code me-2"
+        if is_selected:
+            icon_class += " text-primary"
+
+        # Preserve the snapshot filename, but drop ".map.json" for readability.
+        display_name = filename
+        if filename.endswith(".map.json"):
+            display_name = filename[:-9]
+
+        # Pattern-matching ID lets us bind a single callback for all snapshots.
+        items.append(
+            html.Div(
+                [
+                    html.I(className=icon_class),
+                    html.Span(display_name, className="fw-bold" if is_selected else ""),
+                ],
+                id={"type": "dev-snapshot-item", "filename": filename},
+                className="mb-1 p-1 rounded file-item"
+                + (" bg-primary bg-opacity-10" if is_selected else ""),
+                style={"cursor": "pointer"},
+                n_clicks=0,
+            )
+        )
+    return items
+
+
+@callback(
     Output("selected-file", "data"),
     Output("current-zone-data", "data"),
     Output("current-zone", "children"),
     Output("has-unsaved-changes", "data", allow_duplicate=True),
     Input({"type": "file-item", "filename": ALL}, "n_clicks"),
-    State("zone-files-store", "data"),
+    Input({"type": "dev-snapshot-item", "filename": ALL}, "n_clicks"),
     State("selected-file", "data"),
     prevent_initial_call=True,
 )
 def handle_file_click(
-    n_clicks_list: list[int], files: list[str], current_file: str | None
+    map_clicks: list[int],
+    snapshot_clicks: list[int],
+    current_file: str | None,
 ) -> tuple:
-    """Load map data when a file is clicked in the browser.
+    """Load map data when a map or dev snapshot is clicked in either browser.
 
-    Uses Dash pattern-matching callbacks to detect which file was clicked
-    from the dynamic file list. Loads the map JSON file.
-
-    Also resets has-unsaved-changes to False when loading a new file.
+    This single callback handles both file browsers to avoid duplicate output
+    errors in Dash. The triggered item tells us whether to read from
+    data/maps (authoring files) or data/maps/dev_snapshots (snapshots).
 
     Parameters
     ----------
-    n_clicks_list : list[int]
-        Click counts for all file items (pattern-matching input).
-    files : list[str]
-        List of file names from zone-files-store.
+    map_clicks : list[int]
+        Click counts for regular map file items.
+    snapshot_clicks : list[int]
+        Click counts for dev snapshot items.
     current_file : str | None
-        Currently selected file (to detect re-clicks on same file).
+        Currently selected file name (used to avoid redundant reloads).
 
     Returns
     -------
     tuple
         (selected_file, zone_data, zone_display, has_unsaved) or no_update tuple.
     """
-    # Check if any file was actually clicked (before accessing ctx)
-    if not any(n_clicks_list):
+    # Bail out early when nothing has been clicked in either list.
+    if not any(map_clicks) and not any(snapshot_clicks):
         print("[DEBUG] handle_file_click: no clicks, returning no_update")
         return no_update, no_update, no_update, no_update
 
-    # Debug logging (only after confirming there was a click)
-    print(f"[DEBUG] handle_file_click: n_clicks={n_clicks_list}, current={current_file}")
+    # Log the trigger details so we can trace clicks across both lists.
+    print(
+        "[DEBUG] handle_file_click: "
+        f"map_clicks={map_clicks}, snapshot_clicks={snapshot_clicks}, current={current_file}"
+    )
     print(f"[DEBUG] handle_file_click: triggered_id={ctx.triggered_id}")
 
-    # Get the triggered file from callback context
+    # The triggered_id includes the pattern-matching payload with filename/type.
     triggered = ctx.triggered_id
     if not triggered or not isinstance(triggered, dict):
         print("[DEBUG] handle_file_click: no valid trigger, returning no_update")
@@ -206,22 +306,27 @@ def handle_file_click(
         print("[DEBUG] handle_file_click: no filename in trigger, returning no_update")
         return no_update, no_update, no_update, no_update
 
-    # If clicking the same file that's already loaded, don't reload
+    # Avoid reloading the same file if it is already selected.
     if filename == current_file:
         print(f"[DEBUG] handle_file_click: same file {filename}, returning no_update")
         return no_update, no_update, no_update, no_update
 
-    # Load the map file using zone_service
-    file_path = MAPS_DIR / filename
+    # Decide which directory to load from based on which list fired.
+    # Default to MAPS_DIR so we always have a safe fallback.
+    source_type = triggered.get("type")
+    if source_type == "dev-snapshot-item":
+        file_path = DEV_MAPS_DIR / filename
+    else:
+        file_path = MAPS_DIR / filename
+
+    # Load the selected map file and reset unsaved changes.
     try:
         map_file = zone_service.load_map_file(file_path)
-        # Convert to dict for Dash storage
         zone_data = map_file.to_dict_with_list_coords()
         zone_name = zone_data.get("name", filename)
-        # Reset unsaved changes when loading a new file
         return filename, zone_data, f"Zone: {zone_name}", False
     except Exception as e:
-        print(f"Error loading map: {e}")
+        print(f"Error loading map file {filename}: {e}")
         return no_update, no_update, no_update, no_update
 
 
