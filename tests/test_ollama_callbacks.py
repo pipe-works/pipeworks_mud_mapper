@@ -72,6 +72,7 @@ from pipeworks_mud_mapper.callbacks.ollama_callbacks import (
     handle_clipboard_copy,
     handle_seed_controls,
     handle_template_selection,
+    load_prompt_prefix_options,
     load_template_options,
     populate_prompt_from_description,
     refresh_ollama_models,
@@ -1374,6 +1375,54 @@ class TestUpdateTargetWordsHint:
 class TestPromptPrefixPresets:
     """Tests for prompt prefix preset loading and application."""
 
+    def test_load_prompt_prefix_options_missing_file(self, monkeypatch):
+        """Should return empty list when config file is missing."""
+
+        def fake_open(*_args, **_kwargs):
+            raise FileNotFoundError
+
+        monkeypatch.setattr("builtins.open", fake_open)
+
+        assert load_prompt_prefix_options(1) == []
+
+    def test_load_prompt_prefix_options_invalid_json(self, monkeypatch):
+        """Should return empty list for invalid JSON."""
+        import io
+
+        fake_file = io.StringIO("{bad json")
+
+        def fake_open(*_args, **_kwargs):
+            fake_file.seek(0)
+            return fake_file
+
+        monkeypatch.setattr("builtins.open", fake_open)
+
+        assert load_prompt_prefix_options(1) == []
+
+    def test_load_prompt_prefix_options_success(self, monkeypatch):
+        """Should return option list for valid config."""
+        import io
+        import json
+
+        config = [
+            {"label": "Exact 30", "value": "exact_30", "prefix": "Write 30 words exactly."},
+            {"value": "short", "prefix": "Short response."},
+            "bad",
+        ]
+        fake_file = io.StringIO(json.dumps(config))
+
+        def fake_open(*_args, **_kwargs):
+            fake_file.seek(0)
+            return fake_file
+
+        monkeypatch.setattr("builtins.open", fake_open)
+
+        result = load_prompt_prefix_options(1)
+        assert result == [
+            {"label": "Exact 30", "value": "exact_30"},
+            {"label": "short", "value": "short"},
+        ]
+
     def test_apply_prompt_prefix(self, monkeypatch):
         """Should prepend prefix when selected."""
         import io
@@ -1396,6 +1445,43 @@ class TestPromptPrefixPresets:
 
         result = apply_prompt_prefix("exact_30", "a quiet alley")
         assert result.startswith("Write 30 words exactly.")
+
+    def test_apply_prompt_prefix_no_prefix(self):
+        """Should no-op when no prefix is selected."""
+        assert apply_prompt_prefix(None, "a quiet alley") is no_update
+
+    def test_apply_prompt_prefix_missing_entry(self, monkeypatch):
+        """Should no-op when selected prefix is not in config."""
+        import io
+        import json
+
+        config = [{"label": "Exact 30", "value": "exact_30", "prefix": "Write 30 words."}]
+        fake_file = io.StringIO(json.dumps(config))
+
+        def fake_open(*_args, **_kwargs):
+            fake_file.seek(0)
+            return fake_file
+
+        monkeypatch.setattr("builtins.open", fake_open)
+
+        assert apply_prompt_prefix("unknown", "a quiet alley") is no_update
+
+    def test_apply_prompt_prefix_already_present(self, monkeypatch):
+        """Should return original text when prefix already present."""
+        import io
+        import json
+
+        config = [{"label": "Exact 30", "value": "exact_30", "prefix": "Write 30 words exactly."}]
+        fake_file = io.StringIO(json.dumps(config))
+
+        def fake_open(*_args, **_kwargs):
+            fake_file.seek(0)
+            return fake_file
+
+        monkeypatch.setattr("builtins.open", fake_open)
+
+        prompt = "Write 30 words exactly.\na quiet alley"
+        assert apply_prompt_prefix("exact_30", prompt) == prompt
 
 
 # =============================================================================

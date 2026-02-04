@@ -922,6 +922,21 @@ class TestFileCallbacks:
         assert result is no_update
         assert not any(tmp_path.glob("test_*.map.json"))
 
+    def test_auto_snapshot_map_disabled_list(self, simple_zone_data, tmp_path):
+        """auto_snapshot_map should no-op when checkbox list is empty."""
+        with patch(
+            "pipeworks_mud_mapper.callbacks.file_callbacks.DEV_MAPS_DIR",
+            tmp_path,
+        ):
+            result = auto_snapshot_map(
+                zone_data=simple_zone_data,
+                dev_save_enabled=[],
+                selected_file="test.map.json",
+            )
+
+        assert result is no_update
+        assert not any(tmp_path.glob("test_*.map.json"))
+
     def test_auto_snapshot_map_success(self, simple_zone_data, tmp_path):
         """auto_snapshot_map should write a snapshot when enabled."""
         with patch(
@@ -964,6 +979,22 @@ class TestFileCallbacks:
                 zone_data=simple_zone_data,
                 selected_file="test.map.json",
                 dev_save_enabled=False,
+            )
+
+        assert result is no_update
+        assert not any(tmp_path.glob("test_*.map.json"))
+
+    def test_auto_snapshot_on_generation_disabled_list(self, simple_zone_data, tmp_path):
+        """auto_snapshot_on_generation should no-op for empty checkbox list."""
+        with patch(
+            "pipeworks_mud_mapper.callbacks.file_callbacks.DEV_MAPS_DIR",
+            tmp_path,
+        ):
+            result = auto_snapshot_on_generation(
+                generation_info={"model": "gemma2:2b"},
+                zone_data=simple_zone_data,
+                selected_file="test.map.json",
+                dev_save_enabled=[],
             )
 
         assert result is no_update
