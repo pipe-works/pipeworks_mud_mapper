@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.1.8](https://github.com/pipe-works/pipeworks_mud_mapper/compare/pipeworks-mud-mapper-v0.1.7...pipeworks-mud-mapper-v0.1.8) (2026-02-04)
+
+
+### Features
+
+* **ui:** add dev snapshots browser ([2e6714c](https://github.com/pipe-works/pipeworks_mud_mapper/commit/2e6714c867ed07e1a0488755520814e29226c6ba))
+
+
+### Internal Changes
+
+* **ollama:** modularize integration ([ed07a8c](https://github.com/pipe-works/pipeworks_mud_mapper/commit/ed07a8c46663ecb0d062c429a98bf0184e0c2a72))
+
 ## [0.1.7](https://github.com/pipe-works/pipeworks_mud_mapper/compare/pipeworks-mud-mapper-v0.1.6...pipeworks-mud-mapper-v0.1.7) (2026-02-04)
 
 
