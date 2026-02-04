@@ -23,7 +23,7 @@ def build_generation_metadata(
     *,
     model: str,
     actual_seed: int,
-    template_id: str | None,
+    template_id: str,
     temperature: float,
     top_k: int,
     top_p: float,
@@ -42,8 +42,8 @@ def build_generation_metadata(
         Ollama model identifier used for generation.
     actual_seed : int
         Seed that was actually used (>= 0).
-    template_id : str | None
-        Template ID used, or None for custom.
+    template_id : str
+        Template ID used for generation.
     temperature : float
         Temperature parameter used for generation.
     top_k : int
@@ -71,7 +71,7 @@ def build_generation_metadata(
     return {
         "model": model,
         "actual_seed": actual_seed,
-        "template_id": template_id if template_id else "__custom__",
+        "template_id": template_id,
         "temperature": float(temperature),
         "top_k": int(top_k),
         "top_p": float(top_p),

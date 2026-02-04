@@ -12,7 +12,7 @@ from dash import Input, Output, State, callback, ctx, no_update
 from pipeworks_mud_mapper.services import template_service
 from pipeworks_mud_mapper.services.ollama_assets import load_prompt_prefixes
 from pipeworks_mud_mapper.services.ollama_config import DEFAULT_TARGET_WORDS
-from pipeworks_mud_mapper.services.ollama_ui import status_info, status_ok, status_warning
+from pipeworks_mud_mapper.services.ollama_ui import status_ok, status_warning
 
 
 def _ollama_status_payload(content: Any) -> dict[str, Any]:
@@ -38,9 +38,6 @@ def load_template_options(n_clicks: int) -> list[dict]:
     """
     # Get templates from service
     templates = template_service.list_templates()
-
-    # Add "Custom" option at the end for manual editing
-    templates.append({"label": "Custom (edit manually)", "value": "__custom__"})
 
     return templates
 
@@ -113,8 +110,7 @@ def handle_template_selection(template_id: str | None, target_words: int | None)
 
     When a template is selected or target words change, compiles the
     template into a system prompt with the specified word count guidance
-    and updates the display. The system prompt becomes read-only when using
-    a template, editable when "Custom" is selected.
+    and updates the display. The system prompt remains read-only.
     """
     # Apply default if target_words is None
     if target_words is None:
@@ -123,21 +119,6 @@ def handle_template_selection(template_id: str | None, target_words: int | None)
     # No selection made - don't update anything
     if not template_id:
         return no_update, no_update, no_update, no_update, no_update
-
-    # Handle "Custom" mode - this special value enables manual editing
-    if template_id == "__custom__":
-        # Get the simple default prompt for manual editing
-        default_prompt = template_service.get_default_system_prompt()
-        status = status_info("Custom mode - edit system prompt freely")
-        # Return: prompt text, NOT read-only (editable), collapse OPEN for custom mode,
-        # chevron down (open state), status
-        return (
-            default_prompt,
-            False,
-            True,
-            "bi bi-chevron-down me-1",
-            _ollama_status_payload(status),
-        )
 
     # Load the selected template from data/ollama/templates/
     template = template_service.load_template(template_id)

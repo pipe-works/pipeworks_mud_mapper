@@ -321,7 +321,7 @@ class TestGenerateDescription:
             top_p=DEFAULT_TOP_P,
             num_ctx=DEFAULT_NUM_CTX,
             num_predict=DEFAULT_NUM_PREDICT,
-            template_id="__custom__",
+            template_id="ledgerfall_goblin",
             target_words=DEFAULT_TARGET_WORDS,
         )
         # Now returns 3 values: (response, status, generation_info)
@@ -341,7 +341,7 @@ class TestGenerateDescription:
             top_p=DEFAULT_TOP_P,
             num_ctx=DEFAULT_NUM_CTX,
             num_predict=DEFAULT_NUM_PREDICT,
-            template_id="__custom__",
+            template_id="ledgerfall_goblin",
             target_words=DEFAULT_TARGET_WORDS,
         )
         assert response == ""
@@ -362,11 +362,32 @@ class TestGenerateDescription:
             top_p=DEFAULT_TOP_P,
             num_ctx=DEFAULT_NUM_CTX,
             num_predict=DEFAULT_NUM_PREDICT,
-            template_id="__custom__",
+            template_id="ledgerfall_goblin",
             target_words=DEFAULT_TARGET_WORDS,
         )
         assert response == ""
         assert "Please select a model" in status_text(status)
+        assert gen_info is None
+
+    def test_no_template_selected(self):
+        """Should return warning when no template selected."""
+        response, status, gen_info = generate_description(
+            n_clicks=1,
+            server_url="http://localhost:11434",
+            model="llama3.2:latest",
+            system_prompt="You are helpful.",
+            user_prompt="Describe a room.",
+            seed=DEFAULT_SEED,
+            temperature=DEFAULT_TEMPERATURE,
+            top_k=DEFAULT_TOP_K,
+            top_p=DEFAULT_TOP_P,
+            num_ctx=DEFAULT_NUM_CTX,
+            num_predict=DEFAULT_NUM_PREDICT,
+            template_id=None,
+            target_words=DEFAULT_TARGET_WORDS,
+        )
+        assert response == ""
+        assert "Please select a template" in status_text(status)
         assert gen_info is None
 
     def test_empty_model_selected(self):
@@ -383,7 +404,7 @@ class TestGenerateDescription:
             top_p=DEFAULT_TOP_P,
             num_ctx=DEFAULT_NUM_CTX,
             num_predict=DEFAULT_NUM_PREDICT,
-            template_id="__custom__",
+            template_id="ledgerfall_goblin",
             target_words=DEFAULT_TARGET_WORDS,
         )
         assert response == ""
@@ -404,7 +425,7 @@ class TestGenerateDescription:
             top_p=DEFAULT_TOP_P,
             num_ctx=DEFAULT_NUM_CTX,
             num_predict=DEFAULT_NUM_PREDICT,
-            template_id="__custom__",
+            template_id="ledgerfall_goblin",
             target_words=DEFAULT_TARGET_WORDS,
         )
         assert response == ""
@@ -429,7 +450,7 @@ class TestGenerateDescription:
                 top_p=DEFAULT_TOP_P,
                 num_ctx=DEFAULT_NUM_CTX,
                 num_predict=DEFAULT_NUM_PREDICT,
-                template_id="__custom__",
+                template_id="ledgerfall_goblin",
                 target_words=DEFAULT_TARGET_WORDS,
             )
 
@@ -439,7 +460,7 @@ class TestGenerateDescription:
         assert gen_info is not None
         assert gen_info["model"] == "llama3.2:latest"
         assert gen_info["actual_seed"] == 42
-        assert gen_info["template_id"] == "__custom__"
+        assert gen_info["template_id"] == "ledgerfall_goblin"
 
     def test_generation_without_system_prompt(self, mock_chat_response):
         """Should work without a system prompt using /api/chat."""
@@ -459,7 +480,7 @@ class TestGenerateDescription:
                 top_p=DEFAULT_TOP_P,
                 num_ctx=DEFAULT_NUM_CTX,
                 num_predict=DEFAULT_NUM_PREDICT,
-                template_id="__custom__",
+                template_id="ledgerfall_goblin",
                 target_words=DEFAULT_TARGET_WORDS,
             )
 
@@ -529,7 +550,7 @@ class TestGenerateDescription:
                 top_p=DEFAULT_TOP_P,
                 num_ctx=DEFAULT_NUM_CTX,
                 num_predict=DEFAULT_NUM_PREDICT,
-                template_id="__custom__",
+                template_id="ledgerfall_goblin",
                 target_words=DEFAULT_TARGET_WORDS,
             )
 
@@ -555,7 +576,7 @@ class TestGenerateDescription:
                 top_p=DEFAULT_TOP_P,
                 num_ctx=DEFAULT_NUM_CTX,
                 num_predict=DEFAULT_NUM_PREDICT,
-                template_id="__custom__",
+                template_id="ledgerfall_goblin",
                 target_words=DEFAULT_TARGET_WORDS,
             )
 
@@ -581,7 +602,7 @@ class TestGenerateDescription:
                 top_p=DEFAULT_TOP_P,
                 num_ctx=DEFAULT_NUM_CTX,
                 num_predict=DEFAULT_NUM_PREDICT,
-                template_id="__custom__",
+                template_id="ledgerfall_goblin",
                 target_words=DEFAULT_TARGET_WORDS,
             )
 
@@ -612,7 +633,7 @@ class TestGenerateDescription:
                 top_p=DEFAULT_TOP_P,
                 num_ctx=DEFAULT_NUM_CTX,
                 num_predict=DEFAULT_NUM_PREDICT,
-                template_id="__custom__",
+                template_id="ledgerfall_goblin",
                 target_words=DEFAULT_TARGET_WORDS,
             )
 
@@ -655,7 +676,7 @@ class TestSendToDescription:
         return {
             "model": "llama3.2:latest",
             "actual_seed": 12345,
-            "template_id": "__custom__",
+            "template_id": "ledgerfall_goblin",
             "temperature": 0.7,
             "top_k": 40,
             "top_p": 0.9,
@@ -817,7 +838,7 @@ class TestSendToDescription:
         assert zone["rooms"]["spawn"]["llm_generation"] is not None
         assert zone["rooms"]["spawn"]["llm_generation"]["model"] == "llama3.2:latest"
         assert zone["rooms"]["spawn"]["llm_generation"]["actual_seed"] == 12345
-        assert zone["rooms"]["spawn"]["llm_generation"]["template_id"] == "__custom__"
+        assert zone["rooms"]["spawn"]["llm_generation"]["template_id"] == "ledgerfall_goblin"
 
     def test_clears_metadata_when_none(self, sample_zone_data):
         """Should clear llm_generation when no metadata provided.
@@ -953,7 +974,7 @@ class TestOllamaIntegration:
                 top_p=DEFAULT_TOP_P,
                 num_ctx=DEFAULT_NUM_CTX,
                 num_predict=DEFAULT_NUM_PREDICT,
-                template_id="__custom__",
+                template_id="ledgerfall_goblin",
                 target_words=DEFAULT_TARGET_WORDS,
             )
 
@@ -979,7 +1000,7 @@ class TestOllamaIntegration:
                 top_p=DEFAULT_TOP_P,
                 num_ctx=DEFAULT_NUM_CTX,
                 num_predict=DEFAULT_NUM_PREDICT,
-                template_id="__custom__",
+                template_id="ledgerfall_goblin",
                 target_words=DEFAULT_TARGET_WORDS,
             )
 
@@ -1125,19 +1146,10 @@ class TestLoadTemplateOptions:
         result = load_template_options(n_clicks=0)
         assert isinstance(result, list)
 
-    def test_includes_custom_option(self):
-        """Should include 'Custom' option at the end."""
-        result = load_template_options(n_clicks=1)
-
-        # Last option should be Custom
-        assert result[-1]["value"] == "__custom__"
-        assert "Custom" in result[-1]["label"]
-
     def test_loads_on_startup(self):
         """Should load templates even with n_clicks=0 (initial load)."""
         result = load_template_options(n_clicks=0)
 
-        # Should still return options (at minimum, the Custom option)
         assert len(result) >= 1
 
 
@@ -1155,23 +1167,6 @@ class TestHandleTemplateSelection:
         """Should return no_update when nothing selected."""
         result = handle_template_selection(template_id=None, target_words=300)
         assert result == (no_update, no_update, no_update, no_update, no_update)
-
-    def test_custom_mode_enables_editing(self):
-        """Should enable editing when 'Custom' is selected."""
-        prompt, read_only, is_open, chevron, status = handle_template_selection(
-            template_id="__custom__", target_words=300
-        )
-
-        # Custom mode should be editable
-        assert read_only is False
-        # Collapse should be open (custom mode opens for editing)
-        assert is_open is True
-        # Chevron should be down (open state)
-        assert "chevron-down" in chevron
-        # Should have some prompt text
-        assert len(prompt) > 0
-        # Status should mention custom mode
-        assert "Custom" in status_text(status) or "edit" in status_text(status).lower()
 
     def test_template_selection_makes_readonly(self):
         """Should make prompt read-only when template selected."""
@@ -1536,7 +1531,7 @@ class TestGenerateDescriptionWithParameters:
                 top_p=0.8,
                 num_ctx=2048,
                 num_predict=256,
-                template_id="__custom__",
+                template_id="ledgerfall_goblin",
                 target_words=200,
             )
 
@@ -1569,7 +1564,7 @@ class TestGenerateDescriptionWithParameters:
                 top_p=None,
                 num_ctx=None,
                 num_predict=None,
-                template_id=None,
+                template_id="ledgerfall_goblin",
                 target_words=None,
             )
 
@@ -1604,7 +1599,7 @@ class TestGenerateDescriptionWithParameters:
                 top_p=0.9,
                 num_ctx=4096,
                 num_predict=512,
-                template_id="__custom__",
+                template_id="ledgerfall_goblin",
                 target_words=DEFAULT_TARGET_WORDS,
             )
 
@@ -1636,7 +1631,7 @@ class TestGenerateDescriptionWithParameters:
                 top_p=0.9,
                 num_ctx=4096,
                 num_predict=512,
-                template_id="__custom__",
+                template_id="ledgerfall_goblin",
                 target_words=DEFAULT_TARGET_WORDS,
             )
 
@@ -1667,7 +1662,7 @@ class TestGenerateDescriptionWithParameters:
                 top_p=DEFAULT_TOP_P,
                 num_ctx=DEFAULT_NUM_CTX,
                 num_predict=DEFAULT_NUM_PREDICT,
-                template_id="__custom__",
+                template_id="ledgerfall_goblin",
                 target_words=DEFAULT_TARGET_WORDS,
             )
 
@@ -1876,7 +1871,7 @@ class TestSeedIsolation:
                 top_p=0.9,
                 num_ctx=4096,
                 num_predict=512,
-                template_id="__custom__",
+                template_id="ledgerfall_goblin",
                 target_words=DEFAULT_TARGET_WORDS,
             )
 
@@ -1917,7 +1912,7 @@ class TestSeedIsolation:
                     top_p=0.9,
                     num_ctx=4096,
                     num_predict=512,
-                    template_id="__custom__",
+                    template_id="ledgerfall_goblin",
                     target_words=DEFAULT_TARGET_WORDS,
                 )
 
@@ -1961,13 +1956,3 @@ class TestHandleTemplateSelectionNewBehavior:
         # Template mode should keep collapse CLOSED (is_open=False)
         assert is_open is False
         assert "chevron-right" in chevron  # Closed state icon
-
-    def test_custom_mode_opens_collapse(self):
-        """Should open collapse when 'Custom' mode selected."""
-        prompt, read_only, is_open, chevron, status = handle_template_selection(
-            template_id="__custom__", target_words=300
-        )
-
-        # Custom mode should open collapse for editing
-        assert is_open is True
-        assert "chevron-down" in chevron  # Open state icon

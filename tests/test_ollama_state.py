@@ -22,7 +22,7 @@ class TestBuildGenerationMetadata:
         metadata = build_generation_metadata(
             model="llama3.2:latest",
             actual_seed=123,
-            template_id=None,
+            template_id="ledgerfall_goblin",
             temperature=0.7,
             top_k=40,
             top_p=0.9,
@@ -35,7 +35,7 @@ class TestBuildGenerationMetadata:
 
         assert metadata["model"] == "llama3.2:latest"
         assert metadata["actual_seed"] == 123
-        assert metadata["template_id"] == "__custom__"
+        assert metadata["template_id"] == "ledgerfall_goblin"
         assert metadata["temperature"] == 0.7
         assert metadata["top_k"] == 40
         assert metadata["top_p"] == 0.9

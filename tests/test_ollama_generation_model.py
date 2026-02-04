@@ -96,16 +96,8 @@ class TestOllamaGenerationInfoBasics:
 
         assert info.generated_at == explicit_time
 
-    def test_custom_template_id(self, valid_generation_info):
-        """template_id should accept '__custom__' for manual prompts."""
-        valid_generation_info["template_id"] = "__custom__"
-
-        info = OllamaGenerationInfo(**valid_generation_info)
-
-        assert info.template_id == "__custom__"
-
     def test_empty_system_prompt_allowed(self, valid_generation_info):
-        """system_prompt can be empty string (for custom mode without system prompt)."""
+        """system_prompt can be empty string."""
         valid_generation_info["system_prompt"] = ""
 
         info = OllamaGenerationInfo(**valid_generation_info)

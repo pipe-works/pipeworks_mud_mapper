@@ -66,7 +66,7 @@
     "quiet_alley_s1": {
       "id": "quiet_alley_s1",
       "name": "A Quiet Alley",
-      "description": "A narrow, cobbled alleyway. The air hangs thick with the scent of mildew and fish guts.  A single flickering oil lamp casts dancing shadows on the rough-hewn walls.  The silence is broken only by a distant, rhythmic clang.",
+      "description": "A narrow, cobbled alleyway curves into a tight space, reeking of stale ale and damp earth.  The air is thick with the smell of rust and grease. You hear a distant clang from somewhere further down the alley.",
       "exits": {
         "north": "spawn"
       },

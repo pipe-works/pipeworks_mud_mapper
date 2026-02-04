@@ -516,8 +516,8 @@ class MapFile(BaseModel):
     def to_dict_with_list_coords(self) -> dict[str, Any]:
         """Export to dictionary with coords as lists (legacy format).
 
-        This method produces output compatible with the current zone_io
-        functions and existing data files. It handles two format conversions:
+        This method produces output compatible with existing map files.
+        It handles two format conversions:
 
         1. **Coords as lists**: Converts ``{"x": 0, "y": 0, "z": 0}`` to ``[0, 0, 0]``
            for backwards compatibility with existing map files.

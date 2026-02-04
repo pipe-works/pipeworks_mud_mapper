@@ -91,13 +91,13 @@ class OllamaGenerationInfo(BaseModel):
         Range: 0 to 2^31-1 (always non-negative, even if -1 was requested)
 
     template_id : str
-        Identifier of the template used, or ``"__custom__"`` for manual prompts.
+        Identifier of the template used for generation.
 
         Templates are loaded from ``data/ollama/templates/`` and compiled into
         system prompts. The template_id allows tracing which template was used,
         though the full ``system_prompt`` is also stored for exact reproduction.
 
-        Examples: ``"ledgerfall_goblin"``, ``"__custom__"``
+        Examples: ``"ledgerfall_goblin"``
 
     temperature : float
         Temperature parameter controlling randomness/creativity.
@@ -218,7 +218,7 @@ class OllamaGenerationInfo(BaseModel):
         >>> info = OllamaGenerationInfo(
         ...     model="llama3:8b",
         ...     actual_seed=42,  # User specified seed 42 explicitly
-        ...     template_id="__custom__",
+        ...     template_id="ledgerfall_goblin",
         ...     temperature=0.5,
         ...     top_k=30,
         ...     top_p=0.8,
@@ -273,7 +273,7 @@ class OllamaGenerationInfo(BaseModel):
 
     template_id: str = Field(
         ...,
-        description="Template identifier or '__custom__' for manual prompts",
+        description="Template identifier used for generation",
     )
 
     # =========================================================================

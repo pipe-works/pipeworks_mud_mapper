@@ -708,7 +708,9 @@ class TestFileCallbacks:
         fake_dir = Path("/tmp/fake")
         with (
             patch("pipeworks_mud_mapper.callbacks.file_callbacks._FILE_LIST_CACHE", {}),
-            patch("pipeworks_mud_mapper.callbacks.file_callbacks.list_map_files") as mock_list,
+            patch(
+                "pipeworks_mud_mapper.callbacks.file_callbacks.zone_service.list_map_files"
+            ) as mock_list,
             patch("pipeworks_mud_mapper.callbacks.file_callbacks.time.monotonic") as mock_clock,
         ):
             mock_list.side_effect = [
@@ -729,7 +731,9 @@ class TestFileCallbacks:
         fake_dir = Path("/tmp/fake")
         with (
             patch("pipeworks_mud_mapper.callbacks.file_callbacks._FILE_LIST_CACHE", {}),
-            patch("pipeworks_mud_mapper.callbacks.file_callbacks.list_map_files") as mock_list,
+            patch(
+                "pipeworks_mud_mapper.callbacks.file_callbacks.zone_service.list_map_files"
+            ) as mock_list,
             patch("pipeworks_mud_mapper.callbacks.file_callbacks.time.monotonic") as mock_clock,
         ):
             mock_list.side_effect = [
@@ -1170,7 +1174,7 @@ class TestFileCallbacks:
         generation_info = {
             "model": "gemma2:2b",
             "actual_seed": 12345,
-            "template_id": "__custom__",
+            "template_id": "ledgerfall_goblin",
             "temperature": 0.7,
             "top_k": 40,
             "top_p": 0.9,
@@ -1207,7 +1211,7 @@ class TestFileCallbacks:
         generation_info = {
             "model": "gemma2:2b",
             "actual_seed": 12345,
-            "template_id": "__custom__",
+            "template_id": "ledgerfall_goblin",
             "temperature": 0.7,
             "top_k": 40,
             "top_p": 0.9,
@@ -1244,7 +1248,7 @@ class TestFileCallbacks:
         generation_info = {
             "model": "gemma2:2b",
             "actual_seed": 12345,
-            "template_id": "__custom__",
+            "template_id": "ledgerfall_goblin",
             "temperature": 0.7,
             "top_k": 40,
             "top_p": 0.9,
@@ -1284,7 +1288,7 @@ class TestFileCallbacks:
         generation_info = {
             "model": "gemma2:2b",
             "actual_seed": 12345,
-            "template_id": "__custom__",
+            "template_id": "ledgerfall_goblin",
             "temperature": 0.7,
             "top_k": 40,
             "top_p": 0.9,

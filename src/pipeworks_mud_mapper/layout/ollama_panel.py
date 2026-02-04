@@ -156,7 +156,6 @@ def create_ollama_panel() -> dbc.Card:
     -----
     - System prompt and parameters sections are hidden by default for a cleaner UI
     - System prompt is read-only when a template is selected (enforces template integrity)
-    - "Custom" template option enables manual system prompt editing
     - Templates are loaded from data/ollama/templates/ directory
     - Uses /api/chat endpoint for proper system/user message separation
     - Seed of -1 means random (uses isolated RNG to avoid poisoning global state)

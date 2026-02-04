@@ -10,13 +10,70 @@ from typing import Any
 
 from dash import html
 
-from pipeworks_mud_mapper.services.state.types import ZoneTransition
-from pipeworks_mud_mapper.utils.zone_io import (
+from pipeworks_mud_mapper.models.room import (
+    DIRECTION_OFFSETS,
     DIRECTION_SHORT,
     OPPOSITE_DIRECTION,
     SHORT_TO_DIRECTION,
-    find_room_in_direction,
+    Direction,
 )
+from pipeworks_mud_mapper.services.state.types import ZoneTransition
+
+
+def _find_room_in_direction(
+    rooms: dict[str, dict],
+    from_coords: list[int],
+    direction: Direction,
+    *,
+    exclude_room: str | None = None,
+) -> str | None:
+    """Find the nearest room ID in a cardinal direction from coordinates."""
+    dx, dy, dz = DIRECTION_OFFSETS[direction]
+    fx, fy, fz = from_coords
+
+    candidates: list[tuple[int, str]] = []
+    for room_id, room_data in rooms.items():
+        if exclude_room and room_id == exclude_room:
+            continue
+
+        coords = room_data.get("coords", [0, 0, 0])
+        if not isinstance(coords, list) or len(coords) < 3:
+            continue
+
+        rx, ry, rz = coords[0], coords[1], coords[2]
+
+        in_direction = True
+        if dx != 0:
+            if dx > 0 and rx <= fx:
+                in_direction = False
+            elif dx < 0 and rx >= fx:
+                in_direction = False
+            elif ry != fy or rz != fz:
+                in_direction = False
+        elif dy != 0:
+            if dy > 0 and ry <= fy:
+                in_direction = False
+            elif dy < 0 and ry >= fy:
+                in_direction = False
+            elif rx != fx or rz != fz:
+                in_direction = False
+        elif dz != 0:
+            if dz > 0 and rz <= fz:
+                in_direction = False
+            elif dz < 0 and rz >= fz:
+                in_direction = False
+            elif rx != fx or ry != fy:
+                in_direction = False
+
+        if in_direction:
+            distance = abs(rx - fx) + abs(ry - fy) + abs(rz - fz)
+            candidates.append((distance, room_id))
+
+    if not candidates:
+        return None
+
+    candidates.sort(key=lambda item: item[0])
+    return candidates[0][1]
 
 
 def apply_exit_changes(
@@ -68,8 +125,11 @@ def apply_exit_changes(
         if not direction:
             continue
 
-        target_room_id = find_room_in_direction(
-            rooms, coords, direction, exclude_room=selected_room
+        target_room_id = _find_room_in_direction(
+            rooms,
+            coords,
+            direction,
+            exclude_room=selected_room,
         )
 
         if target_room_id:
