@@ -18,7 +18,7 @@ def get_version_from_pyproject() -> str:
     pyproject_path = project_root / "pyproject.toml"
     with open(pyproject_path, "rb") as f:
         data = tomllib.load(f)
-    return data["project"]["version"]
+    return str(data["project"]["version"])
 
 
 # -- Project information -----------------------------------------------------
@@ -48,7 +48,6 @@ autoapi_dirs = [
 ]
 autoapi_options = [
     "members",
-    "undoc-members",
     "show-inheritance",
     "show-module-summary",
 ]
@@ -60,7 +59,8 @@ autoapi_ignore = [
 autoapi_add_toctree_entry = True
 autoapi_keep_files = False  # Clean up generated files after build
 autoapi_member_order = "bysource"
-autoapi_python_class_content = "both"
+# Use class docstrings only to avoid duplicate field descriptions for dataclasses.
+autoapi_python_class_content = "class"
 
 # -- Napoleon settings for NumPy-style docstrings --------------------------
 napoleon_google_docstring = False
@@ -88,7 +88,7 @@ intersphinx_mapping = {
 
 # -- Path configuration ------------------------------------------------------
 templates_path = ["_templates"]
-exclude_patterns = []
+exclude_patterns: list[str] = []
 
 # -- Source file configuration -----------------------------------------------
 source_suffix = {
