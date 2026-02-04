@@ -7,7 +7,6 @@ This module contains the callbacks that:
 """
 
 import random
-from datetime import UTC, datetime
 
 import httpx
 from dash import Input, Output, State, callback, html, no_update
@@ -21,6 +20,10 @@ from pipeworks_mud_mapper.services.ollama_config import (
     DEFAULT_TEMPERATURE,
     DEFAULT_TOP_K,
     DEFAULT_TOP_P,
+)
+from pipeworks_mud_mapper.services.ollama_state import (
+    apply_generation_to_room,
+    build_generation_metadata,
 )
 from pipeworks_mud_mapper.services.ollama_ui import (
     status_error,
@@ -216,30 +219,20 @@ def generate_description(
         # =====================================================================
         # Build Generation Metadata
         # =====================================================================
-        # Create a dict matching OllamaGenerationInfo fields. This metadata will
-        # be stored in the dcc.Store and can later be attached to the room when
-        # "Send to Description" is clicked.
-        generation_info = {
-            # Model identification
-            "model": model,
-            # The seed that was actually used (critical for reproducibility).
-            "actual_seed": actual_seed,
-            # Template used, or "__custom__" if none/manual editing.
-            "template_id": template_id if template_id else "__custom__",
-            # Model parameters - these are the actual values used after defaults
-            "temperature": float(temperature),
-            "top_k": int(top_k),
-            "top_p": float(top_p),
-            "num_ctx": int(num_ctx),
-            "num_predict": int(num_predict),
-            # Target word count used in system prompt compilation
-            "target_words": int(target_words),
-            # Prompts - stored in full for exact reproducibility
-            "system_prompt": system_prompt or "",
-            "user_prompt": user_prompt,
-            # UTC timestamp in ISO 8601 format for JSON serialization
-            "generated_at": datetime.now(UTC).isoformat(),
-        }
+        # Delegate to the state helper to keep callbacks thin and testable.
+        generation_info = build_generation_metadata(
+            model=model,
+            actual_seed=actual_seed,
+            template_id=template_id,
+            temperature=float(temperature),
+            top_k=int(top_k),
+            top_p=float(top_p),
+            num_ctx=int(num_ctx),
+            num_predict=int(num_predict),
+            target_words=int(target_words),
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
+        )
 
         return generated_text, status, generation_info
 
@@ -297,9 +290,16 @@ def send_to_description(
         status = status_info("Sent to form (select a room to apply)")
         return response_text, no_update, no_update, status
 
-    # Update zone data directly
-    rooms = zone_data.get("rooms", {})
-    if selected_room not in rooms:
+    # Update zone data using the shared state helper.
+    try:
+        updated_zone = apply_generation_to_room(
+            zone_data=zone_data,
+            room_id=selected_room,
+            description=response_text,
+            generation_info=generation_info,
+            validation_info=validation_info,
+        )
+    except KeyError:
         return (
             response_text,
             no_update,
@@ -307,38 +307,16 @@ def send_to_description(
             status_warning("Room not found in zone"),
         )
 
-    # Create updated zone data (copies for Dash reactivity).
-    updated_zone = dict(zone_data)
-    updated_zone["rooms"] = dict(zone_data.get("rooms", {}))
-    updated_room = dict(rooms[selected_room])
-
-    # Update the room description with the generated text
-    updated_room["description"] = response_text.strip()
-
-    # =========================================================================
-    # Store LLM Generation Metadata
-    # =========================================================================
+    # Emit debug logging for traceability.
     if generation_info:
-        # Attach the generation metadata to the room.
-        updated_room["llm_generation"] = generation_info
         print(
             f"[DEBUG] send_to_description: attached llm_generation metadata "
             f"(model={generation_info.get('model')}, seed={generation_info.get('actual_seed')})"
         )
     else:
-        # No metadata available - clear any existing metadata.
-        updated_room.pop("llm_generation", None)
         print(
             "[DEBUG] send_to_description: no generation metadata available, cleared llm_generation"
         )
-
-    # Attach validator output for authoring visibility.
-    if validation_info:
-        updated_room["description_validation"] = validation_info
-    else:
-        updated_room.pop("description_validation", None)
-
-    updated_zone["rooms"][selected_room] = updated_room
 
     status = status_ok(f"Applied to '{selected_room}'")
     print(f"[DEBUG] send_to_description: setting has_unsaved=True for room '{selected_room}'")
