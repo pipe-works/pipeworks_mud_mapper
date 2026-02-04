@@ -73,6 +73,8 @@ def load_prompt_prefix_options(n_clicks: int) -> list[dict]:
 )
 def load_param_preset_options(n_clicks: int) -> list[dict]:
     """Load parameter presets from JSON files."""
+    # Reload so authors can drop a new preset file in the directory
+    # and immediately see it after hitting refresh.
     preset_data = load_parameter_presets(reload=True)
     return [
         {"label": item.get("label", item.get("value")), "value": item.get("value")}
@@ -109,6 +111,7 @@ def apply_param_preset(
     if not n_clicks or not preset_id:
         return no_update, no_update, no_update, no_update, no_update
 
+    # Reload on apply to avoid stale files during iterative authoring.
     preset_data = load_parameter_presets(reload=True)
     preset = next(
         (item for item in preset_data if isinstance(item, dict) and item.get("value") == preset_id),
@@ -118,6 +121,8 @@ def apply_param_preset(
         return no_update, no_update, no_update, no_update, no_update
 
     return (
+        # Each field falls back to the current value if the preset omits it,
+        # keeping presets lightweight and allowing partial overrides.
         int(preset.get("target_words", target_words or DEFAULT_TARGET_WORDS)),
         float(preset.get("temperature", temperature if temperature is not None else 0.7)),
         float(preset.get("top_p", top_p if top_p is not None else 0.9)),

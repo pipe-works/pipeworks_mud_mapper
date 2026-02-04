@@ -31,7 +31,11 @@ def _prompt_prefixes_path() -> Path:
 
 
 def _parameter_presets_dir() -> Path:
-    """Return the absolute path to the parameter presets directory."""
+    """Return the absolute path to the parameter presets directory.
+
+    Each preset is stored as its own JSON file so authors can add and share
+    presets without editing a monolithic registry file.
+    """
     return Path(__file__).parent.parent.parent.parent / "data" / "ollama" / "presets"
 
 
@@ -91,10 +95,12 @@ def _load_parameter_presets_cached() -> list[dict[str, Any]]:
         return []
 
     presets: list[dict[str, Any]] = []
+    # Sort for deterministic UI ordering across platforms.
     for path in sorted(presets_dir.glob("*.preset.json")):
         try:
             data = json.loads(path.read_text(encoding="utf-8"))
         except json.JSONDecodeError:
+            # Ignore malformed preset files instead of breaking the UI.
             continue
         if isinstance(data, dict):
             presets.append(data)

@@ -693,6 +693,9 @@ def create_ollama_panel() -> dbc.Card:
                                                                                 "fontSize": "0.65rem"
                                                                             },
                                                                         ),
+                                                                        # Parameter presets are separate from prompt prefixes:
+                                                                        # they update numeric controls in one click to keep
+                                                                        # authors from retyping the same tuning values.
                                                                         dbc.Row(
                                                                             [
                                                                                 dbc.Col(
