@@ -122,8 +122,11 @@ See Also
 - ``models/template.py``: Pydantic template models
 """
 
+import json
 import random
 from datetime import UTC, datetime
+from pathlib import Path
+from typing import Any
 
 import httpx
 from dash import Input, Output, State, callback, ctx, html, no_update
@@ -957,6 +960,70 @@ def load_template_options(n_clicks: int) -> list[dict]:
 
 
 @callback(
+    Output("ollama-prompt-prefix-dropdown", "options"),
+    Input("ollama-refresh-models-btn", "n_clicks"),
+    prevent_initial_call=False,
+)
+def load_prompt_prefix_options(n_clicks: int) -> list[dict]:
+    """Load prompt prefix presets from JSON config."""
+    config_path = (
+        Path(__file__).parent.parent.parent.parent / "data" / "ollama" / "prompt_prefixes.json"
+    )
+    try:
+        with open(config_path, encoding="utf-8") as f:
+            data = json.load(f)
+    except FileNotFoundError:
+        return []
+    except json.JSONDecodeError:
+        return []
+
+    options = [
+        {"label": item.get("label", item.get("value")), "value": item.get("value")}
+        for item in data
+        if isinstance(item, dict)
+    ]
+    return options
+
+
+@callback(
+    Output("ollama-user-prompt", "value", allow_duplicate=True),
+    Input("ollama-prompt-prefix-dropdown", "value"),
+    State("ollama-user-prompt", "value"),
+    prevent_initial_call=True,
+)
+def apply_prompt_prefix(prefix_id: str | None, current_prompt: str | None) -> Any:
+    """Prepend a selected prompt prefix to the user prompt."""
+    if not prefix_id:
+        return no_update
+
+    config_path = (
+        Path(__file__).parent.parent.parent.parent / "data" / "ollama" / "prompt_prefixes.json"
+    )
+    try:
+        with open(config_path, encoding="utf-8") as f:
+            data = json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return no_update
+
+    prefix = None
+    for item in data:
+        if isinstance(item, dict) and item.get("value") == prefix_id:
+            prefix = item.get("prefix")
+            break
+
+    if not prefix:
+        return no_update
+
+    current_prompt = current_prompt or ""
+    if current_prompt.strip().startswith(prefix):
+        return current_prompt
+
+    if current_prompt.strip():
+        return f"{prefix}\n{current_prompt.strip()}"
+    return prefix
+
+
+@callback(
     Output("ollama-system-prompt", "value"),
     Output("ollama-system-prompt", "readOnly"),
     Output("ollama-system-prompt-collapse", "is_open"),
@@ -1045,6 +1112,23 @@ def handle_template_selection(template_id: str | None, target_words: int | None)
     # chevron right (closed state), status
     # NOTE: Changed from is_open=True to is_open=False to keep system prompt hidden
     return system_prompt, True, False, "bi bi-chevron-right me-1", status
+
+
+@callback(
+    Output("ollama-target-words-hint", "children"),
+    Input("ollama-target-words", "value"),
+)
+def update_target_words_hint(target_words: int | None) -> str:
+    """Update helper text to show the effective word target behavior."""
+    if not target_words:
+        return "25-500: Guides LLM output length"
+
+    if target_words <= 40:
+        return f"Exact length: {target_words} words"
+
+    words_low = int(target_words * 0.67)
+    words_high = int(target_words * 1.17)
+    return f"Range: {words_low}-{words_high} (aim ~{target_words})"
 
 
 @callback(

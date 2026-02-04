@@ -42,6 +42,8 @@ from dash import no_update
 
 from pipeworks_mud_mapper.callbacks.exit_callbacks import handle_exit_changes
 from pipeworks_mud_mapper.callbacks.file_callbacks import (
+    auto_snapshot_map,
+    auto_snapshot_on_generation,
     close_new_map_modal,
     create_new_map,
     export_zone_to_file,
@@ -843,7 +845,7 @@ class TestFileCallbacks:
         )
         assert save_disabled is True  # Save disabled (nothing to save)
         assert export_disabled is False  # Export enabled
-        assert "Saved" in status
+        assert "Saved" in status.children
 
     def test_save_map_to_file_no_click(self, simple_zone_data):
         """save_map_to_file should return no_update when not clicked."""
@@ -851,6 +853,7 @@ class TestFileCallbacks:
             n_clicks=0,
             zone_data=simple_zone_data,
             selected_file="test.map.json",
+            dev_save_enabled=False,
         )
         assert result == (no_update, no_update)
 
@@ -860,6 +863,7 @@ class TestFileCallbacks:
             n_clicks=1,
             zone_data=None,
             selected_file="test.map.json",
+            dev_save_enabled=False,
         )
         assert result == (no_update, no_update)
 
@@ -873,11 +877,145 @@ class TestFileCallbacks:
                 n_clicks=1,
                 zone_data=simple_zone_data,
                 selected_file="test.map.json",
+                dev_save_enabled=False,
             )
 
         unsaved, feedback = result
         assert unsaved is False  # Marked as saved
         assert (temp_maps_dir / "test.map.json").exists()
+
+    def test_save_map_to_file_dev_snapshot(self, simple_zone_data, temp_maps_dir, tmp_path):
+        """save_map_to_file should create a dev snapshot when enabled."""
+        with (
+            patch(
+                "pipeworks_mud_mapper.callbacks.file_callbacks.MAPS_DIR",
+                temp_maps_dir,
+            ),
+            patch(
+                "pipeworks_mud_mapper.callbacks.file_callbacks.DEV_MAPS_DIR",
+                tmp_path,
+            ),
+        ):
+            result = save_map_to_file(
+                n_clicks=1,
+                zone_data=simple_zone_data,
+                selected_file="test.map.json",
+                dev_save_enabled=True,
+            )
+
+        unsaved, feedback = result
+        assert unsaved is False
+        assert any(tmp_path.glob("test_*.map.json"))
+
+    def test_auto_snapshot_map_disabled(self, simple_zone_data, tmp_path):
+        """auto_snapshot_map should no-op when toggle is off."""
+        with patch(
+            "pipeworks_mud_mapper.callbacks.file_callbacks.DEV_MAPS_DIR",
+            tmp_path,
+        ):
+            result = auto_snapshot_map(
+                zone_data=simple_zone_data,
+                dev_save_enabled=False,
+                selected_file="test.map.json",
+            )
+
+        assert result is no_update
+        assert not any(tmp_path.glob("test_*.map.json"))
+
+    def test_auto_snapshot_map_disabled_list(self, simple_zone_data, tmp_path):
+        """auto_snapshot_map should no-op when checkbox list is empty."""
+        with patch(
+            "pipeworks_mud_mapper.callbacks.file_callbacks.DEV_MAPS_DIR",
+            tmp_path,
+        ):
+            result = auto_snapshot_map(
+                zone_data=simple_zone_data,
+                dev_save_enabled=[],
+                selected_file="test.map.json",
+            )
+
+        assert result is no_update
+        assert not any(tmp_path.glob("test_*.map.json"))
+
+    def test_auto_snapshot_map_success(self, simple_zone_data, tmp_path):
+        """auto_snapshot_map should write a snapshot when enabled."""
+        with patch(
+            "pipeworks_mud_mapper.callbacks.file_callbacks.DEV_MAPS_DIR",
+            tmp_path,
+        ):
+            result = auto_snapshot_map(
+                zone_data=simple_zone_data,
+                dev_save_enabled=True,
+                selected_file="test.map.json",
+            )
+
+        assert isinstance(result, dict)
+        assert "snapshot" in result
+        assert any(tmp_path.glob("test_*.map.json"))
+
+    def test_auto_snapshot_map_fallback_name(self, simple_zone_data, tmp_path):
+        """auto_snapshot_map should use zone id if no selected_file."""
+        with patch(
+            "pipeworks_mud_mapper.callbacks.file_callbacks.DEV_MAPS_DIR",
+            tmp_path,
+        ):
+            result = auto_snapshot_map(
+                zone_data=simple_zone_data,
+                dev_save_enabled=True,
+                selected_file=None,
+            )
+
+        assert isinstance(result, dict)
+        assert any(tmp_path.glob("test_zone_*.map.json"))
+
+    def test_auto_snapshot_on_generation_disabled(self, simple_zone_data, tmp_path):
+        """auto_snapshot_on_generation should no-op when toggle is off."""
+        with patch(
+            "pipeworks_mud_mapper.callbacks.file_callbacks.DEV_MAPS_DIR",
+            tmp_path,
+        ):
+            result = auto_snapshot_on_generation(
+                generation_info={"model": "gemma2:2b"},
+                zone_data=simple_zone_data,
+                selected_file="test.map.json",
+                dev_save_enabled=False,
+            )
+
+        assert result is no_update
+        assert not any(tmp_path.glob("test_*.map.json"))
+
+    def test_auto_snapshot_on_generation_disabled_list(self, simple_zone_data, tmp_path):
+        """auto_snapshot_on_generation should no-op for empty checkbox list."""
+        with patch(
+            "pipeworks_mud_mapper.callbacks.file_callbacks.DEV_MAPS_DIR",
+            tmp_path,
+        ):
+            result = auto_snapshot_on_generation(
+                generation_info={"model": "gemma2:2b"},
+                zone_data=simple_zone_data,
+                selected_file="test.map.json",
+                dev_save_enabled=[],
+            )
+
+        assert result is no_update
+        assert not any(tmp_path.glob("test_*.map.json"))
+
+    def test_auto_snapshot_on_generation_success(self, simple_zone_data, tmp_path):
+        """auto_snapshot_on_generation should write a snapshot on generation."""
+        with patch(
+            "pipeworks_mud_mapper.callbacks.file_callbacks.DEV_MAPS_DIR",
+            tmp_path,
+        ):
+            result = auto_snapshot_on_generation(
+                generation_info={"model": "gemma2:2b"},
+                zone_data=simple_zone_data,
+                selected_file="test.map.json",
+                dev_save_enabled=True,
+            )
+
+        assert isinstance(result, dict)
+        assert result.get("trigger") == "generation"
+        assert any(tmp_path.glob("test_*.map.json"))
 
     def test_export_zone_to_file_no_click(self, simple_zone_data):
         """export_zone_to_file should return no_update when not clicked."""

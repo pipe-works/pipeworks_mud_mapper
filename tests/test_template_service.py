@@ -428,6 +428,12 @@ class TestCompileSystemPrompt:
         # target_words=200: low=134 (200*0.67), high=234 (200*1.17)
         assert "134-234 words (aim for ~200)" in result
 
+    def test_target_words_exact_for_short(self, sample_template):
+        """Should enforce exact length guidance for short targets."""
+        result = compile_system_prompt(sample_template, target_words=30)
+
+        assert "Exactly 30 words" in result
+
     def test_handles_empty_optional_fields(self, minimal_template_data):
         """Should handle templates with empty optional fields."""
         template = OllamaTemplate.model_validate(minimal_template_data)

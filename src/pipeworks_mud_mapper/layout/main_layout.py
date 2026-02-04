@@ -99,6 +99,8 @@ def create_app_layout() -> dbc.Container:
             dcc.Store(id="selected-file", data=None),  # Selected file name
             dcc.Store(id="selected-room", data=None),  # Selected room ID
             dcc.Store(id="has-unsaved-changes", data=False),  # Unsaved flag
+            # Stores the most recent dev snapshot details (if enabled).
+            dcc.Store(id="dev-snapshot-status", data=None),
             dcc.Store(id="delete-undo-data", data=None),  # Undo data for delete
             dcc.Store(id="validation-report", data=None),  # Validation report
             # Ollama generation metadata store - holds LLM generation info

@@ -1,0 +1,17 @@
+[
+  {
+    "label": "Exact 30 words (1 paragraph)",
+    "value": "exact_30",
+    "prefix": "Write 30 words exactly. One paragraph. Stop after the last word."
+  },
+  {
+    "label": "Exact 40 words (1 paragraph)",
+    "value": "exact_40",
+    "prefix": "Write 40 words exactly. One paragraph. Stop after the last word."
+  },
+  {
+    "label": "Short 25-35 words",
+    "value": "short_25_35",
+    "prefix": "Write 25-35 words. One paragraph. Avoid extra sentences."
+  }
+]
