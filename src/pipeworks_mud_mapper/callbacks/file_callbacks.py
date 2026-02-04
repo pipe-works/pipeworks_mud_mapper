@@ -63,6 +63,7 @@ from pipeworks_mud_mapper.services.io_queue import (
     get_io_job_status,
     submit_io_job,
 )
+from pipeworks_mud_mapper.services.state import ZoneAction, apply_zone_action
 from pipeworks_mud_mapper.utils.zone_io import (
     list_map_files,
 )
@@ -413,14 +414,15 @@ def handle_file_click(
         file_path = MAPS_DIR / filename
 
     # Load the selected map file and reset unsaved changes.
-    try:
-        map_file = zone_service.load_map_file(file_path)
-        zone_data = map_file.to_dict_with_list_coords()
-        zone_name = zone_data.get("name", filename)
-        return filename, zone_data, f"Zone: {zone_name}", False
-    except Exception as e:
-        print(f"Error loading map file {filename}: {e}")
+    action = ZoneAction(type="LOAD_MAP", payload={"file_path": file_path})
+    transition = apply_zone_action(None, action)
+
+    if not transition.changed or transition.zone_data is None:
+        print(f"Error loading map file {filename}")
         return no_update, no_update, no_update, no_update
+
+    zone_name = transition.effects.get("zone_name", filename)
+    return filename, transition.zone_data, f"Zone: {zone_name}", False
 
 
 # =============================================================================

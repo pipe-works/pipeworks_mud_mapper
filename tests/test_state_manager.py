@@ -1,5 +1,7 @@
 """Tests for the zone state manager and action handlers."""
 
+from unittest.mock import patch
+
 from pipeworks_mud_mapper.services.state import ZoneAction, apply_zone_action
 
 
@@ -191,3 +193,42 @@ def test_apply_zone_action_exit_adds_bidirectional():
     assert updated is not None
     assert updated["rooms"]["spawn"]["exits"].get("north") == "north"
     assert updated["rooms"]["north"]["exits"].get("south") == "spawn"
+
+
+def test_apply_zone_action_load_map_success(tmp_path):
+    """LOAD_MAP should return zone data and zone name."""
+    fake_file = tmp_path / "zone.map.json"
+    fake_file.write_text("{}", encoding="utf-8")
+
+    class DummyMap:
+        def to_dict_with_list_coords(self):
+            return {"name": "Loaded Zone", "rooms": {}}
+
+    action = ZoneAction(type="LOAD_MAP", payload={"file_path": fake_file})
+    with patch(
+        "pipeworks_mud_mapper.services.state.actions_load.zone_service.load_map_file",
+        return_value=DummyMap(),
+    ):
+        transition = apply_zone_action(None, action)
+
+    assert transition.changed is True
+    assert transition.zone_data is not None
+    assert transition.effects.get("zone_name") == "Loaded Zone"
+
+
+def test_apply_zone_action_apply_generation():
+    """APPLY_GENERATION should update room descriptions."""
+    zone = simple_zone()
+    action = ZoneAction(
+        type="APPLY_GENERATION",
+        payload={
+            "selected_room": "spawn",
+            "response_text": "New desc",
+            "generation_info": {"model": "x"},
+            "validation_info": None,
+        },
+    )
+    transition = apply_zone_action(zone, action)
+    assert transition.changed is True
+    assert transition.zone_data is not None
+    assert transition.zone_data["rooms"]["spawn"]["description"] == "New desc"

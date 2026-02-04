@@ -23,16 +23,14 @@ from pipeworks_mud_mapper.services.ollama_config import (
     DEFAULT_TOP_K,
     DEFAULT_TOP_P,
 )
-from pipeworks_mud_mapper.services.ollama_state import (
-    apply_generation_to_room,
-    build_generation_metadata,
-)
+from pipeworks_mud_mapper.services.ollama_state import build_generation_metadata
 from pipeworks_mud_mapper.services.ollama_ui import (
     status_error,
     status_info,
     status_ok,
     status_warning,
 )
+from pipeworks_mud_mapper.services.state import ZoneAction, apply_zone_action
 
 
 def _ollama_status_payload(content: Any) -> dict[str, Any]:
@@ -295,16 +293,18 @@ def send_to_description(
         status = status_info("Sent to form (select a room to apply)")
         return response_text, no_update, no_update, _ollama_status_payload(status)
 
-    # Update zone data using the shared state helper.
-    try:
-        updated_zone = apply_generation_to_room(
-            zone_data=zone_data,
-            room_id=selected_room,
-            description=response_text,
-            generation_info=generation_info,
-            validation_info=validation_info,
-        )
-    except KeyError:
+    action = ZoneAction(
+        type="APPLY_GENERATION",
+        payload={
+            "selected_room": selected_room,
+            "response_text": response_text,
+            "generation_info": generation_info,
+            "validation_info": validation_info,
+        },
+    )
+    transition = apply_zone_action(zone_data, action)
+
+    if not transition.changed or transition.zone_data is None:
         return (
             response_text,
             no_update,
@@ -325,7 +325,7 @@ def send_to_description(
 
     status = status_ok(f"Applied to '{selected_room}'")
     print(f"[DEBUG] send_to_description: setting has_unsaved=True for room '{selected_room}'")
-    return response_text, updated_zone, True, _ollama_status_payload(status)
+    return response_text, transition.zone_data, True, _ollama_status_payload(status)
 
 
 @callback(

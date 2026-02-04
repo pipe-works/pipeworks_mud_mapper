@@ -16,6 +16,8 @@ ActionType = Literal[
     "DELETE_ROOM",
     "UNDO_DELETE",
     "EXIT_CHANGE",
+    "LOAD_MAP",
+    "APPLY_GENERATION",
 ]
 
 
