@@ -245,6 +245,27 @@ class TestZoneService:
                 "llm_generation" not in room_data
             ), "llm_generation should be stripped from zone export"
 
+    def test_export_zone_strips_description_validation(self, simple_map_file, temp_dir):
+        """export_zone should strip description_validation metadata."""
+        from pipeworks_mud_mapper.models import DescriptionValidationInfo
+
+        simple_map_file.rooms["spawn"].description_validation = DescriptionValidationInfo(
+            valid=True,
+            hard_failures=[],
+            soft_failures=[],
+            metrics={"word_count": 42, "target_words": 50},
+            rule_hits={},
+        )
+
+        zone_path = temp_dir / "zones" / "test.json"
+        export_zone(simple_map_file, zone_path)
+        content = json.loads(zone_path.read_text())
+
+        for room_data in content["rooms"].values():
+            assert (
+                "description_validation" not in room_data
+            ), "description_validation should be stripped from zone export"
+
     def test_export_zone_strips_both_coords_and_llm_generation(self, simple_map_file, temp_dir):
         """export_zone should strip both coords and llm_generation.
 

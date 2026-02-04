@@ -77,6 +77,7 @@ from pipeworks_mud_mapper.callbacks.ollama_callbacks import (
     send_to_description,
     toggle_params_collapse,
     toggle_system_prompt_collapse,
+    validate_ollama_response,
 )
 from pipeworks_mud_mapper.layout.ollama_panel import (
     DEFAULT_NUM_CTX,
@@ -87,6 +88,7 @@ from pipeworks_mud_mapper.layout.ollama_panel import (
     DEFAULT_TOP_K,
     DEFAULT_TOP_P,
 )
+from pipeworks_mud_mapper.services.description_validator import ValidationResult
 
 # =============================================================================
 # Fixtures
@@ -671,6 +673,18 @@ class TestSendToDescription:
             "generated_at": "2024-01-15T10:30:00+00:00",
         }
 
+    @pytest.fixture
+    def sample_validation_info(self):
+        """Create sample validation metadata for testing."""
+        return {
+            "valid": False,
+            "hard_failures": ["word_count_out_of_bounds"],
+            "soft_failures": [],
+            "metrics": {"word_count": 12, "target_words": 50, "min_words": 33, "max_words": 58},
+            "rule_hits": {"banned_phrases": ["opens onto"]},
+            "validated_at": "2026-02-04T09:12:00+00:00",
+        }
+
     def test_no_clicks_returns_no_update(self, sample_zone_data):
         """Should return no_update when button not clicked."""
         result = send_to_description(
@@ -679,6 +693,7 @@ class TestSendToDescription:
             selected_room="spawn",
             zone_data=sample_zone_data,
             generation_info=None,
+            validation_info=None,
         )
         assert result == (no_update, no_update, no_update, no_update)
 
@@ -690,6 +705,7 @@ class TestSendToDescription:
             selected_room="spawn",
             zone_data=sample_zone_data,
             generation_info=None,
+            validation_info=None,
         )
         assert result == (no_update, no_update, no_update, no_update)
 
@@ -701,6 +717,7 @@ class TestSendToDescription:
             selected_room="spawn",
             zone_data=sample_zone_data,
             generation_info=None,
+            validation_info=None,
         )
         assert description is no_update
         assert zone is no_update
@@ -715,6 +732,7 @@ class TestSendToDescription:
             selected_room="spawn",
             zone_data=sample_zone_data,
             generation_info=None,
+            validation_info=None,
         )
         assert description is no_update
         assert "Nothing to send" in str(status)
@@ -728,6 +746,7 @@ class TestSendToDescription:
             selected_room=None,
             zone_data=None,
             generation_info=None,
+            validation_info=None,
         )
         assert description == test_text
         assert zone is no_update
@@ -743,6 +762,7 @@ class TestSendToDescription:
             selected_room="spawn",
             zone_data=sample_zone_data,
             generation_info=None,
+            validation_info=None,
         )
         assert description == test_text
         assert zone is not no_update
@@ -759,6 +779,7 @@ class TestSendToDescription:
             selected_room="nonexistent",
             zone_data=sample_zone_data,
             generation_info=None,
+            validation_info=None,
         )
         assert description == test_text
         assert zone is no_update
@@ -775,6 +796,7 @@ class TestSendToDescription:
             selected_room="spawn",
             zone_data=sample_zone_data,
             generation_info=None,
+            validation_info=None,
         )
 
         # Original should be unchanged
@@ -795,6 +817,7 @@ class TestSendToDescription:
             selected_room="spawn",
             zone_data=sample_zone_data,
             generation_info=sample_generation_info,
+            validation_info=None,
         )
 
         # Verify metadata is stored
@@ -823,10 +846,45 @@ class TestSendToDescription:
             selected_room="spawn",
             zone_data=sample_zone_data,
             generation_info=None,  # No metadata
+            validation_info=None,
         )
 
         # Existing metadata should be cleared
         assert "llm_generation" not in zone["rooms"]["spawn"]
+
+    def test_stores_validation_metadata(self, sample_zone_data, sample_validation_info):
+        """Should store description_validation metadata when provided."""
+        test_text = "A generated description."
+        description, zone, unsaved, status = send_to_description(
+            n_clicks=1,
+            response_text=test_text,
+            selected_room="spawn",
+            zone_data=sample_zone_data,
+            generation_info=None,
+            validation_info=sample_validation_info,
+        )
+
+        assert zone["rooms"]["spawn"]["description_validation"] is not None
+        assert zone["rooms"]["spawn"]["description_validation"]["valid"] is False
+        assert (
+            "word_count_out_of_bounds"
+            in zone["rooms"]["spawn"]["description_validation"]["hard_failures"]
+        )
+
+    def test_clears_validation_metadata_when_none(self, sample_zone_data):
+        """Should clear description_validation when no metadata provided."""
+        sample_zone_data["rooms"]["spawn"]["description_validation"] = {"valid": True}
+        test_text = "Manual edit."
+        description, zone, unsaved, status = send_to_description(
+            n_clicks=1,
+            response_text=test_text,
+            selected_room="spawn",
+            zone_data=sample_zone_data,
+            generation_info=None,
+            validation_info=None,
+        )
+
+        assert "description_validation" not in zone["rooms"]["spawn"]
 
 
 # =============================================================================
@@ -948,6 +1006,7 @@ class TestOllamaIntegration:
             selected_room=None,
             zone_data=None,
             generation_info=gen_info,
+            validation_info=None,
         )
 
         assert description == response
@@ -1230,6 +1289,58 @@ class TestCopySystemPrompt:
         """Should show success message when prompt exists."""
         result = copy_system_prompt(n_clicks=1, system_prompt="A valid system prompt")
         assert "copied" in str(result).lower()
+
+
+# =============================================================================
+# Test validate_ollama_response
+# =============================================================================
+
+
+class TestValidateOllamaResponse:
+    """Tests for the validate_ollama_response callback."""
+
+    def test_no_response_text(self):
+        """Should return waiting status when no response is present."""
+        result = validate_ollama_response(
+            response_text=None,
+            target_words=DEFAULT_TARGET_WORDS,
+            history=[],
+        )
+        status, summary, hits, history_display, history_data, validation_info = result
+        assert "Waiting for a response" in str(status)
+        assert "No response" in str(summary)
+        assert "No rule hits" in str(hits)
+        assert history_data is no_update
+        assert validation_info is no_update
+
+    def test_validation_populates_history_and_metadata(self, monkeypatch):
+        """Should render hits and return metadata for storage."""
+        dummy = ValidationResult(
+            valid=False,
+            hard_failures=["word_count_out_of_bounds"],
+            metrics={"word_count": 10, "min_words": 5, "max_words": 15},
+            rule_hits={"cardinal_directions": ["north"]},
+        )
+
+        monkeypatch.setattr(
+            "pipeworks_mud_mapper.callbacks.ollama_callbacks.validate_description",
+            lambda text, target_words: dummy,
+        )
+
+        result = validate_ollama_response(
+            response_text="A test response",
+            target_words=10,
+            history=[],
+        )
+        status, summary, hits, history_display, history_data, validation_info = result
+
+        assert "Review needed" in str(status)
+        assert "Hard failures" in str(summary)
+        assert "cardinal directions" in str(hits)
+        assert isinstance(history_data, list)
+        assert len(history_data) == 1
+        assert validation_info["valid"] is False
+        assert "validated_at" in validation_info
 
 
 # =============================================================================

@@ -1,0 +1,55 @@
+{
+  "word_count": {
+    "enabled": true,
+    "min_ratio": 0.67,
+    "max_ratio": 1.17
+  },
+  "banned_phrases": [
+    "opens onto",
+    "leads to",
+    "beyond",
+    "offering a glimpse",
+    "into the unknown",
+    "promise of",
+    "ahead"
+  ],
+  "cardinal_directions": [
+    "north",
+    "south",
+    "east",
+    "west",
+    "left",
+    "right",
+    "up",
+    "down"
+  ],
+  "traversal_verbs": [
+    "lead",
+    "leads",
+    "leading",
+    "open",
+    "opens",
+    "opening",
+    "spill",
+    "spills",
+    "spilling",
+    "stretch",
+    "stretches",
+    "stretching",
+    "descend",
+    "descends",
+    "descending",
+    "enter",
+    "enters",
+    "entering",
+    "rise",
+    "rises",
+    "rising",
+    "run",
+    "runs",
+    "running",
+    "pass",
+    "passes",
+    "passing"
+  ]
+}
