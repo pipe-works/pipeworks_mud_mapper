@@ -135,7 +135,7 @@ using LLMs.
 
 **Using the LLM Generator**
 
-1. In the Properties Panel, expand the "LLM Description Generator" section
+1. In the center column, open the **LLM Assistant (Ollama)** panel beneath the map
 2. Enter the Ollama server URL (default: http://localhost:11434)
 3. Click **Refresh Models** to load available models
 4. Select a model from the dropdown
