@@ -64,6 +64,24 @@ def test_apply_zone_action_add_room_invalid_id():
     assert transition.feedback is not None
 
 
+def test_apply_zone_action_add_room_invalid_coords():
+    """ADD_ROOM should reject invalid coordinates."""
+    action = ZoneAction(
+        type="ADD_ROOM",
+        payload={
+            "room_id": "hall",
+            "room_name": "Hall",
+            "room_description": "",
+            "coord_x": "bad",
+            "coord_y": 0,
+            "coord_z": 0,
+        },
+    )
+    transition = apply_zone_action(simple_zone(), action)
+    assert transition.changed is False
+    assert transition.feedback is not None
+
+
 def test_apply_zone_action_update_room_success():
     """UPDATE_ROOM should update room fields."""
     action = ZoneAction(
@@ -118,3 +136,58 @@ def test_apply_zone_action_delete_and_undo():
     assert undo_transition.changed is True
     assert undo_transition.zone_data is not None
     assert "hall" in undo_transition.zone_data["rooms"]
+
+
+def test_apply_zone_action_unknown_type():
+    """apply_zone_action should raise on unknown action type."""
+    action = ZoneAction(type="UNKNOWN", payload={})  # type: ignore[arg-type]
+    try:
+        apply_zone_action(simple_zone(), action)
+    except ValueError as exc:
+        assert "Unknown zone action" in str(exc)
+    else:
+        raise AssertionError("Expected ValueError for unknown action")
+
+
+def test_apply_zone_action_exit_rejects_when_missing_room():
+    """EXIT_CHANGE should reject directions without target rooms."""
+    zone = simple_zone()
+    action = ZoneAction(
+        type="EXIT_CHANGE",
+        payload={
+            "selected_room": "spawn",
+            "checked_values": ["N"],
+        },
+    )
+    transition = apply_zone_action(zone, action)
+
+    assert transition.changed is True
+    assert transition.zone_data is not None
+    assert transition.effects.get("exit_values") == []
+
+
+def test_apply_zone_action_exit_adds_bidirectional():
+    """EXIT_CHANGE should create exits when a room exists in direction."""
+    zone = simple_zone()
+    zone["rooms"]["north"] = {
+        "id": "north",
+        "name": "North",
+        "description": "",
+        "coords": [0, 1, 0],
+        "exits": {},
+        "items": [],
+    }
+    action = ZoneAction(
+        type="EXIT_CHANGE",
+        payload={
+            "selected_room": "spawn",
+            "checked_values": ["N"],
+        },
+    )
+    transition = apply_zone_action(zone, action)
+
+    assert transition.changed is True
+    updated = transition.zone_data
+    assert updated is not None
+    assert updated["rooms"]["spawn"]["exits"].get("north") == "north"
+    assert updated["rooms"]["north"]["exits"].get("south") == "spawn"

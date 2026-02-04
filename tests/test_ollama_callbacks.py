@@ -1291,6 +1291,17 @@ class TestRenderOllamaStatus:
         result = render_ollama_status(newer, None, older, None, None)
         assert "Newer" in str(result)
 
+    def test_ignores_payload_without_content(self):
+        """render_ollama_status should ignore payloads with no content."""
+        payload = {"content": None, "ts": 2.0}
+        result = render_ollama_status(payload, None, None, None, None)
+        assert result is no_update
+
+    def test_ignores_non_dict_payload(self):
+        """render_ollama_status should ignore non-dict payloads."""
+        result = render_ollama_status("bad", None, None, None, None)
+        assert result is no_update
+
 
 # =============================================================================
 # Test validate_ollama_response

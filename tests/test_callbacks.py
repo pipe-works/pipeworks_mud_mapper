@@ -1388,6 +1388,36 @@ class TestFileCallbacks:
         assert snapshot_status is no_update
         assert unsaved is False
 
+    def test_poll_io_jobs_error_snapshot(self):
+        """poll_io_jobs should surface snapshot errors."""
+        io_jobs = {
+            "jobs": [
+                {
+                    "id": "job-2",
+                    "type": "snapshot",
+                    "snapshot": "snap.map.json",
+                    "timestamp": "123",
+                }
+            ]
+        }
+        with (
+            patch(
+                "pipeworks_mud_mapper.callbacks.file_callbacks.get_io_job_status",
+                return_value={"status": "error", "error": "boom"},
+            ),
+            patch("pipeworks_mud_mapper.callbacks.file_callbacks.forget_io_job"),
+        ):
+            job_store, save_feedback, export_feedback, snapshot_status, unsaved = poll_io_jobs(
+                n_intervals=1,
+                io_jobs=io_jobs,
+            )
+
+        assert job_store == {"jobs": []}
+        assert snapshot_status.get("error") == "boom"
+        assert save_feedback is no_update
+        assert export_feedback is no_update
+        assert unsaved is no_update
+
 
 # =============================================================================
 # Integration Tests
