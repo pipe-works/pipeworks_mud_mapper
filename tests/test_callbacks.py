@@ -42,6 +42,8 @@ from dash import no_update
 
 from pipeworks_mud_mapper.callbacks.exit_callbacks import handle_exit_changes
 from pipeworks_mud_mapper.callbacks.file_callbacks import (
+    _get_cached_map_files,
+    _should_throttle_snapshot,
     close_new_map_modal,
     create_new_map,
     export_zone_to_file,
@@ -688,6 +690,62 @@ class TestFileCallbacks:
         assert "zone1.map.json" in result
         assert "zone2.map.json" in result
         assert "other.json" not in result
+
+    def test_get_cached_map_files_uses_cache(self):
+        """_get_cached_map_files should return cached results within TTL."""
+        fake_dir = Path("/tmp/fake")
+        with (
+            patch("pipeworks_mud_mapper.callbacks.file_callbacks._FILE_LIST_CACHE", {}),
+            patch("pipeworks_mud_mapper.callbacks.file_callbacks.list_map_files") as mock_list,
+            patch("pipeworks_mud_mapper.callbacks.file_callbacks.time.monotonic") as mock_clock,
+        ):
+            mock_list.side_effect = [
+                [Path("first.map.json")],
+                [Path("second.map.json")],
+            ]
+            mock_clock.side_effect = [0.0, 0.1]
+
+            first = _get_cached_map_files(fake_dir)
+            second = _get_cached_map_files(fake_dir)
+
+        assert first == [Path("first.map.json")]
+        assert second == [Path("first.map.json")]
+        assert mock_list.call_count == 1
+
+    def test_get_cached_map_files_force_refresh(self):
+        """_get_cached_map_files should bypass cache when forced."""
+        fake_dir = Path("/tmp/fake")
+        with (
+            patch("pipeworks_mud_mapper.callbacks.file_callbacks._FILE_LIST_CACHE", {}),
+            patch("pipeworks_mud_mapper.callbacks.file_callbacks.list_map_files") as mock_list,
+            patch("pipeworks_mud_mapper.callbacks.file_callbacks.time.monotonic") as mock_clock,
+        ):
+            mock_list.side_effect = [
+                [Path("first.map.json")],
+                [Path("second.map.json")],
+            ]
+            mock_clock.side_effect = [0.0, 0.1]
+
+            first = _get_cached_map_files(fake_dir)
+            second = _get_cached_map_files(fake_dir, force_refresh=True)
+
+        assert first == [Path("first.map.json")]
+        assert second == [Path("second.map.json")]
+        assert mock_list.call_count == 2
+
+    def test_should_throttle_snapshot(self):
+        """_should_throttle_snapshot should return True within cooldown window."""
+        with (
+            patch("pipeworks_mud_mapper.callbacks.file_callbacks._LAST_SNAPSHOT_TS", {}),
+            patch("pipeworks_mud_mapper.callbacks.file_callbacks.time.monotonic") as mock_clock,
+        ):
+            mock_clock.side_effect = [0.0, 0.1]
+
+            first = _should_throttle_snapshot("zone:test")
+            second = _should_throttle_snapshot("zone:test")
+
+        assert first is False
+        assert second is True
 
     def test_load_dev_snapshot_files_list(self, temp_maps_dir):
         """load_dev_snapshot_files_list should return dev snapshot map files."""
