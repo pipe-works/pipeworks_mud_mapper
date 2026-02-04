@@ -43,6 +43,7 @@ Component Dependencies
 - ``status-indicator``: Status display
 """
 
+import copy
 import re
 from datetime import UTC, datetime
 from pathlib import Path
@@ -537,6 +538,8 @@ def auto_snapshot_map(
     dict | None
         Snapshot metadata, or no_update when no snapshot is written.
     """
+    # No zone data means there's nothing to snapshot.
+    # This can happen during initial load or if a map is cleared.
     if not zone_data:
         return no_update
 
@@ -545,11 +548,14 @@ def auto_snapshot_map(
     else:
         dev_enabled = bool(dev_save_enabled)
 
+    # Toggle is off - dev snapshots are disabled.
     if not dev_enabled:
         return no_update
 
     from pipeworks_mud_mapper.models import MapFile
 
+    # Snapshot the current map state as-is (authoring truth).
+    # This path is used for any map change, not specifically LLM generations.
     map_file = MapFile.from_dict(zone_data)
     display_name = selected_file
     if not display_name:
@@ -572,6 +578,9 @@ def auto_snapshot_map(
 @callback(
     Output("dev-snapshot-status", "data", allow_duplicate=True),
     Input("ollama-last-generation-info", "data"),
+    State("ollama-response", "value"),
+    State("ollama-validation-info", "data"),
+    State("selected-room", "data"),
     State("current-zone-data", "data"),
     State("selected-file", "data"),
     State("dev-save-toggle", "value"),
@@ -579,6 +588,9 @@ def auto_snapshot_map(
 )
 def auto_snapshot_on_generation(
     generation_info: dict | None,
+    response_text: str | None,
+    validation_info: dict | None,
+    selected_room: str | None,
     zone_data: dict | None,
     selected_file: str | None,
     dev_save_enabled: bool | None,
@@ -588,6 +600,8 @@ def auto_snapshot_on_generation(
     This allows snapshotting even if the user doesn't apply the response
     to a room description (current-zone-data remains unchanged).
     """
+    # Require both a generation record and zone data.
+    # If a generation occurred but no map is loaded, we cannot snapshot.
     if not generation_info or not zone_data:
         return no_update
 
@@ -596,12 +610,36 @@ def auto_snapshot_on_generation(
     else:
         dev_enabled = bool(dev_save_enabled)
 
+    # Toggle is off - do not write snapshots.
     if not dev_enabled:
         return no_update
 
     from pipeworks_mud_mapper.models import MapFile
 
-    map_file = MapFile.from_dict(zone_data)
+    # Use a copy so we can inject the latest LLM output without mutating live state.
+    # The live map should only change when the user explicitly clicks
+    # "Send to Description".
+    snapshot_zone = copy.deepcopy(zone_data)
+    # If a room is selected and we have an LLM response, stage that data
+    # into the snapshot so it reflects "what was just generated", even if
+    # the author hasn't applied it yet.
+    if selected_room and response_text:
+        rooms = dict(snapshot_zone.get("rooms", {}))
+        if selected_room in rooms:
+            updated_room = dict(rooms[selected_room])
+            # Inject the freshly generated description for snapshot visibility.
+            updated_room["description"] = response_text.strip()
+            # Attach generation metadata for reproducibility.
+            updated_room["llm_generation"] = generation_info
+            # Attach validator output for review; if none, remove any stale value.
+            if validation_info:
+                updated_room["description_validation"] = validation_info
+            else:
+                updated_room.pop("description_validation", None)
+            rooms[selected_room] = updated_room
+            snapshot_zone["rooms"] = rooms
+
+    map_file = MapFile.from_dict(snapshot_zone)
     display_name = selected_file
     if not display_name:
         display_name = zone_data.get("id") or "unsaved_zone"
