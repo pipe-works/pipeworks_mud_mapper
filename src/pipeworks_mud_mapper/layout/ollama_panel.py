@@ -115,32 +115,22 @@ See Also
 import dash_bootstrap_components as dbc
 from dash import dcc, html
 
+# Defaults are defined in a service module so UI and callbacks share a single
+# source of truth without coupling business logic to layout code.
+from pipeworks_mud_mapper.services.ollama_config import (
+    DEFAULT_NUM_CTX,
+    DEFAULT_NUM_PREDICT,
+    DEFAULT_SEED,
+    DEFAULT_TARGET_WORDS,
+    DEFAULT_TEMPERATURE,
+    DEFAULT_TOP_K,
+    DEFAULT_TOP_P,
+)
+
 # =============================================================================
 # Default Parameter Values
 # =============================================================================
-# These constants define the default values for model parameters.
-# They can be imported by callbacks or tests that need to reference them.
-
-#: Default seed value (-1 means random seed each generation)
-DEFAULT_SEED = -1
-
-#: Default temperature for text generation (0.7 is a balanced creative setting)
-DEFAULT_TEMPERATURE = 0.7
-
-#: Default top_k value (40 provides good vocabulary diversity)
-DEFAULT_TOP_K = 40
-
-#: Default top_p value (0.9 uses nucleus sampling with 90% probability mass)
-DEFAULT_TOP_P = 0.9
-
-#: Default context window size in tokens (4096 is common for many models)
-DEFAULT_NUM_CTX = 4096
-
-#: Default max tokens to generate (512 is good for room descriptions)
-DEFAULT_NUM_PREDICT = 512
-
-#: Default target word count for generated descriptions
-DEFAULT_TARGET_WORDS = 300
+# Defaults are imported above from the shared service module.
 
 
 def create_ollama_panel() -> dbc.Card:

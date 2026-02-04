@@ -82,7 +82,8 @@ from pipeworks_mud_mapper.callbacks.ollama_callbacks import (
     update_target_words_hint,
     validate_ollama_response,
 )
-from pipeworks_mud_mapper.layout.ollama_panel import (
+from pipeworks_mud_mapper.services.description_validator import ValidationResult
+from pipeworks_mud_mapper.services.ollama_config import (
     DEFAULT_NUM_CTX,
     DEFAULT_NUM_PREDICT,
     DEFAULT_SEED,
@@ -91,7 +92,6 @@ from pipeworks_mud_mapper.layout.ollama_panel import (
     DEFAULT_TOP_K,
     DEFAULT_TOP_P,
 )
-from pipeworks_mud_mapper.services.description_validator import ValidationResult
 
 # =============================================================================
 # Fixtures
@@ -162,12 +162,10 @@ class TestRefreshOllamaModels:
 
     def test_successful_model_fetch(self, mock_models_response):
         """Should return model options on successful API call."""
-        mock_response = MagicMock()
-        mock_response.json.return_value = mock_models_response
-        mock_response.raise_for_status = MagicMock()
-
-        with patch("pipeworks_mud_mapper.callbacks.ollama_callbacks.httpx.Client") as mock_client:
-            mock_client.return_value.__enter__.return_value.get.return_value = mock_response
+        with patch(
+            "pipeworks_mud_mapper.callbacks.ollama_models_callbacks.ollama_client.list_models"
+        ) as mock_list:
+            mock_list.return_value = mock_models_response["models"]
 
             options, status, placeholder = refresh_ollama_models(
                 n_clicks=1, server_url="http://localhost:11434"
@@ -183,27 +181,22 @@ class TestRefreshOllamaModels:
 
     def test_successful_fetch_normalizes_url(self, mock_models_response):
         """Should strip trailing slash from server URL."""
-        mock_response = MagicMock()
-        mock_response.json.return_value = mock_models_response
-        mock_response.raise_for_status = MagicMock()
-
-        with patch("pipeworks_mud_mapper.callbacks.ollama_callbacks.httpx.Client") as mock_client:
-            mock_instance = mock_client.return_value.__enter__.return_value
-            mock_instance.get.return_value = mock_response
+        with patch(
+            "pipeworks_mud_mapper.callbacks.ollama_models_callbacks.ollama_client.list_models"
+        ) as mock_list:
+            mock_list.return_value = mock_models_response["models"]
 
             refresh_ollama_models(n_clicks=1, server_url="http://localhost:11434/")
 
-            # Verify URL was normalized (no double slash)
-            mock_instance.get.assert_called_once_with("http://localhost:11434/api/tags")
+            # Verify URL was normalized (no trailing slash).
+            mock_list.assert_called_once_with("http://localhost:11434")
 
     def test_empty_models_list(self):
         """Should show connected but no models when list is empty."""
-        mock_response = MagicMock()
-        mock_response.json.return_value = {"models": []}
-        mock_response.raise_for_status = MagicMock()
-
-        with patch("pipeworks_mud_mapper.callbacks.ollama_callbacks.httpx.Client") as mock_client:
-            mock_client.return_value.__enter__.return_value.get.return_value = mock_response
+        with patch(
+            "pipeworks_mud_mapper.callbacks.ollama_models_callbacks.ollama_client.list_models"
+        ) as mock_list:
+            mock_list.return_value = []
 
             options, status, placeholder = refresh_ollama_models(
                 n_clicks=1, server_url="http://localhost:11434"
@@ -216,10 +209,10 @@ class TestRefreshOllamaModels:
 
     def test_connection_error(self):
         """Should handle connection refused error."""
-        with patch("pipeworks_mud_mapper.callbacks.ollama_callbacks.httpx.Client") as mock_client:
-            mock_client.return_value.__enter__.return_value.get.side_effect = httpx.ConnectError(
-                "Connection refused"
-            )
+        with patch(
+            "pipeworks_mud_mapper.callbacks.ollama_models_callbacks.ollama_client.list_models"
+        ) as mock_list:
+            mock_list.side_effect = httpx.ConnectError("Connection refused")
 
             options, status, placeholder = refresh_ollama_models(
                 n_clicks=1, server_url="http://localhost:11434"
@@ -234,8 +227,10 @@ class TestRefreshOllamaModels:
         mock_response = MagicMock()
         mock_response.status_code = 500
 
-        with patch("pipeworks_mud_mapper.callbacks.ollama_callbacks.httpx.Client") as mock_client:
-            mock_client.return_value.__enter__.return_value.get.side_effect = httpx.HTTPStatusError(
+        with patch(
+            "pipeworks_mud_mapper.callbacks.ollama_models_callbacks.ollama_client.list_models"
+        ) as mock_list:
+            mock_list.side_effect = httpx.HTTPStatusError(
                 "Server error", request=MagicMock(), response=mock_response
             )
 
@@ -249,10 +244,10 @@ class TestRefreshOllamaModels:
 
     def test_generic_exception(self):
         """Should handle unexpected exceptions gracefully."""
-        with patch("pipeworks_mud_mapper.callbacks.ollama_callbacks.httpx.Client") as mock_client:
-            mock_client.return_value.__enter__.return_value.get.side_effect = Exception(
-                "Unexpected error occurred"
-            )
+        with patch(
+            "pipeworks_mud_mapper.callbacks.ollama_models_callbacks.ollama_client.list_models"
+        ) as mock_list:
+            mock_list.side_effect = Exception("Unexpected error occurred")
 
             options, status, placeholder = refresh_ollama_models(
                 n_clicks=1, server_url="http://localhost:11434"
@@ -263,12 +258,10 @@ class TestRefreshOllamaModels:
 
     def test_connection_status_shows_green_on_success(self, mock_models_response):
         """Should show green success indicator when connected."""
-        mock_response = MagicMock()
-        mock_response.json.return_value = mock_models_response
-        mock_response.raise_for_status = MagicMock()
-
-        with patch("pipeworks_mud_mapper.callbacks.ollama_callbacks.httpx.Client") as mock_client:
-            mock_client.return_value.__enter__.return_value.get.return_value = mock_response
+        with patch(
+            "pipeworks_mud_mapper.callbacks.ollama_models_callbacks.ollama_client.list_models"
+        ) as mock_list:
+            mock_list.return_value = mock_models_response["models"]
 
             options, status, placeholder = refresh_ollama_models(
                 n_clicks=1, server_url="http://localhost:11434"
@@ -278,10 +271,10 @@ class TestRefreshOllamaModels:
 
     def test_connection_status_shows_red_on_failure(self):
         """Should show red error indicator when connection fails."""
-        with patch("pipeworks_mud_mapper.callbacks.ollama_callbacks.httpx.Client") as mock_client:
-            mock_client.return_value.__enter__.return_value.get.side_effect = httpx.ConnectError(
-                "Connection refused"
-            )
+        with patch(
+            "pipeworks_mud_mapper.callbacks.ollama_models_callbacks.ollama_client.list_models"
+        ) as mock_list:
+            mock_list.side_effect = httpx.ConnectError("Connection refused")
 
             options, status, placeholder = refresh_ollama_models(
                 n_clicks=1, server_url="http://localhost:11434"
@@ -408,13 +401,10 @@ class TestGenerateDescription:
 
     def test_successful_generation(self, mock_chat_response):
         """Should return generated text on successful API call."""
-        mock_response = MagicMock()
-        mock_response.json.return_value = mock_chat_response
-        mock_response.raise_for_status = MagicMock()
-
-        with patch("pipeworks_mud_mapper.callbacks.ollama_callbacks.httpx.Client") as mock_client:
-            mock_client.return_value.__enter__.return_value.post.return_value = mock_response
-
+        with patch(
+            "pipeworks_mud_mapper.callbacks.ollama_generation_callbacks.ollama_client.chat"
+        ) as mock_chat:
+            mock_chat.return_value = mock_chat_response
             response, status, gen_info = generate_description(
                 n_clicks=1,
                 server_url="http://localhost:11434",
@@ -441,14 +431,10 @@ class TestGenerateDescription:
 
     def test_generation_without_system_prompt(self, mock_chat_response):
         """Should work without a system prompt using /api/chat."""
-        mock_response = MagicMock()
-        mock_response.json.return_value = mock_chat_response
-        mock_response.raise_for_status = MagicMock()
-
-        with patch("pipeworks_mud_mapper.callbacks.ollama_callbacks.httpx.Client") as mock_client:
-            mock_instance = mock_client.return_value.__enter__.return_value
-            mock_instance.post.return_value = mock_response
-
+        with patch(
+            "pipeworks_mud_mapper.callbacks.ollama_generation_callbacks.ollama_client.chat"
+        ) as mock_chat:
+            mock_chat.return_value = mock_chat_response
             response, status, gen_info = generate_description(
                 n_clicks=1,
                 server_url="http://localhost:11434",
@@ -467,26 +453,21 @@ class TestGenerateDescription:
 
         assert response != ""
         # Verify messages array has only user message (no system)
-        call_args = mock_instance.post.call_args
-        sent_json = call_args[1]["json"]
-        assert "messages" in sent_json
-        assert len(sent_json["messages"]) == 1
-        assert sent_json["messages"][0]["role"] == "user"
-        assert sent_json["messages"][0]["content"] == "Describe a medieval hall."
+        call_args = mock_chat.call_args
+        sent_messages = call_args.kwargs["messages"]
+        assert len(sent_messages) == 1
+        assert sent_messages[0]["role"] == "user"
+        assert sent_messages[0]["content"] == "Describe a medieval hall."
         # Verify metadata is returned
         assert gen_info is not None
         assert gen_info["system_prompt"] == ""
 
     def test_generation_with_system_prompt(self, mock_chat_response):
         """Should send system and user messages separately via /api/chat."""
-        mock_response = MagicMock()
-        mock_response.json.return_value = mock_chat_response
-        mock_response.raise_for_status = MagicMock()
-
-        with patch("pipeworks_mud_mapper.callbacks.ollama_callbacks.httpx.Client") as mock_client:
-            mock_instance = mock_client.return_value.__enter__.return_value
-            mock_instance.post.return_value = mock_response
-
+        with patch(
+            "pipeworks_mud_mapper.callbacks.ollama_generation_callbacks.ollama_client.chat"
+        ) as mock_chat:
+            mock_chat.return_value = mock_chat_response
             response, status, gen_info = generate_description(
                 n_clicks=1,
                 server_url="http://localhost:11434",
@@ -504,28 +485,26 @@ class TestGenerateDescription:
             )
 
         # Verify messages array has both system and user messages
-        call_args = mock_instance.post.call_args
-        sent_json = call_args[1]["json"]
-        assert "messages" in sent_json
-        assert len(sent_json["messages"]) == 2
-        assert sent_json["messages"][0]["role"] == "system"
-        assert sent_json["messages"][0]["content"] == "Be creative."
-        assert sent_json["messages"][1]["role"] == "user"
-        assert sent_json["messages"][1]["content"] == "Describe a hall."
+        call_args = mock_chat.call_args
+        sent_messages = call_args.kwargs["messages"]
+        assert len(sent_messages) == 2
+        assert sent_messages[0]["role"] == "system"
+        assert sent_messages[0]["content"] == "Be creative."
+        assert sent_messages[1]["role"] == "user"
+        assert sent_messages[1]["content"] == "Describe a hall."
         # Verify metadata captures template_id
         assert gen_info["template_id"] == "ledgerfall_goblin"
         assert gen_info["system_prompt"] == "Be creative."
 
     def test_empty_response_from_model(self):
         """Should handle empty response from model via /api/chat."""
-        mock_response = MagicMock()
         # /api/chat returns empty content under message.content
-        mock_response.json.return_value = {"message": {"role": "assistant", "content": ""}}
-        mock_response.raise_for_status = MagicMock()
+        empty_response = {"message": {"role": "assistant", "content": ""}}
 
-        with patch("pipeworks_mud_mapper.callbacks.ollama_callbacks.httpx.Client") as mock_client:
-            mock_client.return_value.__enter__.return_value.post.return_value = mock_response
-
+        with patch(
+            "pipeworks_mud_mapper.callbacks.ollama_generation_callbacks.ollama_client.chat"
+        ) as mock_chat:
+            mock_chat.return_value = empty_response
             response, status, gen_info = generate_description(
                 n_clicks=1,
                 server_url="http://localhost:11434",
@@ -548,11 +527,10 @@ class TestGenerateDescription:
 
     def test_connection_error(self):
         """Should handle connection refused error."""
-        with patch("pipeworks_mud_mapper.callbacks.ollama_callbacks.httpx.Client") as mock_client:
-            mock_client.return_value.__enter__.return_value.post.side_effect = httpx.ConnectError(
-                "Connection refused"
-            )
-
+        with patch(
+            "pipeworks_mud_mapper.callbacks.ollama_generation_callbacks.ollama_client.chat"
+        ) as mock_chat:
+            mock_chat.side_effect = httpx.ConnectError("Connection refused")
             response, status, gen_info = generate_description(
                 n_clicks=1,
                 server_url="http://localhost:11434",
@@ -575,11 +553,10 @@ class TestGenerateDescription:
 
     def test_timeout_error(self):
         """Should handle request timeout."""
-        with patch("pipeworks_mud_mapper.callbacks.ollama_callbacks.httpx.Client") as mock_client:
-            mock_client.return_value.__enter__.return_value.post.side_effect = (
-                httpx.TimeoutException("Request timed out")
-            )
-
+        with patch(
+            "pipeworks_mud_mapper.callbacks.ollama_generation_callbacks.ollama_client.chat"
+        ) as mock_chat:
+            mock_chat.side_effect = httpx.TimeoutException("Request timed out")
             response, status, gen_info = generate_description(
                 n_clicks=1,
                 server_url="http://localhost:11434",
@@ -605,11 +582,12 @@ class TestGenerateDescription:
         mock_response = MagicMock()
         mock_response.status_code = 404
 
-        with patch("pipeworks_mud_mapper.callbacks.ollama_callbacks.httpx.Client") as mock_client:
-            mock_client.return_value.__enter__.return_value.post.side_effect = (
-                httpx.HTTPStatusError("Not found", request=MagicMock(), response=mock_response)
+        with patch(
+            "pipeworks_mud_mapper.callbacks.ollama_generation_callbacks.ollama_client.chat"
+        ) as mock_chat:
+            mock_chat.side_effect = httpx.HTTPStatusError(
+                "Not found", request=MagicMock(), response=mock_response
             )
-
             response, status, gen_info = generate_description(
                 n_clicks=1,
                 server_url="http://localhost:11434",
@@ -935,13 +913,10 @@ class TestOllamaIntegration:
     def test_full_workflow_fetch_and_generate(self, mock_models_response, mock_chat_response):
         """Test complete workflow: fetch models, then generate text."""
         # First, fetch models
-        mock_tags_response = MagicMock()
-        mock_tags_response.json.return_value = mock_models_response
-        mock_tags_response.raise_for_status = MagicMock()
-
-        with patch("pipeworks_mud_mapper.callbacks.ollama_callbacks.httpx.Client") as mock_client:
-            mock_client.return_value.__enter__.return_value.get.return_value = mock_tags_response
-
+        with patch(
+            "pipeworks_mud_mapper.callbacks.ollama_models_callbacks.ollama_client.list_models"
+        ) as mock_list:
+            mock_list.return_value = mock_models_response["models"]
             options, status, placeholder = refresh_ollama_models(
                 n_clicks=1, server_url="http://localhost:11434"
             )
@@ -950,13 +925,10 @@ class TestOllamaIntegration:
         selected_model = options[0]["value"]
 
         # Then generate with selected model
-        mock_gen_response = MagicMock()
-        mock_gen_response.json.return_value = mock_chat_response
-        mock_gen_response.raise_for_status = MagicMock()
-
-        with patch("pipeworks_mud_mapper.callbacks.ollama_callbacks.httpx.Client") as mock_client:
-            mock_client.return_value.__enter__.return_value.post.return_value = mock_gen_response
-
+        with patch(
+            "pipeworks_mud_mapper.callbacks.ollama_generation_callbacks.ollama_client.chat"
+        ) as mock_chat:
+            mock_chat.return_value = mock_chat_response
             response, status, gen_info = generate_description(
                 n_clicks=1,
                 server_url="http://localhost:11434",
@@ -979,13 +951,10 @@ class TestOllamaIntegration:
     def test_generate_and_send_workflow(self, mock_chat_response):
         """Test workflow: generate text, then send to description."""
         # Generate text
-        mock_response = MagicMock()
-        mock_response.json.return_value = mock_chat_response
-        mock_response.raise_for_status = MagicMock()
-
-        with patch("pipeworks_mud_mapper.callbacks.ollama_callbacks.httpx.Client") as mock_client:
-            mock_client.return_value.__enter__.return_value.post.return_value = mock_response
-
+        with patch(
+            "pipeworks_mud_mapper.callbacks.ollama_generation_callbacks.ollama_client.chat"
+        ) as mock_chat:
+            mock_chat.return_value = mock_chat_response
             response, status, gen_info = generate_description(
                 n_clicks=1,
                 server_url="http://localhost:11434",
@@ -1018,11 +987,10 @@ class TestOllamaIntegration:
     def test_server_down_recovery(self, mock_models_response):
         """Test that UI recovers gracefully when server comes back up."""
         # First attempt - server down
-        with patch("pipeworks_mud_mapper.callbacks.ollama_callbacks.httpx.Client") as mock_client:
-            mock_client.return_value.__enter__.return_value.get.side_effect = httpx.ConnectError(
-                "Connection refused"
-            )
-
+        with patch(
+            "pipeworks_mud_mapper.callbacks.ollama_models_callbacks.ollama_client.list_models"
+        ) as mock_list:
+            mock_list.side_effect = httpx.ConnectError("Connection refused")
             options, status, placeholder = refresh_ollama_models(
                 n_clicks=1, server_url="http://localhost:11434"
             )
@@ -1031,13 +999,10 @@ class TestOllamaIntegration:
         assert "Not connected" in str(status)
 
         # Second attempt - server back up
-        mock_response = MagicMock()
-        mock_response.json.return_value = mock_models_response
-        mock_response.raise_for_status = MagicMock()
-
-        with patch("pipeworks_mud_mapper.callbacks.ollama_callbacks.httpx.Client") as mock_client:
-            mock_client.return_value.__enter__.return_value.get.return_value = mock_response
-
+        with patch(
+            "pipeworks_mud_mapper.callbacks.ollama_models_callbacks.ollama_client.list_models"
+        ) as mock_list:
+            mock_list.return_value = mock_models_response["models"]
             options, status, placeholder = refresh_ollama_models(
                 n_clicks=2,  # Second click
                 server_url="http://localhost:11434",
@@ -1326,7 +1291,7 @@ class TestValidateOllamaResponse:
         )
 
         monkeypatch.setattr(
-            "pipeworks_mud_mapper.callbacks.ollama_callbacks.validate_description",
+            "pipeworks_mud_mapper.callbacks.ollama_validation_callbacks.validate_description",
             lambda text, target_words: dummy,
         )
 
@@ -1510,13 +1475,10 @@ class TestGenerateDescriptionWithParameters:
 
     def test_parameters_passed_to_api(self, mock_chat_response):
         """Should pass all parameters in the options dict."""
-        mock_response = MagicMock()
-        mock_response.json.return_value = mock_chat_response
-        mock_response.raise_for_status = MagicMock()
-
-        with patch("pipeworks_mud_mapper.callbacks.ollama_callbacks.httpx.Client") as mock_client:
-            mock_instance = mock_client.return_value.__enter__.return_value
-            mock_instance.post.return_value = mock_response
+        with patch(
+            "pipeworks_mud_mapper.callbacks.ollama_generation_callbacks.ollama_client.chat"
+        ) as mock_chat:
+            mock_chat.return_value = mock_chat_response
 
             generate_description(
                 n_clicks=1,
@@ -1535,11 +1497,8 @@ class TestGenerateDescriptionWithParameters:
             )
 
         # Verify the API call included options
-        call_args = mock_instance.post.call_args
-        sent_json = call_args[1]["json"]
-        assert "options" in sent_json
-
-        options = sent_json["options"]
+        call_args = mock_chat.call_args
+        options = call_args.kwargs["options"]
         assert options["seed"] == 42
         assert options["temperature"] == 0.5
         assert options["top_k"] == 30
@@ -1549,13 +1508,10 @@ class TestGenerateDescriptionWithParameters:
 
     def test_default_parameters_used_when_none(self, mock_chat_response):
         """Should use default values when parameters are None."""
-        mock_response = MagicMock()
-        mock_response.json.return_value = mock_chat_response
-        mock_response.raise_for_status = MagicMock()
-
-        with patch("pipeworks_mud_mapper.callbacks.ollama_callbacks.httpx.Client") as mock_client:
-            mock_instance = mock_client.return_value.__enter__.return_value
-            mock_instance.post.return_value = mock_response
+        with patch(
+            "pipeworks_mud_mapper.callbacks.ollama_generation_callbacks.ollama_client.chat"
+        ) as mock_chat:
+            mock_chat.return_value = mock_chat_response
 
             generate_description(
                 n_clicks=1,
@@ -1574,9 +1530,8 @@ class TestGenerateDescriptionWithParameters:
             )
 
         # Verify defaults were used
-        call_args = mock_instance.post.call_args
-        sent_json = call_args[1]["json"]
-        options = sent_json["options"]
+        call_args = mock_chat.call_args
+        options = call_args.kwargs["options"]
 
         # Seed will be random when DEFAULT_SEED (-1), so just check it's >= 0
         assert options["seed"] >= 0  # Random seed is always positive
@@ -1588,13 +1543,10 @@ class TestGenerateDescriptionWithParameters:
 
     def test_random_seed_generates_positive_value(self, mock_chat_response):
         """Should generate positive seed when seed is -1."""
-        mock_response = MagicMock()
-        mock_response.json.return_value = mock_chat_response
-        mock_response.raise_for_status = MagicMock()
-
-        with patch("pipeworks_mud_mapper.callbacks.ollama_callbacks.httpx.Client") as mock_client:
-            mock_instance = mock_client.return_value.__enter__.return_value
-            mock_instance.post.return_value = mock_response
+        with patch(
+            "pipeworks_mud_mapper.callbacks.ollama_generation_callbacks.ollama_client.chat"
+        ) as mock_chat:
+            mock_chat.return_value = mock_chat_response
 
             response, status, gen_info = generate_description(
                 n_clicks=1,
@@ -1612,9 +1564,8 @@ class TestGenerateDescriptionWithParameters:
                 target_words=DEFAULT_TARGET_WORDS,
             )
 
-        call_args = mock_instance.post.call_args
-        sent_json = call_args[1]["json"]
-        options = sent_json["options"]
+        call_args = mock_chat.call_args
+        options = call_args.kwargs["options"]
 
         # Random seed should be a positive integer
         assert options["seed"] >= 0
@@ -1624,13 +1575,10 @@ class TestGenerateDescriptionWithParameters:
 
     def test_fixed_seed_used_directly(self, mock_chat_response):
         """Should use fixed seed value when seed >= 0."""
-        mock_response = MagicMock()
-        mock_response.json.return_value = mock_chat_response
-        mock_response.raise_for_status = MagicMock()
-
-        with patch("pipeworks_mud_mapper.callbacks.ollama_callbacks.httpx.Client") as mock_client:
-            mock_instance = mock_client.return_value.__enter__.return_value
-            mock_instance.post.return_value = mock_response
+        with patch(
+            "pipeworks_mud_mapper.callbacks.ollama_generation_callbacks.ollama_client.chat"
+        ) as mock_chat:
+            mock_chat.return_value = mock_chat_response
 
             response, status, gen_info = generate_description(
                 n_clicks=1,
@@ -1648,9 +1596,8 @@ class TestGenerateDescriptionWithParameters:
                 target_words=DEFAULT_TARGET_WORDS,
             )
 
-        call_args = mock_instance.post.call_args
-        sent_json = call_args[1]["json"]
-        options = sent_json["options"]
+        call_args = mock_chat.call_args
+        options = call_args.kwargs["options"]
 
         # Fixed seed should be used as-is
         assert options["seed"] == 12345
@@ -1659,12 +1606,10 @@ class TestGenerateDescriptionWithParameters:
 
     def test_status_shows_seed_info(self, mock_chat_response):
         """Should show seed info in status message on success."""
-        mock_response = MagicMock()
-        mock_response.json.return_value = mock_chat_response
-        mock_response.raise_for_status = MagicMock()
-
-        with patch("pipeworks_mud_mapper.callbacks.ollama_callbacks.httpx.Client") as mock_client:
-            mock_client.return_value.__enter__.return_value.post.return_value = mock_response
+        with patch(
+            "pipeworks_mud_mapper.callbacks.ollama_generation_callbacks.ollama_client.chat"
+        ) as mock_chat:
+            mock_chat.return_value = mock_chat_response
 
             response, status, gen_info = generate_description(
                 n_clicks=1,
@@ -1673,23 +1618,17 @@ class TestGenerateDescriptionWithParameters:
                 system_prompt="Test prompt",
                 user_prompt="Describe a room",
                 seed=42,
-                temperature=0.7,
-                top_k=40,
-                top_p=0.9,
-                num_ctx=4096,
-                num_predict=512,
+                temperature=DEFAULT_TEMPERATURE,
+                top_k=DEFAULT_TOP_K,
+                top_p=DEFAULT_TOP_P,
+                num_ctx=DEFAULT_NUM_CTX,
+                num_predict=DEFAULT_NUM_PREDICT,
                 template_id="__custom__",
                 target_words=DEFAULT_TARGET_WORDS,
             )
 
-        # Status should mention the seed for reproducibility
         assert "seed" in str(status).lower()
         assert "42" in str(status)
-
-
-# =============================================================================
-# Test toggle_params_collapse
-# =============================================================================
 
 
 class TestToggleParamsCollapse:
@@ -1731,7 +1670,7 @@ class TestHandleSeedControls:
 
     def test_random_checkbox_checked_sets_seed_minus_one(self):
         """Should set seed to -1 when random checkbox is checked."""
-        with patch("pipeworks_mud_mapper.callbacks.ollama_callbacks.ctx") as mock_ctx:
+        with patch("pipeworks_mud_mapper.callbacks.ollama_template_callbacks.ctx") as mock_ctx:
             mock_ctx.triggered_id = "ollama-seed-random-check"
 
             seed, random_checked = handle_seed_controls(
@@ -1746,7 +1685,7 @@ class TestHandleSeedControls:
 
     def test_random_checkbox_unchecked_sets_seed_zero(self):
         """Should set seed to 0 when random checkbox unchecked from -1."""
-        with patch("pipeworks_mud_mapper.callbacks.ollama_callbacks.ctx") as mock_ctx:
+        with patch("pipeworks_mud_mapper.callbacks.ollama_template_callbacks.ctx") as mock_ctx:
             mock_ctx.triggered_id = "ollama-seed-random-check"
 
             seed, random_checked = handle_seed_controls(
@@ -1761,7 +1700,7 @@ class TestHandleSeedControls:
 
     def test_random_checkbox_unchecked_keeps_current_seed(self):
         """Should keep current seed when unchecking if not -1."""
-        with patch("pipeworks_mud_mapper.callbacks.ollama_callbacks.ctx") as mock_ctx:
+        with patch("pipeworks_mud_mapper.callbacks.ollama_template_callbacks.ctx") as mock_ctx:
             mock_ctx.triggered_id = "ollama-seed-random-check"
 
             seed, random_checked = handle_seed_controls(
@@ -1776,7 +1715,7 @@ class TestHandleSeedControls:
 
     def test_increase_button_increments_seed(self):
         """Should increment seed when + button clicked."""
-        with patch("pipeworks_mud_mapper.callbacks.ollama_callbacks.ctx") as mock_ctx:
+        with patch("pipeworks_mud_mapper.callbacks.ollama_template_callbacks.ctx") as mock_ctx:
             mock_ctx.triggered_id = "ollama-seed-increase"
 
             seed, random_checked = handle_seed_controls(
@@ -1791,7 +1730,7 @@ class TestHandleSeedControls:
 
     def test_decrease_button_decrements_seed(self):
         """Should decrement seed when - button clicked."""
-        with patch("pipeworks_mud_mapper.callbacks.ollama_callbacks.ctx") as mock_ctx:
+        with patch("pipeworks_mud_mapper.callbacks.ollama_template_callbacks.ctx") as mock_ctx:
             mock_ctx.triggered_id = "ollama-seed-decrease"
 
             seed, random_checked = handle_seed_controls(
@@ -1806,7 +1745,7 @@ class TestHandleSeedControls:
 
     def test_decrease_button_stops_at_zero(self):
         """Should not go below 0 when decrementing."""
-        with patch("pipeworks_mud_mapper.callbacks.ollama_callbacks.ctx") as mock_ctx:
+        with patch("pipeworks_mud_mapper.callbacks.ollama_template_callbacks.ctx") as mock_ctx:
             mock_ctx.triggered_id = "ollama-seed-decrease"
 
             seed, random_checked = handle_seed_controls(
@@ -1821,7 +1760,7 @@ class TestHandleSeedControls:
 
     def test_buttons_ignored_in_random_mode(self):
         """Should not change seed when in random mode (seed=-1)."""
-        with patch("pipeworks_mud_mapper.callbacks.ollama_callbacks.ctx") as mock_ctx:
+        with patch("pipeworks_mud_mapper.callbacks.ollama_template_callbacks.ctx") as mock_ctx:
             mock_ctx.triggered_id = "ollama-seed-increase"
 
             seed, random_checked = handle_seed_controls(
@@ -1877,13 +1816,10 @@ class TestSeedIsolation:
         random.seed(42)
 
         # Now call generate_description with random seed
-        mock_response = MagicMock()
-        mock_response.json.return_value = mock_chat_response
-        mock_response.raise_for_status = MagicMock()
-
-        with patch("pipeworks_mud_mapper.callbacks.ollama_callbacks.httpx.Client") as mock_client:
-            mock_client.return_value.__enter__.return_value.post.return_value = mock_response
-
+        with patch(
+            "pipeworks_mud_mapper.callbacks.ollama_generation_callbacks.ollama_client.chat"
+        ) as mock_chat:
+            mock_chat.return_value = mock_chat_response
             generate_description(
                 n_clicks=1,
                 server_url="http://localhost:11434",
@@ -1920,13 +1856,10 @@ class TestSeedIsolation:
         random.seed(123)
 
         # Make multiple calls with random seed
-        mock_response = MagicMock()
-        mock_response.json.return_value = mock_chat_response
-        mock_response.raise_for_status = MagicMock()
-
-        with patch("pipeworks_mud_mapper.callbacks.ollama_callbacks.httpx.Client") as mock_client:
-            mock_client.return_value.__enter__.return_value.post.return_value = mock_response
-
+        with patch(
+            "pipeworks_mud_mapper.callbacks.ollama_generation_callbacks.ollama_client.chat"
+        ) as mock_chat:
+            mock_chat.return_value = mock_chat_response
             for _ in range(10):  # Multiple calls
                 generate_description(
                     n_clicks=1,

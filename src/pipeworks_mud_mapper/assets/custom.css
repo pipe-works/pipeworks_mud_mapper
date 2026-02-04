@@ -31,3 +31,15 @@
 .bi-hourglass-split.spinning {
     animation: spin 1.5s linear infinite;
 }
+
+/* =============================================================================
+ * File Browser Scroll Areas
+ * =============================================================================
+ * Keeps file lists from pushing the rest of the sidebar downward as they grow.
+ */
+
+.file-list-scroll {
+    max-height: 200px;
+    overflow-y: auto;
+    padding-right: 4px; /* Avoid text hiding beneath the scrollbar */
+}

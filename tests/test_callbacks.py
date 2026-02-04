@@ -48,8 +48,10 @@ from pipeworks_mud_mapper.callbacks.file_callbacks import (
     create_new_map,
     export_zone_to_file,
     handle_file_click,
+    load_dev_snapshot_files_list,
     load_map_files_list,
     open_new_map_modal,
+    render_dev_snapshot_list,
     render_file_list,
     save_map_to_file,
     update_save_status,
@@ -688,6 +690,23 @@ class TestFileCallbacks:
         assert "zone2.map.json" in result
         assert "other.json" not in result
 
+    def test_load_dev_snapshot_files_list(self, temp_maps_dir):
+        """load_dev_snapshot_files_list should return dev snapshot map files."""
+        # Create dev snapshot files in a temp directory.
+        (temp_maps_dir / "snapshot1.map.json").write_text("{}")
+        (temp_maps_dir / "snapshot2.map.json").write_text("{}")
+        (temp_maps_dir / "ignore.txt").write_text("nope")
+
+        with patch(
+            "pipeworks_mud_mapper.callbacks.file_callbacks.DEV_MAPS_DIR",
+            temp_maps_dir,
+        ):
+            result = load_dev_snapshot_files_list(1, None, None)
+
+        assert "snapshot1.map.json" in result
+        assert "snapshot2.map.json" in result
+        assert "ignore.txt" not in result
+
     def test_render_file_list_empty(self):
         """render_file_list should show message when no files."""
         result = render_file_list(files=[], selected_file=None)
@@ -708,11 +727,30 @@ class TestFileCallbacks:
         # Selected item should have different styling
         assert "bg-primary" in result[0].className
 
+    def test_render_dev_snapshot_list_empty(self):
+        """render_dev_snapshot_list should show message when no snapshots."""
+        result = render_dev_snapshot_list(files=[], selected_file=None)
+        assert len(result) == 1
+        assert "No dev snapshots" in str(result[0])
+
+    def test_render_dev_snapshot_list_with_files(self):
+        """render_dev_snapshot_list should render snapshot items."""
+        files = ["snap1.map.json", "snap2.map.json"]
+        result = render_dev_snapshot_list(files=files, selected_file=None)
+        assert len(result) == 2
+
+    def test_render_dev_snapshot_list_with_selection(self):
+        """render_dev_snapshot_list should highlight selected snapshot."""
+        files = ["snap1.map.json", "snap2.map.json"]
+        result = render_dev_snapshot_list(files=files, selected_file="snap1.map.json")
+        assert len(result) == 2
+        assert "bg-primary" in result[0].className
+
     def test_handle_file_click_no_clicks(self):
         """handle_file_click should return no_update when nothing clicked."""
         result = handle_file_click(
-            n_clicks_list=[0, 0],
-            files=["a.map.json", "b.map.json"],
+            map_clicks=[0, 0],
+            snapshot_clicks=[0, 0],
             current_file=None,
         )
         assert result == (no_update, no_update, no_update, no_update)
