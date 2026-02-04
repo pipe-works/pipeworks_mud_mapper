@@ -49,6 +49,7 @@ Component Dependencies
 
 import copy
 import re
+import time
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -66,6 +67,72 @@ DATA_DIR = Path(__file__).parent.parent.parent.parent / "data"
 MAPS_DIR = DATA_DIR / "maps"
 ZONES_DIR = DATA_DIR / "zones"
 DEV_MAPS_DIR = MAPS_DIR / "dev_snapshots"
+
+# =============================================================================
+# File Listing Cache
+# =============================================================================
+# These cache structures reduce repeated filesystem scans when callbacks
+# are triggered in quick succession (e.g., when snapshot status updates).
+# The cache is intentionally short-lived to keep the UI responsive while
+# avoiding expensive directory scans on slower disks.
+
+FILE_LIST_CACHE_TTL_SECONDS = 1.0
+_FILE_LIST_CACHE: dict[Path, tuple[float, list[Path]]] = {}
+
+
+def _get_cached_map_files(directory: Path, *, force_refresh: bool = False) -> list[Path]:
+    """Return cached file listings with a short TTL.
+
+    Parameters
+    ----------
+    directory : Path
+        Directory to list.
+    force_refresh : bool
+        When True, bypasses the cache and rescans immediately.
+
+    Returns
+    -------
+    list[Path]
+        List of map file paths.
+    """
+    # Monotonic clock avoids issues if system time changes.
+    now = time.monotonic()
+    # Pull cached tuple if we have seen this directory before.
+    cached = _FILE_LIST_CACHE.get(directory)
+
+    if cached and not force_refresh:
+        last_scan, files = cached
+        # Use cached listing if it is still within the TTL window.
+        if now - last_scan <= FILE_LIST_CACHE_TTL_SECONDS:
+            return files
+
+    # Refresh listing from disk and update cache timestamp.
+    files = list_map_files(directory)
+    _FILE_LIST_CACHE[directory] = (now, files)
+    return files
+
+
+# =============================================================================
+# Dev Snapshot Throttling
+# =============================================================================
+# Auto-snapshots can fire rapidly when users edit rooms or generate text.
+# This throttle prevents excessive disk writes while preserving author intent.
+
+DEV_SNAPSHOT_MIN_SECONDS = 0.75
+_LAST_SNAPSHOT_TS: dict[str, float] = {}
+
+
+def _should_throttle_snapshot(snapshot_key: str) -> bool:
+    """Return True if a snapshot was written too recently for this key."""
+    # Track last write time per snapshot key.
+    now = time.monotonic()
+    last = _LAST_SNAPSHOT_TS.get(snapshot_key)
+    # Bail out if we're still inside the cool-down period.
+    if last is not None and (now - last) < DEV_SNAPSHOT_MIN_SECONDS:
+        return True
+    # Record write time for next call and allow the snapshot.
+    _LAST_SNAPSHOT_TS[snapshot_key] = now
+    return False
 
 
 # =============================================================================
@@ -97,7 +164,8 @@ def load_map_files_list(_: int) -> list[str]:
     # Ensure maps directory exists
     MAPS_DIR.mkdir(parents=True, exist_ok=True)
 
-    files = list_map_files(MAPS_DIR)
+    # Use cached listing to minimize repeated disk reads.
+    files = _get_cached_map_files(MAPS_DIR)
     return [f.name for f in files]
 
 
@@ -133,8 +201,11 @@ def load_dev_snapshot_files_list(_: int, __: dict | None, ___: int | None) -> li
     # Ensure dev snapshot directory exists so the UI remains stable.
     DEV_MAPS_DIR.mkdir(parents=True, exist_ok=True)
 
+    # If a snapshot was just written, bypass the cache to show it immediately.
+    force_refresh = ctx.triggered_id in {"dev-snapshot-status", "save-map-btn"}
+
     # Collect dev snapshot map files and return their names for display.
-    files = list_map_files(DEV_MAPS_DIR)
+    files = _get_cached_map_files(DEV_MAPS_DIR, force_refresh=force_refresh)
     return [f.name for f in files]
 
 
@@ -619,116 +690,63 @@ def save_map_to_file(
 @callback(
     Output("dev-snapshot-status", "data"),
     Input("current-zone-data", "data"),
+    Input("ollama-last-generation-info", "data"),
     Input("dev-save-toggle", "value"),
+    State("ollama-response", "value"),
+    State("ollama-validation-info", "data"),
+    State("selected-room", "data"),
     State("selected-file", "data"),
     prevent_initial_call=True,
 )
-def auto_snapshot_map(
+def handle_dev_snapshotting(
     zone_data: dict | None,
+    generation_info: dict | None,
     dev_save_enabled: bool | None,
+    response_text: str | None,
+    validation_info: dict | None,
+    selected_room: str | None,
     selected_file: str | None,
 ) -> Any:
-    """Persist dev snapshots on every map change when toggled.
+    """Persist dev snapshots for both map changes and LLM generations.
 
-    Parameters
-    ----------
-    zone_data : dict | None
-        Current map data to snapshot.
-    selected_file : str | None
-        Active map file name (used for snapshot naming).
-    dev_save_enabled : bool | None
-        Toggle state for dev snapshots.
-    Returns
-    -------
-    dict | None
-        Snapshot metadata, or no_update when no snapshot is written.
+    This callback replaces the two separate snapshot callbacks to reduce
+    shared outputs and centralize throttle logic. It inspects the triggering
+    input to decide which snapshot path to execute.
     """
     # No zone data means there's nothing to snapshot.
-    # This can happen during initial load or if a map is cleared.
     if not zone_data:
         return no_update
 
+    # Normalize the toggle state (Dash checkbox may return list).
     if isinstance(dev_save_enabled, list):
+        # Checkbox component returns list; non-empty means enabled.
         dev_enabled = len(dev_save_enabled) > 0
     else:
+        # Toggle component returns bool-like value.
         dev_enabled = bool(dev_save_enabled)
 
     # Toggle is off - dev snapshots are disabled.
     if not dev_enabled:
         return no_update
 
-    from pipeworks_mud_mapper.models import MapFile
-
-    # Snapshot the current map state as-is (authoring truth).
-    # This path is used for any map change, not specifically LLM generations.
-    map_file = MapFile.from_dict(zone_data)
-    display_name = selected_file
-    if not display_name:
-        display_name = zone_data.get("id") or "unsaved_zone"
-    if display_name.endswith(".map.json"):
-        display_name = display_name[:-9]
-
-    DEV_MAPS_DIR.mkdir(parents=True, exist_ok=True)
-    timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S_%f")
-    snapshot_name = f"{display_name}_{timestamp}.map.json"
-    snapshot_path = DEV_MAPS_DIR / snapshot_name
-    zone_service.save_map_file(map_file, snapshot_path)
-
-    return {
-        "snapshot": snapshot_name,
-        "timestamp": timestamp,
-    }
-
-
-@callback(
-    Output("dev-snapshot-status", "data", allow_duplicate=True),
-    Input("ollama-last-generation-info", "data"),
-    State("ollama-response", "value"),
-    State("ollama-validation-info", "data"),
-    State("selected-room", "data"),
-    State("current-zone-data", "data"),
-    State("selected-file", "data"),
-    State("dev-save-toggle", "value"),
-    prevent_initial_call=True,
-)
-def auto_snapshot_on_generation(
-    generation_info: dict | None,
-    response_text: str | None,
-    validation_info: dict | None,
-    selected_room: str | None,
-    zone_data: dict | None,
-    selected_file: str | None,
-    dev_save_enabled: bool | None,
-) -> Any:
-    """Persist dev snapshots when a new Ollama generation completes.
-
-    This allows snapshotting even if the user doesn't apply the response
-    to a room description (current-zone-data remains unchanged).
-    """
-    # Require both a generation record and zone data.
-    # If a generation occurred but no map is loaded, we cannot snapshot.
-    if not generation_info or not zone_data:
-        return no_update
-
-    if isinstance(dev_save_enabled, list):
-        dev_enabled = len(dev_save_enabled) > 0
-    else:
-        dev_enabled = bool(dev_save_enabled)
-
-    # Toggle is off - do not write snapshots.
-    if not dev_enabled:
-        return no_update
+    # Identify what fired the callback to decide which snapshot path to run.
+    trigger = ctx.triggered_id
+    # Default to map-change snapshots.
+    trigger_key = "map"
+    if trigger == "ollama-last-generation-info":
+        # Mark this as a generation snapshot so we can set payload metadata.
+        trigger_key = "generation"
+        # If no generation metadata, there's nothing to snapshot for this path.
+        if not generation_info:
+            return no_update
 
     from pipeworks_mud_mapper.models import MapFile
 
-    # Use a copy so we can inject the latest LLM output without mutating live state.
-    # The live map should only change when the user explicitly clicks
-    # "Send to Description".
+    # Use a copy so we can inject LLM output without mutating live state.
+    # Start with a deep copy so the live UI state remains unchanged.
     snapshot_zone = copy.deepcopy(zone_data)
-    # If a room is selected and we have an LLM response, stage that data
-    # into the snapshot so it reflects "what was just generated", even if
-    # the author hasn't applied it yet.
-    if selected_room and response_text:
+    if trigger_key == "generation" and selected_room and response_text:
+        # Update only the selected room with the new description.
         rooms = dict(snapshot_zone.get("rooms", {}))
         if selected_room in rooms:
             updated_room = dict(rooms[selected_room])
@@ -736,7 +754,7 @@ def auto_snapshot_on_generation(
             updated_room["description"] = response_text.strip()
             # Attach generation metadata for reproducibility.
             updated_room["llm_generation"] = generation_info
-            # Attach validator output for review; if none, remove any stale value.
+            # Attach validator output for review; if none, remove stale value.
             if validation_info:
                 updated_room["description_validation"] = validation_info
             else:
@@ -744,24 +762,36 @@ def auto_snapshot_on_generation(
             rooms[selected_room] = updated_room
             snapshot_zone["rooms"] = rooms
 
-    map_file = MapFile.from_dict(snapshot_zone)
-    display_name = selected_file
-    if not display_name:
-        display_name = zone_data.get("id") or "unsaved_zone"
+    # Resolve a stable display name for snapshot filenames.
+    # Prefer selected file for naming, fall back to zone id or a default.
+    display_name = selected_file or zone_data.get("id") or "unsaved_zone"
     if display_name.endswith(".map.json"):
         display_name = display_name[:-9]
 
+    # Throttle snapshot writes to avoid excessive I/O.
+    # Use trigger + display name so map/generation snapshots are throttled separately.
+    snapshot_key = f"{trigger_key}:{display_name}"
+    if _should_throttle_snapshot(snapshot_key):
+        return no_update
+
+    # Ensure dev snapshots directory exists before writing.
     DEV_MAPS_DIR.mkdir(parents=True, exist_ok=True)
     timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S_%f")
     snapshot_name = f"{display_name}_{timestamp}.map.json"
     snapshot_path = DEV_MAPS_DIR / snapshot_name
-    zone_service.save_map_file(map_file, snapshot_path)
+    # Persist the snapshot map file to disk.
+    zone_service.save_map_file(MapFile.from_dict(snapshot_zone), snapshot_path)
 
-    return {
+    # Return metadata for downstream callbacks that refresh the list.
+    payload = {
         "snapshot": snapshot_name,
         "timestamp": timestamp,
-        "trigger": "generation",
     }
+    if trigger_key == "generation":
+        # Mark generation snapshot explicitly so UI can reflect the source.
+        payload["trigger"] = "generation"
+
+    return payload
 
 
 @callback(
