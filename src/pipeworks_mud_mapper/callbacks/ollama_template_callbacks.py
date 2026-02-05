@@ -10,7 +10,10 @@ from typing import Any
 from dash import Input, Output, State, callback, ctx, no_update
 
 from pipeworks_mud_mapper.services import template_service
-from pipeworks_mud_mapper.services.ollama_assets import load_prompt_prefixes
+from pipeworks_mud_mapper.services.ollama_assets import (
+    load_parameter_presets,
+    load_prompt_prefixes,
+)
 from pipeworks_mud_mapper.services.ollama_config import DEFAULT_TARGET_WORDS
 from pipeworks_mud_mapper.services.ollama_ui import status_ok, status_warning
 
@@ -61,6 +64,71 @@ def load_prompt_prefix_options(n_clicks: int) -> list[dict]:
         if isinstance(item, dict)
     ]
     return options
+
+
+@callback(
+    Output("ollama-params-preset-dropdown", "options"),
+    Input("ollama-refresh-models-btn", "n_clicks"),
+    prevent_initial_call=False,
+)
+def load_param_preset_options(n_clicks: int) -> list[dict]:
+    """Load parameter presets from JSON files."""
+    # Reload so authors can drop a new preset file in the directory
+    # and immediately see it after hitting refresh.
+    preset_data = load_parameter_presets(reload=True)
+    return [
+        {"label": item.get("label", item.get("value")), "value": item.get("value")}
+        for item in preset_data
+        if isinstance(item, dict)
+    ]
+
+
+@callback(
+    Output("ollama-target-words", "value"),
+    Output("ollama-temperature", "value"),
+    Output("ollama-top-p", "value"),
+    Output("ollama-top-k", "value"),
+    Output("ollama-num-predict", "value"),
+    Input("ollama-params-preset-apply", "n_clicks"),
+    State("ollama-params-preset-dropdown", "value"),
+    State("ollama-target-words", "value"),
+    State("ollama-temperature", "value"),
+    State("ollama-top-p", "value"),
+    State("ollama-top-k", "value"),
+    State("ollama-num-predict", "value"),
+    prevent_initial_call=True,
+)
+def apply_param_preset(
+    n_clicks: int,
+    preset_id: str | None,
+    target_words: int | None,
+    temperature: float | None,
+    top_p: float | None,
+    top_k: int | None,
+    num_predict: int | None,
+) -> tuple:
+    """Apply a parameter preset to the tuning controls."""
+    if not n_clicks or not preset_id:
+        return no_update, no_update, no_update, no_update, no_update
+
+    # Reload on apply to avoid stale files during iterative authoring.
+    preset_data = load_parameter_presets(reload=True)
+    preset = next(
+        (item for item in preset_data if isinstance(item, dict) and item.get("value") == preset_id),
+        None,
+    )
+    if not preset:
+        return no_update, no_update, no_update, no_update, no_update
+
+    return (
+        # Each field falls back to the current value if the preset omits it,
+        # keeping presets lightweight and allowing partial overrides.
+        int(preset.get("target_words", target_words or DEFAULT_TARGET_WORDS)),
+        float(preset.get("temperature", temperature if temperature is not None else 0.7)),
+        float(preset.get("top_p", top_p if top_p is not None else 0.9)),
+        int(preset.get("top_k", top_k if top_k is not None else 40)),
+        int(preset.get("num_predict", num_predict if num_predict is not None else 140)),
+    )
 
 
 @callback(

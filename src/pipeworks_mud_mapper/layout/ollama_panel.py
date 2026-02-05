@@ -693,6 +693,37 @@ def create_ollama_panel() -> dbc.Card:
                                                                                 "fontSize": "0.65rem"
                                                                             },
                                                                         ),
+                                                                        # Parameter presets are separate from prompt prefixes:
+                                                                        # they update numeric controls in one click to keep
+                                                                        # authors from retyping the same tuning values.
+                                                                        dbc.Row(
+                                                                            [
+                                                                                dbc.Col(
+                                                                                    dcc.Dropdown(
+                                                                                        id="ollama-params-preset-dropdown",
+                                                                                        options=[],
+                                                                                        placeholder="Parameter preset...",
+                                                                                        clearable=True,
+                                                                                        className="mt-1",
+                                                                                        style={
+                                                                                            "fontSize": "0.75rem",
+                                                                                        },
+                                                                                    ),
+                                                                                    width=8,
+                                                                                ),
+                                                                                dbc.Col(
+                                                                                    dbc.Button(
+                                                                                        "Apply",
+                                                                                        id="ollama-params-preset-apply",
+                                                                                        color="secondary",
+                                                                                        size="sm",
+                                                                                        className="mt-1 w-100",
+                                                                                    ),
+                                                                                    width=4,
+                                                                                ),
+                                                                            ],
+                                                                            className="g-1",
+                                                                        ),
                                                                     ],
                                                                     width=6,
                                                                 ),

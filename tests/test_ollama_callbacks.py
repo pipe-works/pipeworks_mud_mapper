@@ -67,12 +67,14 @@ import pytest
 from dash import no_update
 
 from pipeworks_mud_mapper.callbacks.ollama_callbacks import (
+    apply_param_preset,
     apply_prompt_prefix,
     copy_system_prompt,
     generate_description,
     handle_clipboard_copy,
     handle_seed_controls,
     handle_template_selection,
+    load_param_preset_options,
     load_prompt_prefix_options,
     load_template_options,
     populate_prompt_from_description,
@@ -1151,6 +1153,57 @@ class TestLoadTemplateOptions:
         result = load_template_options(n_clicks=0)
 
         assert len(result) >= 1
+
+
+class TestParamPresetCallbacks:
+    """Tests for parameter preset loading and application."""
+
+    def test_load_param_preset_options_returns_list(self):
+        """Should return a list of preset options."""
+        result = load_param_preset_options(n_clicks=0)
+        assert isinstance(result, list)
+
+    def test_apply_param_preset_no_selection(self):
+        """Should return no_update when no preset is selected."""
+        result = apply_param_preset(
+            n_clicks=1,
+            preset_id=None,
+            target_words=300,
+            temperature=0.7,
+            top_p=0.9,
+            top_k=40,
+            num_predict=140,
+        )
+        assert result == (no_update, no_update, no_update, no_update, no_update)
+
+    def test_apply_param_preset_updates_fields(self, monkeypatch):
+        """Should apply preset values to parameters."""
+        monkeypatch.setattr(
+            "pipeworks_mud_mapper.callbacks.ollama_template_callbacks.load_parameter_presets",
+            lambda reload=True: [
+                {
+                    "label": "Target 30 Words",
+                    "value": "target_30_words",
+                    "target_words": 30,
+                    "temperature": 0.4,
+                    "top_p": 0.7,
+                    "top_k": 20,
+                    "num_predict": 70,
+                }
+            ],
+        )
+
+        result = apply_param_preset(
+            n_clicks=1,
+            preset_id="target_30_words",
+            target_words=300,
+            temperature=0.7,
+            top_p=0.9,
+            top_k=40,
+            num_predict=140,
+        )
+
+        assert result == (30, 0.4, 0.7, 20, 70)
 
 
 class TestHandleTemplateSelection:
