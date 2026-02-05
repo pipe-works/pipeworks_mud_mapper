@@ -36,6 +36,7 @@ from pipeworks_mud_mapper.services import (
     create_new_map_file,
     export_zone,
     list_map_files,
+    list_zone_files,
     load_map_file,
     save_map_file,
     validate_all,
@@ -178,6 +179,21 @@ class TestZoneService:
         assert "alpha.map.json" in names
         assert "beta.map.json" in names
         assert "ignore.json" not in names
+
+    def test_list_zone_files_filters_extension(self, temp_dir):
+        """list_zone_files should return only *.json files."""
+        zones_dir = temp_dir / "zones"
+        zones_dir.mkdir(parents=True, exist_ok=True)
+        (zones_dir / "alpha.json").write_text("{}")
+        (zones_dir / "beta.json").write_text("{}")
+        (zones_dir / "ignore.map.json").write_text("{}")
+
+        results = list_zone_files(zones_dir)
+        names = [p.name for p in results]
+
+        assert "alpha.json" in names
+        assert "beta.json" in names
+        assert "ignore.map.json" not in names
 
     def test_load_map_file_preserves_exits(self, connected_map_file, temp_dir):
         """load_map_file should preserve room exits."""

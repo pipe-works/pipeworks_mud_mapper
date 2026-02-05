@@ -1,0 +1,69 @@
+"""Application configuration helpers.
+
+This module centralizes user-configurable settings loaded from config/server.ini.
+Defaults are used when the file is missing so the app remains runnable out of the box.
+"""
+
+from __future__ import annotations
+
+from configparser import ConfigParser
+from functools import lru_cache
+from pathlib import Path
+from typing import Final
+
+PROJECT_ROOT: Final[Path] = Path(__file__).parent.parent.parent.parent
+CONFIG_DIR: Final[Path] = PROJECT_ROOT / "config"
+SERVER_CONFIG_PATH: Final[Path] = CONFIG_DIR / "server.ini"
+
+DEFAULTS: Final[dict[str, dict[str, str]]] = {
+    "paths": {
+        "maps_dir": "data/maps",
+        "dev_snapshots_dir": "data/maps/dev_snapshots",
+        "zones_dir": "data/zones",
+    }
+}
+
+
+def _resolve_path(value: str) -> Path:
+    """Resolve a path from config, relative to the project root when needed."""
+    path = Path(value).expanduser()
+    if path.is_absolute():
+        return path
+    return PROJECT_ROOT / path
+
+
+def _load_config() -> ConfigParser:
+    """Load server.ini configuration with defaults applied."""
+    config = ConfigParser()
+    config.read_dict(DEFAULTS)
+    if SERVER_CONFIG_PATH.exists():
+        config.read(SERVER_CONFIG_PATH)
+    return config
+
+
+@lru_cache
+def get_path_settings() -> dict[str, Path]:
+    """Return configured filesystem paths used by the app.
+
+    Note: changes to config/server.ini require an app restart to take effect.
+    """
+    config = _load_config()
+    maps_dir = _resolve_path(config.get("paths", "maps_dir"))
+    dev_snapshots_dir = _resolve_path(config.get("paths", "dev_snapshots_dir"))
+    zones_dir = _resolve_path(config.get("paths", "zones_dir"))
+    return {
+        "maps_dir": maps_dir,
+        "dev_snapshots_dir": dev_snapshots_dir,
+        "zones_dir": zones_dir,
+    }
+
+
+def format_display_path(path: Path) -> str:
+    """Format a path for UI display (relative when possible, trailing slash)."""
+    try:
+        display = str(path.relative_to(PROJECT_ROOT))
+    except ValueError:
+        display = str(path)
+    if not display.endswith("/"):
+        display = f"{display}/"
+    return display

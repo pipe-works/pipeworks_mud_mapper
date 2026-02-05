@@ -84,6 +84,9 @@ Thumbs.db
 # Claude
 settings.local.json
 
+# Local server configuration
+config/server.ini
+
 # Sphinx documentation
 docs/build/
 docs/source/autoapi/

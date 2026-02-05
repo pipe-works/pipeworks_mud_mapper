@@ -94,7 +94,8 @@ def create_app_layout() -> dbc.Container:
             # -----------------------------------------------------------------
             # State Stores (invisible, hold application state)
             # -----------------------------------------------------------------
-            dcc.Store(id="zone-files-store", data=[]),  # List of file names
+            dcc.Store(id="zone-files-store", data=[]),  # List of map file names
+            dcc.Store(id="zones-files-store", data=[]),  # List of exported zone files
             # Dev snapshot list (data/maps/dev_snapshots) for the second file browser.
             dcc.Store(id="dev-snapshot-files-store", data=[]),
             dcc.Store(id="current-zone-data", data=None),  # Current zone dict
