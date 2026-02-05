@@ -3,7 +3,7 @@
 These tests cover:
 - Config defaults (shared constants)
 - UI status helpers (consistent markup)
-- Asset loading and cache behavior for prompt prefixes
+- Asset loading and cache behavior for prompt prefixes and parameter presets
 """
 
 from __future__ import annotations
@@ -69,7 +69,7 @@ class TestOllamaUiHelpers:
 
 
 class TestOllamaAssets:
-    """Tests for prompt prefix asset loading and caching."""
+    """Tests for prompt prefix and parameter preset loading/caching."""
 
     def test_load_prompt_prefixes_missing_file(self, tmp_path, monkeypatch):
         """Missing file should return an empty list."""
@@ -128,3 +128,52 @@ class TestOllamaAssets:
 
         result = ollama_assets.load_prompt_prefixes(reload=True)
         assert result == []
+
+    def test_load_parameter_presets_missing_dir(self, tmp_path, monkeypatch):
+        """Missing presets directory should return an empty list."""
+        missing_dir = tmp_path / "presets"
+        monkeypatch.setattr(ollama_assets, "_parameter_presets_dir", lambda: missing_dir)
+
+        result = ollama_assets.load_parameter_presets(reload=True)
+        assert result == []
+
+    def test_load_parameter_presets_invalid_json_ignored(self, tmp_path, monkeypatch):
+        """Invalid JSON files should be ignored."""
+        presets_dir = tmp_path / "presets"
+        presets_dir.mkdir()
+        (presets_dir / "bad.preset.json").write_text("{invalid")
+
+        monkeypatch.setattr(ollama_assets, "_parameter_presets_dir", lambda: presets_dir)
+
+        result = ollama_assets.load_parameter_presets(reload=True)
+        assert result == []
+
+    def test_load_parameter_presets_success_and_cache(self, tmp_path, monkeypatch):
+        """Valid presets should load and cache across calls."""
+        presets_dir = tmp_path / "presets"
+        presets_dir.mkdir()
+        preset_path = presets_dir / "short.preset.json"
+        preset_data = {
+            "label": "Target 30 Words",
+            "value": "target_30_words",
+            "target_words": 30,
+            "temperature": 0.4,
+            "top_p": 0.7,
+            "top_k": 20,
+            "num_predict": 70,
+        }
+        preset_path.write_text(json.dumps(preset_data))
+
+        monkeypatch.setattr(ollama_assets, "_parameter_presets_dir", lambda: presets_dir)
+
+        first = ollama_assets.load_parameter_presets(reload=True)
+        assert first == [preset_data]
+
+        preset_data["label"] = "Changed"
+        preset_path.write_text(json.dumps(preset_data))
+
+        cached = ollama_assets.load_parameter_presets(reload=False)
+        assert cached[0]["label"] == "Target 30 Words"
+
+        refreshed = ollama_assets.load_parameter_presets(reload=True)
+        assert refreshed[0]["label"] == "Changed"
