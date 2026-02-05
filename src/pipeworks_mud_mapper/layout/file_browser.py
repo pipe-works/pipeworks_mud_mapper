@@ -26,6 +26,7 @@ Component IDs
 - ``validate-zone-btn``: Button to run validation checks on the map
 - ``dev-save-toggle``: Toggle to save snapshots to data/maps/dev_snapshots
 - ``dev-snapshot-list-container``: Container div for dev snapshot file list
+- ``zone-files-list-container``: Container div for exported zone file list
 - ``status-indicator``: Text showing current file state (saved/unsaved)
 
 Notes
@@ -44,6 +45,11 @@ See Also
 
 import dash_bootstrap_components as dbc
 from dash import html
+
+from pipeworks_mud_mapper.services.app_config import (
+    format_display_path,
+    get_path_settings,
+)
 
 
 def create_file_browser() -> dbc.Card:
@@ -72,6 +78,12 @@ def create_file_browser() -> dbc.Card:
     - Selected file is highlighted with different styling
     - Uses monospace font for code-like appearance
     """
+    paths = get_path_settings()
+    maps_label = format_display_path(paths["maps_dir"])
+    dev_snapshots_label = format_display_path(paths["dev_snapshots_dir"])
+    zones_label = format_display_path(paths["zones_dir"])
+    dev_snapshots_toggle_label = f"Dev snapshots ({dev_snapshots_label.rstrip('/')})"
+
     return dbc.Card(
         [
             dbc.CardHeader("File Browser"),
@@ -81,7 +93,7 @@ def create_file_browser() -> dbc.Card:
                     html.Div(
                         [
                             html.I(className="bi bi-folder-fill me-2 text-warning"),
-                            html.Span("maps/"),
+                            html.Span(maps_label),
                         ],
                         className="mb-2",
                     ),
@@ -113,7 +125,7 @@ def create_file_browser() -> dbc.Card:
                     html.Div(
                         [
                             html.I(className="bi bi-folder-fill me-2 text-warning"),
-                            html.Span("dev_snapshots/"),
+                            html.Span(dev_snapshots_label),
                         ],
                         className="mb-2",
                     ),
@@ -124,9 +136,21 @@ def create_file_browser() -> dbc.Card:
                     ),
                     dbc.Checkbox(
                         id="dev-save-toggle",
-                        label="Dev snapshots (maps/dev_snapshots)",
+                        label=dev_snapshots_toggle_label,
                         value=False,
                         className="small mb-2",
+                    ),
+                    # Zones browser header and list (read-only export visibility)
+                    html.Div(
+                        [
+                            html.I(className="bi bi-folder-fill me-2 text-warning"),
+                            html.Span(zones_label),
+                        ],
+                        className="mb-2",
+                    ),
+                    html.Div(
+                        id="zone-files-list-container",
+                        className="ms-3 mb-3 file-list-scroll",
                     ),
                     # Export Zone JSON button
                     dbc.Button(

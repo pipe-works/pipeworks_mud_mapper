@@ -22,7 +22,8 @@ Component Dependencies
 ----------------------
 **Inputs:**
 - ``initial-load``: Interval trigger for startup
-- ``zone-files-store``: List of available files
+- ``zone-files-store``: List of available map files
+- ``zones-files-store``: List of available zone export files
 - ``dev-snapshot-files-store``: List of available dev snapshot files
 - ``selected-file``: Currently selected file
 - ``file-item`` (pattern): Clickable file list items
@@ -35,9 +36,10 @@ Component Dependencies
 
 **Outputs:**
 - ``zone-files-store``: Updated file list
-- ``file-list-container``: Rendered file list
+- ``file-list-container``: Rendered map file list
 - ``dev-snapshot-files-store``: Updated dev snapshot list
 - ``dev-snapshot-list-container``: Rendered dev snapshot list
+- ``zone-files-list-container``: Rendered zone export list
 - ``selected-file``: Selected file name
 - ``current-zone-data``: Loaded zone data
 - ``current-zone``: Zone name display
@@ -58,6 +60,7 @@ import dash_bootstrap_components as dbc
 from dash import ALL, Input, Output, State, callback, ctx, html, no_update
 
 from pipeworks_mud_mapper.services import zone_service
+from pipeworks_mud_mapper.services.app_config import get_path_settings
 from pipeworks_mud_mapper.services.io_queue import (
     forget_io_job,
     get_io_job_status,
@@ -65,11 +68,11 @@ from pipeworks_mud_mapper.services.io_queue import (
 )
 from pipeworks_mud_mapper.services.state import ZoneAction, apply_zone_action
 
-# Directory paths for two-file workflow
-DATA_DIR = Path(__file__).parent.parent.parent.parent / "data"
-MAPS_DIR = DATA_DIR / "maps"
-ZONES_DIR = DATA_DIR / "zones"
-DEV_MAPS_DIR = MAPS_DIR / "dev_snapshots"
+# Directory paths for two-file workflow (user-configurable via config/server.ini)
+PATHS = get_path_settings()
+MAPS_DIR = PATHS["maps_dir"]
+ZONES_DIR = PATHS["zones_dir"]
+DEV_MAPS_DIR = PATHS["dev_snapshots_dir"]
 
 # =============================================================================
 # File Listing Cache
@@ -186,6 +189,25 @@ def load_map_files_list(_: int) -> list[str]:
 
     # Use cached listing to minimize repeated disk reads.
     files = _get_cached_map_files(MAPS_DIR)
+    return [f.name for f in files]
+
+
+@callback(
+    Output("zones-files-store", "data"),
+    Input("initial-load", "n_intervals"),
+    Input("room-feedback-export", "data"),
+    prevent_initial_call=False,
+)
+def load_zone_files_list(_: int, __: dict | None) -> list[str]:
+    """Load list of exported zone files from the zones directory.
+
+    This callback is triggered on initial page load and after export
+    feedback updates so the list reflects newly exported files.
+    """
+    # Ensure the export directory exists so the UI list can render consistently.
+    ZONES_DIR.mkdir(parents=True, exist_ok=True)
+    # Zone files are game-truth JSON (no coordinates), so we list *.json.
+    files = zone_service.list_zone_files(ZONES_DIR)
     return [f.name for f in files]
 
 
@@ -334,6 +356,36 @@ def render_dev_snapshot_list(files: list[str], selected_file: str | None) -> lis
                 + (" bg-primary bg-opacity-10" if is_selected else ""),
                 style={"cursor": "pointer"},
                 n_clicks=0,
+            )
+        )
+    return items
+
+
+@callback(
+    Output("zone-files-list-container", "children"),
+    Input("zones-files-store", "data"),
+)
+def render_zone_files_list(files: list[str]) -> list:
+    """Render the exported zone file list."""
+    # Zones are display-only so users can see what has been exported.
+    if not files:
+        return [html.Span("No zone exports found", className="text-muted fst-italic")]
+
+    items = []
+    for filename in files:
+        icon_class = "bi bi-file-earmark-code me-2"
+
+        display_name = filename
+        if filename.endswith(".json"):
+            display_name = filename[:-5]
+
+        items.append(
+            html.Div(
+                [
+                    html.I(className=icon_class),
+                    html.Span(display_name),
+                ],
+                className="mb-1 p-1 rounded",
             )
         )
     return items
@@ -835,7 +887,7 @@ def export_zone_to_file(
 
     # Derive export path from map file name
     map_path = MAPS_DIR / selected_file
-    export_path = zone_service.get_suggested_export_path(map_path)
+    export_path = zone_service.get_suggested_export_path(map_path, zones_dir=ZONES_DIR)
 
     try:
         # Ensure zones directory exists

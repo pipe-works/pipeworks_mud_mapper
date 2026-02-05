@@ -68,7 +68,17 @@
       "name": "A Quiet Alley",
       "description": "A narrow, cobbled alleyway curves into a tight space, reeking of stale ale and damp earth.  The air is thick with the smell of rust and grease. You hear a distant clang from somewhere further down the alley.",
       "exits": {
-        "north": "spawn"
+        "north": "spawn",
+        "west": "lf_alley_small_pier"
+      },
+      "items": []
+    },
+    "lf_alley_small_pier": {
+      "id": "lf_alley_small_pier",
+      "name": "A Small Wooden Pier",
+      "description": "An old, small wooden pier juts out into a quiet harbor, the water a murky green sheen under the overcast sky.  A few gulls squawk overhead and a faint smell of brine hangs in the air.",
+      "exits": {
+        "east": "quiet_alley_s1"
       },
       "items": []
     }

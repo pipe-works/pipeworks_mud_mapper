@@ -321,7 +321,7 @@ def load_zone(path: Path) -> Zone:
     return cast(Zone, Zone.model_validate(data))
 
 
-def get_suggested_export_path(map_path: Path) -> Path:
+def get_suggested_export_path(map_path: Path, zones_dir: Path | None = None) -> Path:
     """Get the suggested zone export path for a map file.
 
     Converts ``data/maps/foo.map.json`` to ``data/zones/foo.json``.
@@ -330,6 +330,9 @@ def get_suggested_export_path(map_path: Path) -> Path:
     ----------
     map_path : Path
         Path to the map file.
+    zones_dir : Path | None
+        Optional override for the zones directory. When provided, exports
+        will be placed in this directory regardless of the map path.
 
     Returns
     -------
@@ -351,8 +354,11 @@ def get_suggested_export_path(map_path: Path) -> Path:
         base_name = map_path.stem
 
     # Construct zones path
-    # If in data/maps/, put in data/zones/
-    # Otherwise put in same directory with .json extension
+    # If zones_dir is provided, always place exports there.
+    if zones_dir is not None:
+        return Path(zones_dir) / f"{base_name}.json"
+
+    # If in data/maps/, put in data/zones/; otherwise use same directory.
     if "maps" in map_path.parts:
         parts = list(map_path.parts)
         maps_index = parts.index("maps")
@@ -371,3 +377,14 @@ def list_map_files(directory: Path) -> list[Path]:
     if not directory.exists():
         return []
     return sorted(directory.glob("*.map.json"))
+
+
+def list_zone_files(directory: Path) -> list[Path]:
+    """List zone files in a directory.
+
+    Returns sorted ``*.json`` files for the zone file browser.
+    """
+    directory = Path(directory)
+    if not directory.exists():
+        return []
+    return sorted(directory.glob("*.json"))

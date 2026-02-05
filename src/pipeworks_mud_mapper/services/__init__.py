@@ -72,6 +72,7 @@ from pipeworks_mud_mapper.services.zone_service import (
     create_new_map_file,
     export_zone,
     list_map_files,
+    list_zone_files,
     load_map_file,
     save_map_file,
 )
@@ -95,6 +96,7 @@ __all__ = [
     "compile_system_prompt",
     # Zone helpers
     "list_map_files",
+    "list_zone_files",
     # Description validator
     "load_validator_config",
     "validate_description",
