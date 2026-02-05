@@ -50,9 +50,11 @@ from pipeworks_mud_mapper.callbacks.file_callbacks import (
     handle_new_map_modal,
     load_dev_snapshot_files_list,
     load_map_files_list,
+    load_zone_files_list,
     poll_io_jobs,
     render_dev_snapshot_list,
     render_file_list,
+    render_zone_files_list,
     save_map_to_file,
     update_save_status,
 )
@@ -784,6 +786,21 @@ class TestFileCallbacks:
         assert "snapshot2.map.json" in result
         assert "ignore.txt" not in result
 
+    def test_load_zone_files_list(self, tmp_path):
+        """load_zone_files_list should return zone export files."""
+        zones_dir = tmp_path / "zones"
+        zones_dir.mkdir(parents=True, exist_ok=True)
+        (zones_dir / "zone1.json").write_text("{}")
+        (zones_dir / "zone2.json").write_text("{}")
+        (zones_dir / "ignore.map.json").write_text("{}")
+
+        with patch("pipeworks_mud_mapper.callbacks.file_callbacks.ZONES_DIR", zones_dir):
+            result = load_zone_files_list(1, None)
+
+        assert "zone1.json" in result
+        assert "zone2.json" in result
+        assert "ignore.map.json" not in result
+
     def test_render_file_list_empty(self):
         """render_file_list should show message when no files."""
         result = render_file_list(files=[], selected_file=None)
@@ -822,6 +839,18 @@ class TestFileCallbacks:
         result = render_dev_snapshot_list(files=files, selected_file="snap1.map.json")
         assert len(result) == 2
         assert "bg-primary" in result[0].className
+
+    def test_render_zone_files_list_empty(self):
+        """render_zone_files_list should show message when no files."""
+        result = render_zone_files_list(files=[])
+        assert len(result) == 1
+        assert "No zone exports" in str(result[0])
+
+    def test_render_zone_files_list_with_files(self):
+        """render_zone_files_list should render zone items."""
+        files = ["zone1.json", "zone2.json"]
+        result = render_zone_files_list(files=files)
+        assert len(result) == 2
 
     def test_handle_file_click_no_clicks(self):
         """handle_file_click should return no_update when nothing clicked."""

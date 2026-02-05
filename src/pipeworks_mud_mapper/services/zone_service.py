@@ -387,4 +387,4 @@ def list_zone_files(directory: Path) -> list[Path]:
     directory = Path(directory)
     if not directory.exists():
         return []
-    return sorted(directory.glob("*.json"))
+    return sorted(p for p in directory.glob("*.json") if not p.name.endswith(".map.json"))
