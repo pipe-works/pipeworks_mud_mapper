@@ -46,7 +46,7 @@ def test_update_workspace_db_empty() -> None:
         ),
     ):
         mock_stats.return_value = stats
-        summary, table = wc.update_workspace_db(1, None, None, None, None)
+        summary, table = wc.update_workspace_db(1, None, None, None, None, None, None)
 
     assert "DB Path" in str(summary)
     assert "0 maps" in str(summary)
@@ -84,7 +84,7 @@ def test_update_workspace_db_with_overview() -> None:
         ),
     ):
         mock_stats.return_value = stats
-        summary, table = wc.update_workspace_db(1, None, None, None, None)
+        summary, table = wc.update_workspace_db(1, None, None, None, None, None, None)
 
     assert "1 maps" in str(summary)
     assert isinstance(table, dbc.Table)

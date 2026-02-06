@@ -1,7 +1,7 @@
 """Action bar component for the bottom of the application.
 
 The action bar provides status information and debug output. Primary
-action buttons (Save, Export, Validate) are located in the file browser
+action buttons (Save, Export, Validate) live in the properties panel
 for better accessibility.
 
 Component Structure
@@ -21,7 +21,7 @@ panel which uses a simple stacked layout.
 
 See Also
 --------
-- ``file_browser.py``: Contains Save, Export, and Validate buttons
+- ``properties_panel.py``: Contains Save, Export, and Validate buttons
 - ``callbacks/file_callbacks.py``: Callbacks for save operations
 - ``callbacks/validation_callbacks.py``: Callbacks for validation
 """
@@ -43,7 +43,7 @@ def create_action_bar() -> html.Div:
     Notes
     -----
     This component was simplified after flexbox issues in v0.0.8.
-    The Save, Export, and Validate buttons now live in file_browser.py.
+    The Save, Export, and Validate buttons now live in properties_panel.py.
     """
     return html.Div(
         [

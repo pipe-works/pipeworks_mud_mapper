@@ -343,4 +343,7 @@ def create_properties_panel() -> html.Div:
         className="g-2 mb-3",
     )
 
-    return html.Div([file_properties, action_row, room_properties])
+    # Status indicator now lives near the action row for quick visibility.
+    status_indicator = html.Div(id="status-indicator", className="small mb-2")
+
+    return html.Div([file_properties, action_row, status_indicator, room_properties])

@@ -172,40 +172,24 @@ class TestFileBrowser:
         assert isinstance(result, html.Div)
 
     def test_create_file_browser_has_file_list_container(self):
-        """create_file_browser should include file-list-container."""
+        """create_file_browser should include zone-files-list-container."""
         result = create_file_browser()
-        assert component_has_id(result, "file-list-container")
+        assert component_has_id(result, "zone-files-list-container")
 
     def test_create_file_browser_has_header(self):
-        """create_file_browser should have 'Mapper DB' header."""
+        """create_file_browser should have 'Game Server Exports' header."""
         result = create_file_browser()
-        assert "Mapper DB" in str(result)
+        assert "Game Server Exports" in str(result)
 
     def test_create_file_browser_has_folder_icon(self):
-        """create_file_browser should show database with 'mapper.db' label."""
+        """create_file_browser should show export directory label."""
         result = create_file_browser()
-        assert "mapper.db" in str(result)
-
-    def test_create_file_browser_has_status_indicator(self):
-        """create_file_browser should include status-indicator."""
-        result = create_file_browser()
-        assert component_has_id(result, "status-indicator")
+        assert "zones" in str(result)
 
     def test_create_file_browser_has_exports_status_indicator(self):
         """create_file_browser should include exports-status-indicator."""
         result = create_file_browser()
         assert component_has_id(result, "exports-status-indicator")
-
-    def test_create_file_browser_status_default_text(self):
-        """create_file_browser status should show 'No map loaded' initially."""
-        result = create_file_browser()
-        status = find_component_by_id(result, "status-indicator")
-        assert "No map loaded" in str(status.children)
-
-    def test_create_file_browser_has_refresh_button(self):
-        """create_file_browser should include refresh control."""
-        result = create_file_browser()
-        assert component_has_id(result, "file-browser-refresh-btn")
 
 
 # =============================================================================
@@ -750,11 +734,6 @@ class TestMainLayout:
         result = create_app_layout()
         assert result.fluid is True
 
-    def test_create_app_layout_has_zone_files_store(self):
-        """create_app_layout should include zone-files-store."""
-        result = create_app_layout()
-        assert component_has_id(result, "zone-files-store")
-
     def test_create_app_layout_has_current_zone_data_store(self):
         """create_app_layout should include current-zone-data store."""
         result = create_app_layout()
@@ -819,9 +798,6 @@ class TestMainLayout:
         """create_app_layout stores should have appropriate defaults."""
         result = create_app_layout()
 
-        zone_files = find_component_by_id(result, "zone-files-store")
-        assert zone_files.data == []
-
         current_zone = find_component_by_id(result, "current-zone-data")
         assert current_zone.data is None
 
@@ -847,8 +823,7 @@ class TestMainLayout:
         ids = get_all_component_ids(result)
 
         # File browser IDs
-        assert "file-list-container" in ids
-        assert "new-map-btn" in ids
+        assert "zone-files-list-container" in ids
         assert "exports-status-indicator" in ids
 
         # Map panel IDs
@@ -861,6 +836,7 @@ class TestMainLayout:
         assert "exit-checkboxes" in ids
 
         # Action bar IDs
+        assert "new-map-btn" in ids
         assert "save-map-btn" in ids
         assert "export-zone-btn" in ids
         assert "status-indicator" in ids
@@ -885,11 +861,11 @@ class TestLayoutIntegration:
 
         # IDs used in file_callbacks.py
         file_callback_ids = [
-            "zone-files-store",
             "initial-load",
             "io-job-poll",
             "io-jobs",
-            "file-list-container",
+            "zones-files-store",
+            "zone-files-list-container",
             "selected-file",
             "current-zone-data",
             "current-zone",
@@ -1057,7 +1033,6 @@ class TestLayoutIntegration:
         result = create_app_layout()
 
         store_ids = [
-            "zone-files-store",
             "current-zone-data",
             "selected-file",
             "selected-room",

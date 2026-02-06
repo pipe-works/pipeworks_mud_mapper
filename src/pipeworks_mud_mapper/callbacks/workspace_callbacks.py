@@ -133,8 +133,10 @@ def _summarize_export(kind: str, result: list[str], output_dir: Path) -> str:
     Input("initial-load", "n_intervals"),
     Input("room-feedback-save", "data"),
     Input("room-feedback-export", "data"),
-    Input("file-browser-refresh-btn", "n_clicks"),
+    Input("new-map-create-btn", "n_clicks"),
+    Input("file-delete-confirm-btn", "n_clicks"),
     Input("workspace-db-refresh", "n_clicks"),
+    Input("selected-file", "data"),
     prevent_initial_call=False,
 )
 def update_workspace_db(
@@ -143,6 +145,8 @@ def update_workspace_db(
     ___: dict | None,
     ____: int | None,
     _____: int | None,
+    ______: int | None,
+    selected_file: str | None,
 ) -> tuple[Any, Any]:
     """Refresh SQLite DB summary and map overview table."""
     stats = map_db_service.get_db_stats(DB_PATH)
@@ -192,6 +196,7 @@ def update_workspace_db(
                         ]
                     )
                 ),
+                # Rows are clickable to load maps; the active map is highlighted.
                 html.Tbody(
                     [
                         html.Tr(
@@ -201,7 +206,12 @@ def update_workspace_db(
                                 html.Td(row["map_revision"]),
                                 html.Td(row["map_version"]),
                                 html.Td(_format_timestamp(row["updated_at"])),
-                            ]
+                            ],
+                            id={"type": "workspace-map-row", "map_id": row["map_id"]},
+                            className="table-primary" if row["map_id"] == selected_file else None,
+                            style={"cursor": "pointer"},
+                            n_clicks=0,
+                            title="Click to load map",
                         )
                         for row in overview
                     ]
