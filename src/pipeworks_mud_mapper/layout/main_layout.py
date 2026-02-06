@@ -104,6 +104,10 @@ def create_app_layout() -> dbc.Container:
             dcc.Store(id="has-unsaved-changes", data=False),  # Unsaved flag
             # Stores the most recent dev snapshot details (if enabled).
             dcc.Store(id="dev-snapshot-status", data=None),
+            dcc.Store(id="file-delete-pending", data=None),
+            # File selection metadata for the File Properties panel.
+            dcc.Store(id="selected-file-type", data=None),
+            dcc.Store(id="selected-zone-file", data=None),
             dcc.Store(id="delete-undo-data", data=None),  # Undo data for delete
             dcc.Store(id="validation-report", data=None),  # Validation report
             # Ollama generation metadata store - holds LLM generation info
@@ -183,6 +187,59 @@ def create_app_layout() -> dbc.Container:
                 is_open=False,
                 size="lg",  # Large modal to show full validation report
                 scrollable=True,  # Allow scrolling for long reports
+            ),
+            # File delete confirmation modal (maps/dev snapshots/zones)
+            dbc.Modal(
+                [
+                    dbc.ModalHeader(
+                        dbc.ModalTitle(
+                            [html.I(className="bi bi-trash me-2"), "Confirm File Delete"]
+                        ),
+                        close_button=True,
+                    ),
+                    dbc.ModalBody(id="file-delete-confirm-body"),
+                    dbc.ModalFooter(
+                        [
+                            dbc.Button(
+                                "Cancel",
+                                id="file-delete-cancel-btn",
+                                color="secondary",
+                                outline=True,
+                            ),
+                            dbc.Button(
+                                [html.I(className="bi bi-trash me-2"), "Delete File"],
+                                id="file-delete-confirm-btn",
+                                color="danger",
+                            ),
+                        ]
+                    ),
+                ],
+                id="file-delete-confirm-modal",
+                is_open=False,
+            ),
+            # Zone JSON modal - shows exported zone files for quick review
+            dbc.Modal(
+                [
+                    dbc.ModalHeader(
+                        dbc.ModalTitle(id="zone-json-modal-title"),
+                        close_button=True,
+                    ),
+                    dbc.ModalBody(id="zone-json-modal-body"),
+                    dbc.ModalFooter(
+                        [
+                            dbc.Button(
+                                "Close",
+                                id="zone-json-close-btn",
+                                color="secondary",
+                                outline=True,
+                            ),
+                        ]
+                    ),
+                ],
+                id="zone-json-modal",
+                is_open=False,
+                size="lg",
+                scrollable=True,
             ),
             # -----------------------------------------------------------------
             # Header Row

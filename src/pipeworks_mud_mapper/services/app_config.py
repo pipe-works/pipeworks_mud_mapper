@@ -67,3 +67,22 @@ def format_display_path(path: Path) -> str:
     if not display.endswith("/"):
         display = f"{display}/"
     return display
+
+
+def format_short_path(path: Path, *, keep_parts: int = 3) -> str:
+    """Return a shortened path for compact UI labels.
+
+    Uses relative path when possible; otherwise keeps the last few segments
+    with an ellipsis prefix to avoid overly wide labels.
+    """
+    try:
+        display = str(path.relative_to(PROJECT_ROOT))
+    except ValueError:
+        parts = path.parts
+        if len(parts) <= keep_parts:
+            display = str(path)
+        else:
+            display = "…/" + "/".join(parts[-keep_parts:])
+    if not display.endswith("/"):
+        display = f"{display}/"
+    return display
