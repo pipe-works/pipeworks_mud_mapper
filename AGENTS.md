@@ -3,9 +3,11 @@
 ## Project Structure & Module Organization
 - `src/pipeworks_mud_mapper/` holds the Dash app, models, services, callbacks, and UI components. Entry point: `app.py`.
 - `tests/` contains pytest suites (naming: `test_*.py`).
-- `data/maps/` stores authoring files (`*.map.json` with coordinates).
-- `data/zones/` stores exported game files (`*.json` without coordinates).
-- Policy: commit/push `data/maps/` and `data/zones/` when they change.
+- `data/maps/` stores **local** authoring data (moving to SQLite). Not tracked.
+- `data/zones/` stores **local** exports for testing. Not tracked.
+- `data/validation/` stores local validation reports. Not tracked.
+- Policy: do **not** commit/push anything under `data/maps/`, `data/zones/`, or `data/validation/`.
+- Canonical game-ready exports are tracked in the **server** repo, not here.
 - `docs/` contains Sphinx documentation sources.
 
 ## Build, Test, and Development Commands
