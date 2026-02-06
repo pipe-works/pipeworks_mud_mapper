@@ -98,6 +98,7 @@ def update_map_with_rooms(
     - Ground level (z=0) appears on top and receives clicks first
     - Exit lines only connect rooms on the same Z-level
     - Vertical exits (up/down) are shown as "U/D" labels near stacked rooms
+    - Cross-zone exits are shown as triangle markers near the source room
     - Hover text includes Z-level information for each room
 
     Examples

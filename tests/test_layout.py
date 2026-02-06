@@ -225,6 +225,21 @@ class TestMapPanel:
         result = create_map_panel()
         assert component_has_id(result, "workspace-room-table")
 
+    def test_create_map_panel_has_workspace_zone_exit_controls(self):
+        """create_map_panel should include workspace zone exit editor IDs."""
+        result = create_map_panel()
+        zone_exit_ids = [
+            "workspace-zone-exit-direction",
+            "workspace-zone-exit-zone",
+            "workspace-zone-exit-room",
+            "workspace-zone-exit-save",
+            "workspace-zone-exit-clear",
+            "workspace-zone-exit-table",
+            "workspace-zone-exit-feedback",
+        ]
+        for zone_exit_id in zone_exit_ids:
+            assert component_has_id(result, zone_exit_id)
+
     def test_create_map_panel_graph_is_dcc_graph(self):
         """create_map_panel map-graph should be a dcc.Graph."""
         result = create_map_panel()
@@ -934,6 +949,13 @@ class TestLayoutIntegration:
         exit_callback_ids = [
             "exit-checkboxes",
             "exit-feedback",
+            "workspace-zone-exit-direction",
+            "workspace-zone-exit-zone",
+            "workspace-zone-exit-room",
+            "workspace-zone-exit-save",
+            "workspace-zone-exit-clear",
+            "workspace-zone-exit-table",
+            "workspace-zone-exit-feedback",
         ]
         for id_ in exit_callback_ids:
             assert id_ in ids, f"Missing ID for exit callbacks: {id_}"

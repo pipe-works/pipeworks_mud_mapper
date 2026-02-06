@@ -212,6 +212,20 @@ class TestCreateMapFigureWithRooms:
         line_traces = [t for t in fig.data if t.mode == "lines"]
         assert len(line_traces) == 0
 
+    def test_zone_exit_markers_rendered(self):
+        """Cross-zone exits should render triangle markers."""
+        rooms = {
+            "room1": {
+                "id": "room1",
+                "name": "Room 1",
+                "coords": [0, 0, 0],
+                "exits": {"north": "other_zone:spawn"},
+            },
+        }
+        fig = create_map_figure_with_rooms(rooms=rooms)
+        marker_traces = [t for t in fig.data if t.mode == "markers" and t.hovertext is not None]
+        assert any("Zone exit" in str(t.hovertext) for t in marker_traces)
+
     def test_hover_text_includes_z_level(self):
         """Hover text includes Z-level information."""
         rooms = {
@@ -282,6 +296,84 @@ class TestCreateMapFigureWithRooms:
         labels = [a.text for a in fig.layout.annotations]
         # Should have U, D, or U/D label
         assert any(label in ["U", "D", "U/D"] for label in labels)
+
+    def test_vertical_exit_lines(self):
+        """Vertical exits should render dashed connector lines."""
+        rooms = {
+            "ground": {
+                "id": "ground",
+                "name": "Ground",
+                "coords": [0, 0, 0],
+                "exits": {"down": "basement"},
+            },
+            "basement": {
+                "id": "basement",
+                "name": "Basement",
+                "coords": [0, 0, -1],
+                "exits": {"up": "ground"},
+            },
+        }
+        fig = create_map_figure_with_rooms(rooms=rooms)
+
+        dashed_lines = [
+            trace
+            for trace in fig.data
+            if getattr(trace, "mode", None) == "lines"
+            and getattr(trace, "line", None)
+            and getattr(trace.line, "dash", None) == "dot"
+        ]
+
+        assert dashed_lines, "Expected dashed vertical exit line trace"
+
+    def test_vertical_exit_lines_skip_invalid_targets(self):
+        """Vertical exit rendering should skip invalid or same-level targets."""
+        rooms = {
+            "ground": {
+                "id": "ground",
+                "name": "Ground",
+                "coords": [0, 0, 0],
+                "exits": {"up": "missing"},
+            },
+            "loft": {
+                "id": "loft",
+                "name": "Loft",
+                "coords": [5, 0, 0],
+                "exits": {"down": "ground"},
+            },
+        }
+        fig = create_map_figure_with_rooms(rooms=rooms)
+
+        dashed_lines = [
+            trace
+            for trace in fig.data
+            if getattr(trace, "mode", None) == "lines"
+            and getattr(trace, "line", None)
+            and getattr(trace.line, "dash", None) == "dot"
+        ]
+
+        assert dashed_lines == []
+
+    def test_vertical_exit_lines_skip_cross_zone_targets(self):
+        """Cross-zone vertical exits should not draw dashed lines."""
+        rooms = {
+            "ground": {
+                "id": "ground",
+                "name": "Ground",
+                "coords": [0, 0, 0],
+                "exits": {"up": "other_zone:spawn"},
+            },
+        }
+        fig = create_map_figure_with_rooms(rooms=rooms)
+
+        dashed_lines = [
+            trace
+            for trace in fig.data
+            if getattr(trace, "mode", None) == "lines"
+            and getattr(trace, "line", None)
+            and getattr(trace.line, "dash", None) == "dot"
+        ]
+
+        assert dashed_lines == []
 
 
 class TestZLevelConstants:

@@ -39,6 +39,7 @@ from typing import Any
 from dash import Input, Output, State, callback, html, no_update
 
 from pipeworks_mud_mapper.models.room import DIRECTION_SHORT
+from pipeworks_mud_mapper.services.exit_utils import split_exits_by_scope
 from pipeworks_mud_mapper.services.state import ZoneAction, apply_zone_action
 
 
@@ -235,14 +236,16 @@ def populate_room_form(selected_room: str | None, zone_data: dict | None) -> tup
 
     coords = room.get("coords", [0, 0, 0])
 
-    # Build exit checkbox values from current exits
+    # Build exit checkbox values from local (same-zone) exits only.
+    # Cross-zone exits are rendered and edited in a separate section.
     exits = room.get("exits", {})
+    local_exits, _ = split_exits_by_scope(exits)
     exit_values = [
-        DIRECTION_SHORT[direction] for direction in exits if direction in DIRECTION_SHORT
+        DIRECTION_SHORT[direction] for direction in local_exits if direction in DIRECTION_SHORT
     ]
 
     # Build exit feedback showing targets
-    if exits:
+    if local_exits:
         exit_info = [
             html.Span(
                 [
@@ -251,7 +254,7 @@ def populate_room_form(selected_room: str | None, zone_data: dict | None) -> tup
                 ],
                 className="me-2",
             )
-            for direction, target in exits.items()
+            for direction, target in local_exits.items()
         ]
     else:
         exit_info = [html.Span(html.Small("No exits defined", className="text-muted"))]

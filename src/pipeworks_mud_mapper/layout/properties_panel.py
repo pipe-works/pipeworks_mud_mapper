@@ -53,6 +53,8 @@ See Also
 import dash_bootstrap_components as dbc
 from dash import dcc, html
 
+from pipeworks_mud_mapper.services.exit_utils import EXIT_SHORT_ORDER
+
 
 def create_properties_panel() -> html.Div:
     """Create the right column properties panels for file + room editing.
@@ -259,19 +261,15 @@ def create_properties_panel() -> html.Div:
                         className="mb-3",
                     ),
                     html.Hr(),
-                    # Exit checkboxes section
+                    # Exit checkboxes section (local exits only).
                     dbc.Label("Exits"),
                     html.Div(
                         [
                             dbc.Checklist(
                                 id="exit-checkboxes",
                                 options=[
-                                    {"label": "N", "value": "N"},
-                                    {"label": "E", "value": "E"},
-                                    {"label": "S", "value": "S"},
-                                    {"label": "W", "value": "W"},
-                                    {"label": "U", "value": "U"},
-                                    {"label": "D", "value": "D"},
+                                    {"label": direction, "value": direction}
+                                    for direction in EXIT_SHORT_ORDER
                                 ],
                                 value=[],
                                 inline=True,

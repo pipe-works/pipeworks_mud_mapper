@@ -15,6 +15,7 @@ from dash import ALL, Input, Output, State, callback, ctx, html, no_update
 from pipeworks_mud_mapper.models.room import DIRECTION_SHORT, Direction
 from pipeworks_mud_mapper.services import db_tools, map_db_service
 from pipeworks_mud_mapper.services.app_config import get_path_settings
+from pipeworks_mud_mapper.services.exit_utils import EXIT_SHORT_ORDER, split_exits_by_scope
 from pipeworks_mud_mapper.services.io_queue import (
     forget_io_job,
     get_io_job_status,
@@ -145,13 +146,39 @@ def _format_direction_list(directions: list[str]) -> str:
     return ", ".join(sorted(directions))
 
 
+def _format_zone_exit_list(exits: dict[Direction, str]) -> str:
+    """Format zone exits as direction=zone:room pairs for the room table.
+
+    We keep the display compact so the workspace table stays scannable while
+    still surfacing the full handoff target for troubleshooting.
+    """
+    if not exits:
+        return "—"
+
+    # Use the UI direction order first (N/E/S/W/U/D), then append any unexpected
+    # directions alphabetically to avoid hiding malformed data.
+    short_by_dir = {_short_direction(direction): target for direction, target in exits.items()}
+    ordered: list[str] = []
+
+    for short in EXIT_SHORT_ORDER:
+        target = short_by_dir.get(short)
+        if target:
+            ordered.append(f"{short}={target}")
+
+    for short in sorted(k for k in short_by_dir if k not in EXIT_SHORT_ORDER):
+        ordered.append(f"{short}={short_by_dir[short]}")
+
+    return ", ".join(ordered)
+
+
 def _build_entrance_map(rooms: dict[str, Any]) -> dict[str, list[str]]:
     """Build an entrance lookup for each room based on other rooms' exits."""
     entrances: dict[str, list[str]] = {room_id: [] for room_id in rooms}
 
     # Walk every exit edge and record the direction on the target room.
     for room in rooms.values():
-        for direction, target in room.exits.items():
+        local_exits, _ = split_exits_by_scope(room.exits)
+        for direction, target in local_exits.items():
             if target in entrances:
                 entrances[target].append(_short_direction(direction))
 
@@ -306,9 +333,11 @@ def update_workspace_room_table(
     for room_id in sorted(rooms):
         room = rooms[room_id]
         coords = room.coords
+        local_exits, zone_exits = split_exits_by_scope(room.exits)
         exits = _format_direction_list(
-            [_short_direction(direction) for direction in room.exits.keys()]
+            [_short_direction(direction) for direction in local_exits.keys()]
         )
+        zone_exit_summary = _format_zone_exit_list(zone_exits)
         incoming = _format_direction_list(entrances.get(room_id, []))
 
         rows.append(
@@ -320,6 +349,7 @@ def update_workspace_room_table(
                     html.Td(coords.y),
                     html.Td(coords.z),
                     html.Td(exits),
+                    html.Td(zone_exit_summary),
                     html.Td(incoming),
                 ],
                 id={"type": "workspace-room-row", "room_id": room_id},
@@ -341,6 +371,7 @@ def update_workspace_room_table(
                         html.Th("Y"),
                         html.Th("Z"),
                         html.Th("Exits"),
+                        html.Th("Zone Exits"),
                         html.Th("Entrances"),
                     ]
                 )
