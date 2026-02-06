@@ -967,6 +967,30 @@ class TestFileCallbacks:
 
         assert result == (False, no_update, no_update, no_update)
 
+    def test_handle_zone_file_click_no_clicks(self):
+        """handle_zone_file_click should no-op when no zone file clicked."""
+        with patch("pipeworks_mud_mapper.callbacks.file_callbacks.ctx") as mock_ctx:
+            mock_ctx.triggered_id = {"type": "zone-file-item", "filename": "zone.json"}
+            result = handle_zone_file_click(zone_clicks=[0], close_clicks=None)
+
+        assert result == (no_update, no_update, no_update, no_update)
+
+    def test_handle_zone_file_click_invalid_trigger(self):
+        """handle_zone_file_click should no-op when trigger is invalid."""
+        with patch("pipeworks_mud_mapper.callbacks.file_callbacks.ctx") as mock_ctx:
+            mock_ctx.triggered_id = "zone-file-item"
+            result = handle_zone_file_click(zone_clicks=[1], close_clicks=None)
+
+        assert result == (no_update, no_update, no_update, no_update)
+
+    def test_handle_zone_file_click_missing_filename(self):
+        """handle_zone_file_click should no-op when trigger has no filename."""
+        with patch("pipeworks_mud_mapper.callbacks.file_callbacks.ctx") as mock_ctx:
+            mock_ctx.triggered_id = {"type": "zone-file-item"}
+            result = handle_zone_file_click(zone_clicks=[1], close_clicks=None)
+
+        assert result == (no_update, no_update, no_update, no_update)
+
     def test_handle_zone_file_click_invalid_json(self, tmp_path):
         """handle_zone_file_click should show error for invalid JSON."""
         zone_path = tmp_path / "bad.json"
