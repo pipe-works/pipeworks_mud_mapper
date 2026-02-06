@@ -96,17 +96,12 @@ def create_app_layout() -> dbc.Container:
             # -----------------------------------------------------------------
             dcc.Store(id="zone-files-store", data=[]),  # List of map file names
             dcc.Store(id="zones-files-store", data=[]),  # List of exported zone files
-            # Dev snapshot list (data/maps/dev_snapshots) for the second file browser.
-            dcc.Store(id="dev-snapshot-files-store", data=[]),
             dcc.Store(id="current-zone-data", data=None),  # Current zone dict
             dcc.Store(id="selected-file", data=None),  # Selected file name
             dcc.Store(id="selected-room", data=None),  # Selected room ID
             dcc.Store(id="has-unsaved-changes", data=False),  # Unsaved flag
-            # Stores the most recent dev snapshot details (if enabled).
-            dcc.Store(id="dev-snapshot-status", data=None),
             dcc.Store(id="file-delete-pending", data=None),
             # File selection metadata for the File Properties panel.
-            dcc.Store(id="selected-file-type", data=None),
             dcc.Store(id="selected-zone-file", data=None),
             dcc.Store(id="delete-undo-data", data=None),  # Undo data for delete
             dcc.Store(id="validation-report", data=None),  # Validation report
@@ -120,7 +115,7 @@ def create_app_layout() -> dbc.Container:
             dcc.Store(id="ollama-validation-info", data=None),
             # In-memory validator history for the Ollama panel staging area.
             dcc.Store(id="ollama-validation-history", data=[]),
-            # Background I/O job tracking for saves/exports/snapshots.
+            # Background I/O job tracking for saves/exports.
             dcc.Store(id="io-jobs", data={"jobs": []}),
             # Interval to trigger initial file load
             dcc.Interval(id="initial-load", interval=100, max_intervals=1),
@@ -188,7 +183,7 @@ def create_app_layout() -> dbc.Container:
                 size="lg",  # Large modal to show full validation report
                 scrollable=True,  # Allow scrolling for long reports
             ),
-            # File delete confirmation modal (maps/dev snapshots/zones)
+            # File delete confirmation modal (maps/zones)
             dbc.Modal(
                 [
                     dbc.ModalHeader(

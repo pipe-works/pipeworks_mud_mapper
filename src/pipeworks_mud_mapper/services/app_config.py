@@ -18,7 +18,6 @@ SERVER_CONFIG_PATH: Final[Path] = CONFIG_DIR / "server.ini"
 DEFAULTS: Final[dict[str, dict[str, str]]] = {
     "paths": {
         "maps_dir": "data/maps",
-        "dev_snapshots_dir": "data/maps/dev_snapshots",
         "zones_dir": "data/zones",
     }
 }
@@ -49,11 +48,9 @@ def get_path_settings() -> dict[str, Path]:
     """
     config = _load_config()
     maps_dir = _resolve_path(config.get("paths", "maps_dir"))
-    dev_snapshots_dir = _resolve_path(config.get("paths", "dev_snapshots_dir"))
     zones_dir = _resolve_path(config.get("paths", "zones_dir"))
     return {
         "maps_dir": maps_dir,
-        "dev_snapshots_dir": dev_snapshots_dir,
         "zones_dir": zones_dir,
     }
 
