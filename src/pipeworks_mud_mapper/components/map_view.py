@@ -416,7 +416,8 @@ def create_map_figure_with_rooms(
     rooms: dict[str, dict] | None = None,
     visible_z_levels: list[int] | None = None,
     selected_room: str | None = None,
-    visual_offset: float = 1.0,
+    visual_offset_x: float = 1.0,
+    visual_offset_y: float = 1.0,
 ) -> go.Figure:
     """
     Create map figure with all rooms flattened onto a single 2D plane.
@@ -449,11 +450,10 @@ def create_map_figure_with_rooms(
         Room ID to highlight as selected (default: None).
         Selected room appears in red regardless of its Z-level.
 
-    visual_offset : float, optional
-        Scale factor for Z-level visual offset (default: 1.0). Controls how
-        much stacked rooms are visually separated. Use 0.0 for no offset
-        (rooms overlap at same position), or higher values like 2.5 for
-        more separation.
+    visual_offset_x : float, optional
+        X-axis scale factor for Z-level visual offset (default: 1.0).
+    visual_offset_y : float, optional
+        Y-axis scale factor for Z-level visual offset (default: 1.0).
 
     Returns
     -------
@@ -567,7 +567,7 @@ def create_map_figure_with_rooms(
     # Exit lines are drawn first so that room nodes appear on top. Only
     # cardinal directions (N/E/S/W) on the same Z-level get lines.
 
-    _draw_all_exit_lines(fig, rooms, visible_z_levels, visual_offset)
+    _draw_all_exit_lines(fig, rooms, visible_z_levels, visual_offset_x, visual_offset_y)
 
     # -------------------------------------------------------------------------
     # Draw Room Nodes (Second Layer, Z-Ordered)
@@ -583,7 +583,14 @@ def create_map_figure_with_rooms(
         if z_level not in rooms_by_z:
             continue
         # Draw all rooms at this Z-level as a single Scatter trace
-        _draw_rooms_at_z_level(fig, rooms_by_z[z_level], z_level, selected_room, visual_offset)
+        _draw_rooms_at_z_level(
+            fig,
+            rooms_by_z[z_level],
+            z_level,
+            selected_room,
+            visual_offset_x,
+            visual_offset_y,
+        )
 
     # -------------------------------------------------------------------------
     # Add Vertical Exit Labels (Third Layer)
@@ -602,7 +609,7 @@ def create_map_figure_with_rooms(
 
 
 def _get_visual_coords(
-    x: float, y: float, z: int, offset_scale: float = 1.0
+    x: float, y: float, z: int, offset_scale_x: float = 1.0, offset_scale_y: float = 1.0
 ) -> tuple[float, float]:
     """
     Apply visual offset to coordinates based on Z-level.
@@ -618,9 +625,10 @@ def _get_visual_coords(
         Logical Y coordinate.
     z : int
         Z-level (determines the offset to apply).
-    offset_scale : float, optional
-        Multiplier for the offset (default: 1.0). Set to 0.0 for no offset,
-        or higher values for more separation. The base offset is 0.4 units.
+    offset_scale_x : float, optional
+        X-axis multiplier for the offset (default: 1.0).
+    offset_scale_y : float, optional
+        Y-axis multiplier for the offset (default: 1.0).
 
     Returns
     -------
@@ -646,11 +654,14 @@ def _get_visual_coords(
 
     Custom offset scale::
 
-        >>> _get_visual_coords(5, 10, -1, offset_scale=2.5)
-        (4.0, 9.0)
+        >>> _get_visual_coords(5, 10, -1, offset_scale_x=2.5, offset_scale_y=1.5)
+        (4.0, 9.4)
     """
     base_offset = Z_LEVEL_VISUAL_OFFSET.get(z, (0.0, 0.0))
-    return (x + base_offset[0] * offset_scale, y + base_offset[1] * offset_scale)
+    return (
+        x + base_offset[0] * offset_scale_x,
+        y + base_offset[1] * offset_scale_y,
+    )
 
 
 def _group_rooms_by_z_level(
@@ -801,7 +812,8 @@ def _draw_all_exit_lines(
     fig: go.Figure,
     rooms: dict[str, dict],
     visible_z_levels: list[int],
-    visual_offset: float = 1.0,
+    visual_offset_x: float = 1.0,
+    visual_offset_y: float = 1.0,
 ) -> None:
     """
     Draw exit lines for cardinal directions (N/E/S/W).
@@ -818,8 +830,10 @@ def _draw_all_exit_lines(
         All rooms in the zone, keyed by room ID.
     visible_z_levels : list[int]
         Z-levels being displayed.
-    visual_offset : float, optional
-        Scale factor for Z-level visual offset (default: 1.0).
+    visual_offset_x : float, optional
+        X-axis scale factor for Z-level visual offset (default: 1.0).
+    visual_offset_y : float, optional
+        Y-axis scale factor for Z-level visual offset (default: 1.0).
 
     Returns
     -------
@@ -847,7 +861,7 @@ def _draw_all_exit_lines(
             continue
 
         # Apply visual offset for stacked room separation
-        x1, y1 = _get_visual_coords(coords[0], coords[1], z, visual_offset)
+        x1, y1 = _get_visual_coords(coords[0], coords[1], z, visual_offset_x, visual_offset_y)
 
         # Process each exit from this room
         for direction, target in room.get("exits", {}).items():
@@ -880,7 +894,13 @@ def _draw_all_exit_lines(
                 continue
 
             # Apply visual offset for stacked room separation
-            x2, y2 = _get_visual_coords(target_coords[0], target_coords[1], target_z, visual_offset)
+            x2, y2 = _get_visual_coords(
+                target_coords[0],
+                target_coords[1],
+                target_z,
+                visual_offset_x,
+                visual_offset_y,
+            )
 
             # Add line trace connecting the rooms
             fig.add_trace(
@@ -900,7 +920,8 @@ def _draw_rooms_at_z_level(
     rooms_at_level: dict[str, dict],
     z_level: int,
     selected_room: str | None,
-    visual_offset: float = 1.0,
+    visual_offset_x: float = 1.0,
+    visual_offset_y: float = 1.0,
 ) -> None:
     """
     Draw all rooms at a specific Z-level as a single Scatter trace.
@@ -918,8 +939,10 @@ def _draw_rooms_at_z_level(
         The Z-level being drawn (used for styling lookup).
     selected_room : str | None
         ID of the selected room (will be colored red).
-    visual_offset : float, optional
-        Scale factor for Z-level visual offset (default: 1.0).
+    visual_offset_x : float, optional
+        X-axis scale factor for Z-level visual offset (default: 1.0).
+    visual_offset_y : float, optional
+        Y-axis scale factor for Z-level visual offset (default: 1.0).
 
     Returns
     -------
@@ -951,7 +974,13 @@ def _draw_rooms_at_z_level(
     for room_id, room in rooms_at_level.items():
         coords = room.get("coords", [0, 0, 0])
         # Apply visual offset based on Z-level so stacked rooms don't overlap
-        visual_x, visual_y = _get_visual_coords(coords[0], coords[1], z_level, visual_offset)
+        visual_x, visual_y = _get_visual_coords(
+            coords[0],
+            coords[1],
+            z_level,
+            visual_offset_x,
+            visual_offset_y,
+        )
         x_coords.append(visual_x)
         y_coords.append(visual_y)
 

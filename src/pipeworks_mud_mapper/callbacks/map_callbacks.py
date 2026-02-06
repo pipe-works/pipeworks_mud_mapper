@@ -55,13 +55,15 @@ from pipeworks_mud_mapper.components.map_view import (
     Input("current-zone-data", "data"),
     Input("z-level-filter", "value"),
     Input("selected-room", "data"),
-    Input("z-level-offset", "value"),
+    Input("z-level-offset-x", "value"),
+    Input("z-level-offset-y", "value"),
 )
 def update_map_with_rooms(
     zone_data: dict | None,
     visible_z_levels: list[int],
     selected_room: str | None,
-    visual_offset: float,
+    visual_offset_x: float | None,
+    visual_offset_y: float | None,
 ) -> Any:
     """Update the map figure when zone data, visibility, or selection changes.
 
@@ -78,9 +80,12 @@ def update_map_with_rooms(
     selected_room : str | None
         Currently selected room ID, or None. Selected room is highlighted
         in red regardless of its Z-level.
-    visual_offset : float
-        Scale factor for Z-level visual offset. Controls how much stacked
-        rooms are visually separated. 0 = no offset, higher = more separation.
+    visual_offset_x : float | None
+        X-axis scale factor for Z-level visual offset. Controls horizontal
+        separation of stacked rooms.
+    visual_offset_y : float | None
+        Y-axis scale factor for Z-level visual offset. Controls vertical
+        separation of stacked rooms.
 
     Returns
     -------
@@ -115,11 +120,17 @@ def update_map_with_rooms(
 
     # Get rooms from zone data and render with visibility filter
     rooms = zone_data.get("rooms", {})
+    if visual_offset_x is None:
+        visual_offset_x = 0.4
+    if visual_offset_y is None:
+        visual_offset_y = 0.4
+
     return create_map_figure_with_rooms(
         rooms=rooms,
         visible_z_levels=visible_z_levels,
         selected_room=selected_room,
-        visual_offset=visual_offset,
+        visual_offset_x=visual_offset_x,
+        visual_offset_y=visual_offset_y,
     )
 
 
@@ -223,50 +234,67 @@ def handle_map_click(
     return no_update
 
 
+def _adjust_offset_value(
+    triggered_id: str | None,
+    current_value: float | None,
+    *,
+    decrease_id: str,
+    increase_id: str,
+    step: float = 0.1,
+    min_value: float = -5.0,
+    max_value: float = 5.0,
+) -> float | Any:
+    """Adjust an offset value using +/- button identifiers."""
+    if current_value is None:
+        current_value = 0.4
+
+    if triggered_id == decrease_id:
+        new_value = max(min_value, current_value - step)
+    elif triggered_id == increase_id:
+        new_value = min(max_value, current_value + step)
+    else:
+        return no_update
+
+    return round(new_value, 1)
+
+
 @callback(
-    Output("z-level-offset", "value"),
-    Input("z-level-offset-decrease", "n_clicks"),
-    Input("z-level-offset-increase", "n_clicks"),
-    State("z-level-offset", "value"),
+    Output("z-level-offset-x", "value"),
+    Input("z-level-offset-x-decrease", "n_clicks"),
+    Input("z-level-offset-x-increase", "n_clicks"),
+    State("z-level-offset-x", "value"),
     prevent_initial_call=True,
 )
-def adjust_z_level_offset(
+def adjust_z_level_offset_x(
     decrease_clicks: int | None,
     increase_clicks: int | None,
     current_value: float | None,
 ) -> Any:
-    """Adjust the Z-level visual offset via +/- buttons.
+    """Adjust the X-axis visual offset via +/- buttons."""
+    return _adjust_offset_value(
+        ctx.triggered_id,
+        current_value,
+        decrease_id="z-level-offset-x-decrease",
+        increase_id="z-level-offset-x-increase",
+    )
 
-    Increments or decrements the offset value by 0.1 when the
-    corresponding button is clicked, clamped to [0, 5] range.
 
-    Parameters
-    ----------
-    decrease_clicks : int | None
-        Number of times the decrease button was clicked.
-    increase_clicks : int | None
-        Number of times the increase button was clicked.
-    current_value : float | None
-        Current offset value from the input field.
-
-    Returns
-    -------
-    float | no_update
-        New offset value after adjustment, or no_update if no button triggered.
-    """
-    # Default to 0.4 if no current value
-    if current_value is None:
-        current_value = 0.4
-
-    # Determine which button was clicked
-    triggered_id = ctx.triggered_id
-
-    if triggered_id == "z-level-offset-decrease":
-        new_value = max(0.0, current_value - 0.1)
-    elif triggered_id == "z-level-offset-increase":
-        new_value = min(5.0, current_value + 0.1)
-    else:
-        return no_update
-
-    # Round to avoid floating point precision issues
-    return round(new_value, 1)
+@callback(
+    Output("z-level-offset-y", "value"),
+    Input("z-level-offset-y-decrease", "n_clicks"),
+    Input("z-level-offset-y-increase", "n_clicks"),
+    State("z-level-offset-y", "value"),
+    prevent_initial_call=True,
+)
+def adjust_z_level_offset_y(
+    decrease_clicks: int | None,
+    increase_clicks: int | None,
+    current_value: float | None,
+) -> Any:
+    """Adjust the Y-axis visual offset via +/- buttons."""
+    return _adjust_offset_value(
+        ctx.triggered_id,
+        current_value,
+        decrease_id="z-level-offset-y-decrease",
+        increase_id="z-level-offset-y-increase",
+    )
