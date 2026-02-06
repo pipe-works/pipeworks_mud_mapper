@@ -172,9 +172,9 @@ class TestFileBrowser:
     """Tests for file_browser module."""
 
     def test_create_file_browser_returns_card(self):
-        """create_file_browser should return a dbc.Card."""
+        """create_file_browser should return a layout container."""
         result = create_file_browser()
-        assert isinstance(result, dbc.Card)
+        assert isinstance(result, html.Div)
 
     def test_create_file_browser_has_file_list_container(self):
         """create_file_browser should include file-list-container."""
@@ -186,57 +186,20 @@ class TestFileBrowser:
         result = create_file_browser()
         assert component_has_id(result, "dev-snapshot-list-container")
 
-    def test_create_file_browser_has_new_map_button(self):
-        """create_file_browser should include new-map-btn."""
-        result = create_file_browser()
-        assert component_has_id(result, "new-map-btn")
-
     def test_create_file_browser_has_header(self):
-        """create_file_browser should have 'File Browser' header."""
+        """create_file_browser should have 'Mapper Files' header."""
         result = create_file_browser()
-        # Card should have CardHeader as first child
-        assert isinstance(result.children[0], dbc.CardHeader)
-        assert "File Browser" in str(result.children[0].children)
+        assert "Mapper Files" in str(result)
 
     def test_create_file_browser_has_folder_icon(self):
         """create_file_browser should show folder with 'maps/' label."""
         result = create_file_browser()
-        card_body = result.children[1]  # CardBody
-        # Should contain "maps/" text
-        assert "maps/" in str(card_body.children)
-
-    def test_create_file_browser_new_map_button_style(self):
-        """create_file_browser new-map-btn should be secondary outline."""
-        result = create_file_browser()
-        new_map_btn = find_component_by_id(result, "new-map-btn")
-        assert new_map_btn.color == "secondary"
-        assert new_map_btn.outline is True
-
-    def test_create_file_browser_has_save_button(self):
-        """create_file_browser should include save-map-btn."""
-        result = create_file_browser()
-        assert component_has_id(result, "save-map-btn")
-
-    def test_create_file_browser_has_export_button(self):
-        """create_file_browser should include export-zone-btn."""
-        result = create_file_browser()
-        assert component_has_id(result, "export-zone-btn")
+        assert "maps/" in str(result)
 
     def test_create_file_browser_has_status_indicator(self):
         """create_file_browser should include status-indicator."""
         result = create_file_browser()
         assert component_has_id(result, "status-indicator")
-
-    def test_create_file_browser_buttons_initially_disabled(self):
-        """create_file_browser save/export/validate buttons should start disabled."""
-        result = create_file_browser()
-        save_btn = find_component_by_id(result, "save-map-btn")
-        export_btn = find_component_by_id(result, "export-zone-btn")
-        validate_btn = find_component_by_id(result, "validate-zone-btn")
-
-        assert save_btn.disabled is True
-        assert export_btn.disabled is True
-        assert validate_btn.disabled is True
 
     def test_create_file_browser_status_default_text(self):
         """create_file_browser status should show 'No file loaded' initially."""
@@ -244,17 +207,10 @@ class TestFileBrowser:
         status = find_component_by_id(result, "status-indicator")
         assert "No file loaded" in str(status.children)
 
-    def test_create_file_browser_has_validate_button(self):
-        """create_file_browser should include validate-zone-btn."""
+    def test_create_file_browser_has_refresh_button(self):
+        """create_file_browser should include refresh control."""
         result = create_file_browser()
-        assert component_has_id(result, "validate-zone-btn")
-
-    def test_create_file_browser_validate_button_style(self):
-        """create_file_browser validate-zone-btn should be info outline."""
-        result = create_file_browser()
-        validate_btn = find_component_by_id(result, "validate-zone-btn")
-        assert validate_btn.color == "info"
-        assert validate_btn.outline is True
+        assert component_has_id(result, "file-browser-refresh-btn")
 
 
 # =============================================================================
@@ -336,9 +292,35 @@ class TestPropertiesPanel:
     """Tests for properties_panel module."""
 
     def test_create_properties_panel_returns_card(self):
-        """create_properties_panel should return a dbc.Card."""
+        """create_properties_panel should return a container."""
         result = create_properties_panel()
-        assert isinstance(result, dbc.Card)
+        assert isinstance(result, html.Div)
+
+    def test_create_properties_panel_has_file_properties(self):
+        """create_properties_panel should include file properties panel."""
+        result = create_properties_panel()
+        assert component_has_id(result, "file-properties-delete-btn")
+        assert component_has_id(result, "file-properties-name")
+        assert component_has_id(result, "file-properties-type")
+
+    def test_create_properties_panel_has_action_buttons(self):
+        """create_properties_panel should include file action buttons."""
+        result = create_properties_panel()
+        assert component_has_id(result, "new-map-btn")
+        assert component_has_id(result, "save-map-btn")
+        assert component_has_id(result, "validate-zone-btn")
+        assert component_has_id(result, "export-zone-btn")
+
+    def test_create_properties_panel_action_buttons_initial_state(self):
+        """create_properties_panel save/export/validate buttons should start disabled."""
+        result = create_properties_panel()
+        save_btn = find_component_by_id(result, "save-map-btn")
+        export_btn = find_component_by_id(result, "export-zone-btn")
+        validate_btn = find_component_by_id(result, "validate-zone-btn")
+
+        assert save_btn.disabled is True
+        assert export_btn.disabled is True
+        assert validate_btn.disabled is True
 
     def test_create_properties_panel_has_room_id_input(self):
         """create_properties_panel should include room-id input."""
@@ -441,8 +423,8 @@ class TestPropertiesPanel:
     def test_create_properties_panel_has_header(self):
         """create_properties_panel should have 'Room Properties' header."""
         result = create_properties_panel()
-        assert isinstance(result.children[0], dbc.CardHeader)
-        assert "Room Properties" in str(result.children[0].children)
+        assert "File Properties" in str(result)
+        assert "Room Properties" in str(result)
 
 
 # =============================================================================
