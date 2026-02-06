@@ -69,6 +69,7 @@ north/south - they represent vertical traversal (stairs, ladders, trapdoors).
 
 from pipeworks_mud_mapper.models.description_validation import DescriptionValidationInfo
 from pipeworks_mud_mapper.models.map_file import MapFile
+from pipeworks_mud_mapper.models.metadata import ExportedFrom, MapMetadata, ZoneMetadata
 from pipeworks_mud_mapper.models.ollama_generation import OllamaGenerationInfo
 from pipeworks_mud_mapper.models.room import Coords, Direction, MapRoom, Room
 from pipeworks_mud_mapper.models.template import (
@@ -87,6 +88,9 @@ __all__ = [
     "Room",
     "Zone",
     "MapFile",
+    "MapMetadata",
+    "ZoneMetadata",
+    "ExportedFrom",
     # Ollama template models
     "OllamaTemplate",
     "TemplateTheme",

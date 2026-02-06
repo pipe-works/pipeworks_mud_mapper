@@ -157,6 +157,15 @@ class TestZoneService:
         assert loaded.name == simple_map_file.name
         assert "spawn" in loaded.rooms
         assert loaded.rooms["spawn"].coords == Coords(x=0, y=0, z=0)
+        assert loaded.metadata.map_revision == 1
+
+    def test_save_map_file_bumps_revision(self, simple_map_file, temp_dir):
+        """save_map_file should increment map_revision by default."""
+        path = temp_dir / "test.map.json"
+        assert simple_map_file.metadata.map_revision == 0
+
+        save_map_file(simple_map_file, path)
+        assert simple_map_file.metadata.map_revision == 1
 
     def test_save_creates_parent_directories(self, simple_map_file, temp_dir):
         """save_map_file should create parent directories if needed."""
@@ -223,6 +232,22 @@ class TestZoneService:
 
         content = json.loads(zone_path.read_text())
         assert content["rooms"]["spawn"]["exits"]["north"] == "hallway"
+
+    def test_export_zone_adds_metadata(self, simple_map_file, temp_dir):
+        """export_zone should include schema_version and exported_from metadata."""
+        simple_map_file.metadata.map_version = "3"
+        simple_map_file.metadata.map_revision = 7
+
+        zone_path = temp_dir / "test.json"
+        export_zone(simple_map_file, zone_path)
+
+        content = json.loads(zone_path.read_text())
+        assert content["metadata"]["schema_version"] == "0.1.0"
+        exported_from = content["metadata"]["exported_from"]
+        assert exported_from["map_id"] == simple_map_file.id
+        assert exported_from["map_version"] == "3"
+        assert exported_from["map_revision"] == 7
+        assert exported_from["exporter"].startswith("pipeworks_mud_mapper")
 
     def test_export_zone_strips_llm_generation(self, simple_map_file, temp_dir):
         """export_zone should strip llm_generation metadata.

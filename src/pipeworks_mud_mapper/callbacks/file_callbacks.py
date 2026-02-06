@@ -119,13 +119,28 @@ def _room_feedback_payload(content: Any) -> dict[str, Any]:
 
 
 def _save_map_job(map_file: Any, file_path: Path) -> None:
-    """Persist a map file in a background thread."""
-    zone_service.save_map_file(map_file, file_path)
+    """Persist a map file in a background thread.
+
+    Revision bumps happen in the UI callback so the in-memory state stays
+    consistent with what gets written to disk.
+    """
+    zone_service.save_map_file(map_file, file_path, bump_revision=False)
 
 
-def _export_zone_job(map_file: Any, export_path: Path) -> None:
-    """Export a zone file in a background thread."""
-    zone_service.export_zone(map_file, export_path)
+def _export_zone_job(
+    export_map: Any,
+    export_path: Path,
+    map_path: Path,
+    updated_map: Any,
+) -> None:
+    """Export a zone file and persist updated map metadata in the background.
+
+    The export uses the pre-bump map metadata for provenance. After the zone
+    is written, the updated map (with incremented map_version) is saved back
+    to disk without touching map_revision.
+    """
+    zone_service.export_zone(export_map, export_path)
+    zone_service.save_map_file(updated_map, map_path, bump_revision=False)
 
 
 # =============================================================================
@@ -724,6 +739,7 @@ def update_save_status(has_unsaved: bool, selected_file: str | None) -> tuple:
     Output("has-unsaved-changes", "data", allow_duplicate=True),
     Output("room-feedback-save", "data"),
     Output("io-jobs", "data", allow_duplicate=True),
+    Output("current-zone-data", "data", allow_duplicate=True),
     Input("save-map-btn", "n_clicks"),
     State("current-zone-data", "data"),
     State("selected-file", "data"),
@@ -749,12 +765,12 @@ def save_map_to_file(
     Returns
     -------
     tuple
-        (unsaved_flag, feedback_alert).
+        (unsaved_flag, feedback_alert, jobs, updated_zone_data).
         On success: False and success message.
         On error: no_update and error message.
     """
     if not n_clicks or not zone_data or not selected_file:
-        return no_update, no_update, no_update
+        return no_update, no_update, no_update, no_update
 
     file_path = MAPS_DIR / selected_file
     try:
@@ -766,6 +782,10 @@ def save_map_to_file(
         display_name = selected_file
         if selected_file.endswith(".map.json"):
             display_name = selected_file[:-9]
+
+        # Increment revision on every explicit save to track authoring history.
+        map_file.bump_revision()
+        updated_zone_data = map_file.to_dict_with_list_coords()
 
         job_id = submit_io_job(_save_map_job, map_file, file_path)
         jobs = list((io_jobs or {}).get("jobs", []))
@@ -783,19 +803,20 @@ def save_map_to_file(
             className="mb-0 py-2",
             duration=3000,
         )
-        return True, _room_feedback_payload(feedback), {"jobs": jobs}
+        return True, _room_feedback_payload(feedback), {"jobs": jobs}, updated_zone_data
     except Exception as e:
         feedback = dbc.Alert(
             f"Error saving: {e}",
             color="danger",
             className="mb-0 py-2",
         )
-        return no_update, _room_feedback_payload(feedback), no_update
+        return no_update, _room_feedback_payload(feedback), no_update, no_update
 
 
 @callback(
     Output("room-feedback-export", "data"),
     Output("io-jobs", "data", allow_duplicate=True),
+    Output("current-zone-data", "data", allow_duplicate=True),
     Input("export-zone-btn", "n_clicks"),
     State("current-zone-data", "data"),
     State("selected-file", "data"),
@@ -828,7 +849,7 @@ def export_zone_to_file(
         Feedback alert component.
     """
     if not n_clicks or not zone_data or not selected_file:
-        return no_update, no_update
+        return no_update, no_update, no_update
 
     # Derive export path from map file name
     map_path = MAPS_DIR / selected_file
@@ -842,7 +863,12 @@ def export_zone_to_file(
         from pipeworks_mud_mapper.models import MapFile
 
         map_file = MapFile.from_dict(zone_data)
-        job_id = submit_io_job(_export_zone_job, map_file, export_path)
+        export_map = map_file.model_copy(deep=True)
+        updated_map = map_file.model_copy(deep=True)
+        # Increment map_version on export and persist back to the map file.
+        updated_map.bump_version()
+
+        job_id = submit_io_job(_export_zone_job, export_map, export_path, map_path, updated_map)
 
         jobs = list((io_jobs or {}).get("jobs", []))
         jobs.append(
@@ -859,14 +885,15 @@ def export_zone_to_file(
             className="mb-0 py-2",
             duration=4000,
         )
-        return _room_feedback_payload(feedback), {"jobs": jobs}
+        updated_zone_data = updated_map.to_dict_with_list_coords()
+        return _room_feedback_payload(feedback), {"jobs": jobs}, updated_zone_data
     except Exception as e:
         feedback = dbc.Alert(
             f"Error exporting: {e}",
             color="danger",
             className="mb-0 py-2",
         )
-        return _room_feedback_payload(feedback), no_update
+        return _room_feedback_payload(feedback), no_update, no_update
 
 
 @callback(

@@ -341,6 +341,8 @@ class TestZone:
         )
         assert zone.id == "tutorial"
         assert zone.spawn_room == "spawn"
+        assert zone.metadata.schema_version == "0.1.0"
+        assert zone.metadata.exported_from is None
 
     def test_spawn_room_must_exist(self):
         """spawn_room must reference an existing room."""
@@ -471,6 +473,9 @@ class TestMapFile:
             rooms={"spawn": MapRoom(id="spawn", name="Spawn")},
         )
         assert map_file.id == "tutorial"
+        assert map_file.metadata.schema_version == "0.1.0"
+        assert map_file.metadata.map_version == "0"
+        assert map_file.metadata.map_revision == 0
 
     def test_to_zone_strips_all_coords(self):
         """to_zone should convert all MapRooms to Rooms."""
@@ -488,9 +493,33 @@ class TestMapFile:
 
         assert isinstance(zone, Zone)
         assert zone.id == "test"
+        assert zone.metadata.schema_version == map_file.metadata.schema_version
         assert len(zone.rooms) == 2
         assert all(isinstance(r, Room) for r in zone.rooms.values())
         assert zone.items == {"key": {"id": "key", "name": "Key"}}
+
+    def test_bump_revision(self):
+        """bump_revision should increment the authoring revision counter."""
+        map_file = MapFile(
+            id="test",
+            name="Test",
+            spawn_room="spawn",
+            rooms={"spawn": MapRoom(id="spawn", name="Spawn")},
+        )
+        assert map_file.bump_revision() == 1
+        assert map_file.bump_revision() == 2
+
+    def test_bump_version(self):
+        """bump_version should increment the authoring milestone version."""
+        map_file = MapFile(
+            id="test",
+            name="Test",
+            spawn_room="spawn",
+            rooms={"spawn": MapRoom(id="spawn", name="Spawn")},
+        )
+        assert map_file.metadata.map_version == "0"
+        assert map_file.bump_version() == "1"
+        assert map_file.bump_version() == "2"
 
     def test_get_room_at_coords_found(self):
         """get_room_at_coords should find room at exact coordinates."""
