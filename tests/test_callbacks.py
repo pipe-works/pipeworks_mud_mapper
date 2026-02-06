@@ -56,6 +56,8 @@ from pipeworks_mud_mapper.callbacks.file_callbacks import (
     update_save_status,
 )
 from pipeworks_mud_mapper.callbacks.map_callbacks import (
+    adjust_z_level_offset_x,
+    adjust_z_level_offset_y,
     handle_map_click,
     update_map_with_rooms,
 )
@@ -339,6 +341,48 @@ class TestMapCallbacks:
         # No room traces, filter out background
         room_traces = [t for t in figure.data if t.text is not None and len(t.text) > 0]
         assert len(room_traces) == 0
+
+    def test_adjust_z_level_offset_x_decrease(self):
+        """adjust_z_level_offset_x should decrement within bounds."""
+        with patch("pipeworks_mud_mapper.callbacks.map_callbacks.ctx") as mock_ctx:
+            mock_ctx.triggered_id = "z-level-offset-x-decrease"
+            result = adjust_z_level_offset_x(1, None, 0.4)
+        assert result == 0.3
+
+    def test_adjust_z_level_offset_x_increase(self):
+        """adjust_z_level_offset_x should increment within bounds."""
+        with patch("pipeworks_mud_mapper.callbacks.map_callbacks.ctx") as mock_ctx:
+            mock_ctx.triggered_id = "z-level-offset-x-increase"
+            result = adjust_z_level_offset_x(None, 1, -0.4)
+        assert result == -0.3
+
+    def test_adjust_z_level_offset_x_no_trigger(self):
+        """adjust_z_level_offset_x should no-op when not triggered."""
+        with patch("pipeworks_mud_mapper.callbacks.map_callbacks.ctx") as mock_ctx:
+            mock_ctx.triggered_id = "other"
+            result = adjust_z_level_offset_x(None, None, 0.4)
+        assert result is no_update
+
+    def test_adjust_z_level_offset_y_decrease(self):
+        """adjust_z_level_offset_y should decrement within bounds."""
+        with patch("pipeworks_mud_mapper.callbacks.map_callbacks.ctx") as mock_ctx:
+            mock_ctx.triggered_id = "z-level-offset-y-decrease"
+            result = adjust_z_level_offset_y(1, None, 0.4)
+        assert result == 0.3
+
+    def test_adjust_z_level_offset_y_increase(self):
+        """adjust_z_level_offset_y should increment within bounds."""
+        with patch("pipeworks_mud_mapper.callbacks.map_callbacks.ctx") as mock_ctx:
+            mock_ctx.triggered_id = "z-level-offset-y-increase"
+            result = adjust_z_level_offset_y(None, 1, -0.4)
+        assert result == -0.3
+
+    def test_adjust_z_level_offset_y_no_trigger(self):
+        """adjust_z_level_offset_y should no-op when not triggered."""
+        with patch("pipeworks_mud_mapper.callbacks.map_callbacks.ctx") as mock_ctx:
+            mock_ctx.triggered_id = "other"
+            result = adjust_z_level_offset_y(None, None, 0.4)
+        assert result is no_update
 
     def test_handle_map_click_no_data(self):
         """handle_map_click should return no_update when no click data."""
