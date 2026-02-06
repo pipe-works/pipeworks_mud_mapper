@@ -2,29 +2,30 @@
 
 This module handles:
 
-- Loading map file list on startup
-- Rendering the file browser list
-- Loading map data when file is clicked
+- Loading map list from SQLite on startup
+- Rendering the map browser list
+- Loading map data when a map is clicked
 - New map modal open/close/create
 - Save and export functionality
 - Status updates
 
-Two-File Workflow
------------------
-The mapper uses two file types:
+Authoring + Export Workflow
+---------------------------
+The mapper uses SQLite as the authoring source of truth and exports
+JSON zone files for the game server:
 
-- **Map files** (``data/maps/*.map.json``): Authoring source with coordinates
+- **SQLite maps**: Authoring source with coordinates
 - **Zone files** (``data/zones/*.json``): Game truth without coordinates
 
-Authors work with map files. Zone files are exported for game server use.
+Authors work with SQLite maps. Zone files are exported for game server use.
 
 Component Dependencies
 ----------------------
 **Inputs:**
 - ``initial-load``: Interval trigger for startup
-- ``zone-files-store``: List of available map files
+- ``zone-files-store``: List of available maps (IDs)
 - ``zones-files-store``: List of available zone export files
-- ``selected-file``: Currently selected file
+- ``selected-file``: Currently selected map ID
 - ``file-item`` (pattern): Clickable file list items
 - ``new-map-btn``: Open new map modal
 - ``new-map-cancel-btn``: Close modal
@@ -37,8 +38,8 @@ Component Dependencies
 - ``file-list-container``: Rendered map file list
 - ``zone-files-list-container``: Rendered zone export list
 - ``exports-status-indicator``: Export status display
-- ``selected-file``: Selected file name
-- ``current-zone-data``: Loaded zone data
+- ``selected-file``: Selected map ID
+- ``current-zone-data``: Loaded map data
 - ``current-zone``: Zone name display
 - ``new-map-modal``: Modal visibility
 - ``has-unsaved-changes``: Unsaved flag
@@ -55,7 +56,7 @@ from typing import Any
 import dash_bootstrap_components as dbc
 from dash import ALL, Input, Output, State, callback, ctx, html, no_update
 
-from pipeworks_mud_mapper.services import zone_service
+from pipeworks_mud_mapper.services import map_db_service, zone_service
 from pipeworks_mud_mapper.services.app_config import get_path_settings
 from pipeworks_mud_mapper.services.io_queue import (
     forget_io_job,
@@ -64,53 +65,51 @@ from pipeworks_mud_mapper.services.io_queue import (
 )
 from pipeworks_mud_mapper.services.state import ZoneAction, apply_zone_action
 
-# Directory paths for two-file workflow (user-configurable via config/server.ini)
+# Paths for SQLite + export workflow (user-configurable via config/server.ini)
 PATHS = get_path_settings()
-MAPS_DIR = PATHS["maps_dir"]
+DB_PATH = PATHS["db_path"]
 ZONES_DIR = PATHS["zones_dir"]
 
 # =============================================================================
 # File Listing Cache
 # =============================================================================
-# These cache structures reduce repeated filesystem scans when callbacks
-# are triggered in quick succession.
+# These cache structures reduce repeated DB queries or filesystem scans when
+# callbacks are triggered in quick succession.
 # The cache is intentionally short-lived to keep the UI responsive while
 # avoiding expensive directory scans on slower disks.
 
 FILE_LIST_CACHE_TTL_SECONDS = 1.0
+_MAP_LIST_CACHE: dict[Path, tuple[float, list[str]]] = {}
 _FILE_LIST_CACHE: dict[Path, tuple[float, list[Path]]] = {}
 
 
-def _get_cached_map_files(directory: Path, *, force_refresh: bool = False) -> list[Path]:
-    """Return cached file listings with a short TTL.
+def _get_cached_map_ids(db_path: Path, *, force_refresh: bool = False) -> list[str]:
+    """Return cached map IDs with a short TTL.
 
     Parameters
     ----------
-    directory : Path
-        Directory to list.
+    db_path : Path
+        SQLite database path.
     force_refresh : bool
-        When True, bypasses the cache and rescans immediately.
+        When True, bypasses the cache and queries immediately.
 
     Returns
     -------
-    list[Path]
-        List of map file paths.
+    list[str]
+        Map IDs stored in the database.
     """
     # Monotonic clock avoids issues if system time changes.
     now = time.monotonic()
-    # Pull cached tuple if we have seen this directory before.
-    cached = _FILE_LIST_CACHE.get(directory)
+    cached = _MAP_LIST_CACHE.get(db_path)
 
     if cached and not force_refresh:
-        last_scan, files = cached
-        # Use cached listing if it is still within the TTL window.
+        last_scan, map_ids = cached
         if now - last_scan <= FILE_LIST_CACHE_TTL_SECONDS:
-            return files
+            return map_ids
 
-    # Refresh listing from disk and update cache timestamp.
-    files = zone_service.list_map_files(directory)
-    _FILE_LIST_CACHE[directory] = (now, files)
-    return files
+    map_ids = map_db_service.list_maps(db_path)
+    _MAP_LIST_CACHE[db_path] = (now, map_ids)
+    return map_ids
 
 
 def _room_feedback_payload(content: Any) -> dict[str, Any]:
@@ -118,29 +117,29 @@ def _room_feedback_payload(content: Any) -> dict[str, Any]:
     return {"content": content, "ts": time.monotonic()}
 
 
-def _save_map_job(map_file: Any, file_path: Path) -> None:
-    """Persist a map file in a background thread.
+def _save_map_job(map_file: Any, db_path: Path) -> None:
+    """Persist a map in a background thread.
 
     Revision bumps happen in the UI callback so the in-memory state stays
-    consistent with what gets written to disk.
+    consistent with what gets written to SQLite.
     """
-    zone_service.save_map_file(map_file, file_path, bump_revision=False)
+    map_db_service.save_map(map_file, db_path=db_path)
 
 
 def _export_zone_job(
     export_map: Any,
     export_path: Path,
-    map_path: Path,
+    db_path: Path,
     updated_map: Any,
 ) -> None:
     """Export a zone file and persist updated map metadata in the background.
 
     The export uses the pre-bump map metadata for provenance. After the zone
     is written, the updated map (with incremented map_version) is saved back
-    to disk without touching map_revision.
+    to SQLite without touching map_revision.
     """
     zone_service.export_zone(export_map, export_path)
-    zone_service.save_map_file(updated_map, map_path, bump_revision=False)
+    map_db_service.save_map(updated_map, db_path=db_path)
 
 
 # =============================================================================
@@ -155,10 +154,10 @@ def _export_zone_job(
     prevent_initial_call=False,
 )
 def load_map_files_list(_: int, __: int | None) -> list[str]:
-    """Load list of map files from the maps directory.
+    """Load list of maps from the SQLite authoring database.
 
     This callback is triggered once on initial page load (via dcc.Interval)
-    and populates the zone-files-store with available map file names.
+    and populates the zone-files-store with available map IDs.
 
     Parameters
     ----------
@@ -168,15 +167,11 @@ def load_map_files_list(_: int, __: int | None) -> list[str]:
     Returns
     -------
     list[str]
-        List of map file names (e.g., ["dungeon.map.json", "town.map.json"]).
+        List of map IDs (e.g., ["dungeon", "town"]).
     """
-    # Ensure maps directory exists
-    MAPS_DIR.mkdir(parents=True, exist_ok=True)
-
-    # Use cached listing to minimize repeated disk reads.
+    # Use cached listing to minimize repeated DB reads.
     force_refresh = ctx.triggered_id == "file-browser-refresh-btn"
-    files = _get_cached_map_files(MAPS_DIR, force_refresh=force_refresh)
-    return [f.name for f in files]
+    return _get_cached_map_ids(DB_PATH, force_refresh=force_refresh)
 
 
 @callback(
@@ -208,46 +203,41 @@ def load_zone_files_list(_: int, __: dict | None, ___: int | None) -> list[str]:
     Input("selected-file", "data"),
 )
 def render_file_list(files: list[str], selected_file: str | None) -> list:
-    """Render the file list in the browser with clickable items.
+    """Render the map list in the browser with clickable items.
 
-    Creates a list of clickable div elements, one for each map file.
-    The currently selected file is highlighted with different styling.
+    Creates a list of clickable div elements, one for each map.
+    The currently selected map is highlighted with different styling.
 
     Parameters
     ----------
     files : list[str]
-        List of map file names from zone-files-store.
+        List of map IDs from zone-files-store.
     selected_file : str | None
-        Currently selected file name, or None.
+        Currently selected map ID, or None.
 
     Returns
     -------
     list
-        List of html.Div elements for each file, or placeholder
-        message if no files found.
+        List of html.Div elements for each map, or placeholder
+        message if no maps found.
     """
     if not files:
-        return [html.Span("No map files found", className="text-muted fst-italic")]
+        return [html.Span("No maps found", className="text-muted fst-italic")]
 
     items = []
-    for filename in files:
-        is_selected = filename == selected_file
+    for map_id in files:
+        is_selected = map_id == selected_file
         icon_class = "bi bi-file-earmark-code me-2"
         if is_selected:
             icon_class += " text-primary"
-
-        # Show shorter display name (without .map.json)
-        display_name = filename
-        if filename.endswith(".map.json"):
-            display_name = filename[:-9]  # Remove .map.json
 
         items.append(
             html.Div(
                 [
                     html.I(className=icon_class),
-                    html.Span(display_name, className="fw-bold" if is_selected else ""),
+                    html.Span(map_id, className="fw-bold" if is_selected else ""),
                 ],
-                id={"type": "file-item", "filename": filename},
+                id={"type": "file-item", "filename": map_id},
                 className="mb-1 p-1 rounded file-item"
                 + (" bg-primary bg-opacity-10" if is_selected else ""),
                 style={"cursor": "pointer"},
@@ -368,7 +358,7 @@ def render_file_properties(
     """Render the file properties summary in the right column."""
     if selected_file:
         name = html.Span(selected_file)
-        badge = dbc.Badge("Map file", color="primary", className="me-2")
+        badge = dbc.Badge("Map", color="primary", className="me-2")
         return name, html.Div([badge, html.Span("Selected")]), False
 
     if selected_zone_file:
@@ -407,9 +397,9 @@ def request_file_delete(
     if selected_file:
         filename = selected_file
         delete_type = "file-delete-btn"
-        label = "map file"
+        label = "map"
         badge_color = "primary"
-        path_hint = MAPS_DIR / filename
+        path_hint = DB_PATH
     elif selected_zone_file:
         filename = selected_zone_file
         delete_type = "zone-file-delete-btn"
@@ -469,9 +459,8 @@ def confirm_file_delete(
         return no_update, no_update, no_update, no_update, no_update, no_update
 
     if delete_type == "file-delete-btn":
-        file_path = MAPS_DIR / filename
-        list_dir = MAPS_DIR
-        list_fn = zone_service.list_map_files
+        # Remove the map from SQLite; no filesystem delete needed.
+        map_db_service.delete_map(filename, db_path=DB_PATH)
         list_key = "maps"
     else:
         file_path = ZONES_DIR / filename
@@ -479,12 +468,14 @@ def confirm_file_delete(
         list_fn = zone_service.list_zone_files
         list_key = "zones"
 
-    if file_path.exists():
-        file_path.unlink()
-
-    files = list_fn(list_dir)
-    _FILE_LIST_CACHE[list_dir] = (time.monotonic(), files)
-    file_names = [f.name for f in files]
+    if list_key == "zones":
+        if file_path.exists():
+            file_path.unlink()
+        files = list_fn(list_dir)
+        _FILE_LIST_CACHE[list_dir] = (time.monotonic(), files)
+        file_names = [f.name for f in files]
+    else:
+        file_names = _get_cached_map_ids(DB_PATH, force_refresh=True)
 
     maps_update = no_update
     zones_update = no_update
@@ -530,9 +521,9 @@ def handle_file_click(
     Parameters
     ----------
     map_clicks : list[int]
-        Click counts for regular map file items.
+        Click counts for regular map items.
     current_file : str | None
-        Currently selected file name (used to avoid redundant reloads).
+        Currently selected map ID (used to avoid redundant reloads).
 
     Returns
     -------
@@ -554,28 +545,26 @@ def handle_file_click(
         print("[DEBUG] handle_file_click: no valid trigger, returning no_update")
         return no_update, no_update, no_update, no_update, no_update
 
-    filename = triggered.get("filename")
-    if not filename:
+    map_id = triggered.get("filename")
+    if not map_id:
         print("[DEBUG] handle_file_click: no filename in trigger, returning no_update")
         return no_update, no_update, no_update, no_update, no_update
 
     # Avoid reloading the same file if it is already selected.
-    if filename == current_file:
-        print(f"[DEBUG] handle_file_click: same file {filename}, returning no_update")
+    if map_id == current_file:
+        print(f"[DEBUG] handle_file_click: same map {map_id}, returning no_update")
         return no_update, no_update, no_update, no_update, no_update
 
-    file_path = MAPS_DIR / filename
-
     # Load the selected map file and reset unsaved changes.
-    action = ZoneAction(type="LOAD_MAP", payload={"file_path": file_path})
+    action = ZoneAction(type="LOAD_MAP", payload={"map_id": map_id})
     transition = apply_zone_action(None, action)
 
     if not transition.changed or transition.zone_data is None:
-        print(f"Error loading map file {filename}")
+        print(f"Error loading map {map_id}")
         return no_update, no_update, no_update, no_update, no_update
 
-    zone_name = transition.effects.get("zone_name", filename)
-    return filename, transition.zone_data, f"Zone: {zone_name}", False, None
+    zone_name = transition.effects.get("zone_name", map_id)
+    return map_id, transition.zone_data, f"Zone: {zone_name}", False, None
 
 
 # =============================================================================
@@ -650,9 +639,8 @@ def handle_new_map_modal(
         feedback = dbc.Alert("Zone Name is required.", color="danger", className="mb-0")
         return True, no_update, feedback, no_update, no_update, no_update
 
-    # Check if file already exists.
-    file_path = MAPS_DIR / f"{zone_id}.map.json"
-    if file_path.exists():
+    # Check if map already exists in SQLite.
+    if map_db_service.map_exists(zone_id, db_path=DB_PATH):
         feedback = dbc.Alert(
             f"A map with ID '{zone_id}' already exists.",
             color="warning",
@@ -660,18 +648,17 @@ def handle_new_map_modal(
         )
         return True, no_update, feedback, no_update, no_update, no_update
 
-    # Create and save the map file using zone_service.
+    # Create and save the map in SQLite using the MapFile model.
     map_file = zone_service.create_new_map_file(
         zone_id=zone_id,
         name=zone_name,
         spawn_room_name="Spawn Room",
         description=description,
     )
-    zone_service.save_map_file(map_file, file_path)
+    map_db_service.save_map(map_file, db_path=DB_PATH)
 
-    # Refresh file list after creation.
-    files = zone_service.list_map_files(MAPS_DIR)
-    file_names = [f.name for f in files]
+    # Refresh map list after creation.
+    file_names = _get_cached_map_ids(DB_PATH, force_refresh=True)
 
     # Close modal and clear form on success.
     return False, file_names, "", "", "", ""
@@ -694,7 +681,7 @@ def update_save_status(has_unsaved: bool, selected_file: str | None) -> tuple:
 
     Shows appropriate status based on current state:
 
-    - No file loaded: disabled buttons
+    - No map loaded: disabled buttons
     - Unsaved changes: enabled save, disabled export
     - All saved: disabled save, enabled export
 
@@ -703,7 +690,7 @@ def update_save_status(has_unsaved: bool, selected_file: str | None) -> tuple:
     has_unsaved : bool
         Whether there are unsaved changes.
     selected_file : str | None
-        Currently selected file name.
+        Currently selected map ID.
 
     Returns
     -------
@@ -713,10 +700,10 @@ def update_save_status(has_unsaved: bool, selected_file: str | None) -> tuple:
     print(f"[DEBUG] update_save_status: has_unsaved={has_unsaved}, file={selected_file}")
 
     if not selected_file:
-        print("[DEBUG] update_save_status: no file loaded")
-        return True, True, "No file loaded"
+        print("[DEBUG] update_save_status: no map loaded")
+        return True, True, "No map loaded"
 
-    # Display full file name for clarity
+    # Display full map ID for clarity
     display_name = selected_file
 
     if has_unsaved:
@@ -752,7 +739,7 @@ def save_map_to_file(
     selected_file: str | None,
     io_jobs: dict | None,
 ) -> tuple:
-    """Save the current map data to the file.
+    """Save the current map data to SQLite.
 
     Parameters
     ----------
@@ -761,7 +748,7 @@ def save_map_to_file(
     zone_data : dict | None
         Current map data to save.
     selected_file : str | None
-        Target file name.
+        Target map ID.
     Returns
     -------
     tuple
@@ -772,7 +759,6 @@ def save_map_to_file(
     if not n_clicks or not zone_data or not selected_file:
         return no_update, no_update, no_update, no_update
 
-    file_path = MAPS_DIR / selected_file
     try:
         # Convert dict to MapFile and save
         from pipeworks_mud_mapper.models import MapFile
@@ -780,14 +766,12 @@ def save_map_to_file(
         map_file = MapFile.from_dict(zone_data)
 
         display_name = selected_file
-        if selected_file.endswith(".map.json"):
-            display_name = selected_file[:-9]
 
         # Increment revision on every explicit save to track authoring history.
         map_file.bump_revision()
         updated_zone_data = map_file.to_dict_with_list_coords()
 
-        job_id = submit_io_job(_save_map_job, map_file, file_path)
+        job_id = submit_io_job(_save_map_job, map_file, DB_PATH)
         jobs = list((io_jobs or {}).get("jobs", []))
         jobs.append(
             {
@@ -841,7 +825,7 @@ def export_zone_to_file(
     zone_data : dict | None
         Current map data to export.
     selected_file : str | None
-        Source file name (used to derive export name).
+        Source map ID (used to derive export name).
 
     Returns
     -------
@@ -851,9 +835,8 @@ def export_zone_to_file(
     if not n_clicks or not zone_data or not selected_file:
         return no_update, no_update, no_update
 
-    # Derive export path from map file name
-    map_path = MAPS_DIR / selected_file
-    export_path = zone_service.get_suggested_export_path(map_path, zones_dir=ZONES_DIR)
+    # Derive export path from map ID.
+    export_path = ZONES_DIR / f"{selected_file}.json"
 
     try:
         # Ensure zones directory exists
@@ -868,7 +851,7 @@ def export_zone_to_file(
         # Increment map_version on export and persist back to the map file.
         updated_map.bump_version()
 
-        job_id = submit_io_job(_export_zone_job, export_map, export_path, map_path, updated_map)
+        job_id = submit_io_job(_export_zone_job, export_map, export_path, DB_PATH, updated_map)
 
         jobs = list((io_jobs or {}).get("jobs", []))
         jobs.append(

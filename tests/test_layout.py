@@ -177,14 +177,14 @@ class TestFileBrowser:
         assert component_has_id(result, "file-list-container")
 
     def test_create_file_browser_has_header(self):
-        """create_file_browser should have 'Mapper Files' header."""
+        """create_file_browser should have 'Mapper DB' header."""
         result = create_file_browser()
-        assert "Mapper Files" in str(result)
+        assert "Mapper DB" in str(result)
 
     def test_create_file_browser_has_folder_icon(self):
-        """create_file_browser should show folder with 'maps/' label."""
+        """create_file_browser should show database with 'mapper.db' label."""
         result = create_file_browser()
-        assert "maps/" in str(result)
+        assert "mapper.db" in str(result)
 
     def test_create_file_browser_has_status_indicator(self):
         """create_file_browser should include status-indicator."""
@@ -197,10 +197,10 @@ class TestFileBrowser:
         assert component_has_id(result, "exports-status-indicator")
 
     def test_create_file_browser_status_default_text(self):
-        """create_file_browser status should show 'No file loaded' initially."""
+        """create_file_browser status should show 'No map loaded' initially."""
         result = create_file_browser()
         status = find_component_by_id(result, "status-indicator")
-        assert "No file loaded" in str(status.children)
+        assert "No map loaded" in str(status.children)
 
     def test_create_file_browser_has_refresh_button(self):
         """create_file_browser should include refresh control."""

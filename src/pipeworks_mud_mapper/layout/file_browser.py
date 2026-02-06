@@ -1,7 +1,7 @@
 """File browser component for the left column.
 
-The file browser displays available map files from the data/maps/ directory
-and allows users to load them or create new maps.
+The file browser lists maps from the SQLite authoring database and allows
+users to load them or create new maps.
 
 Component Structure
 -------------------
@@ -10,7 +10,7 @@ Component Structure
     ┌─────────────────────┐
     │   File Browser      │  <- CardHeader
     ├─────────────────────┤
-    │ 📁 maps/            │  <- Folder icon
+    │ 🗄 mapper.db        │  <- Database icon
     │   ├── zone1         │  <- Dynamic file list
     │   └── zone2         │     (rendered by callback)
     │ ──────────────────  │
@@ -30,11 +30,8 @@ Component IDs
 
 Notes
 -----
-Files are stored as ``*.map.json`` but displayed without the extension.
-The two-file workflow separates:
-
-- Map files (data/maps/*.map.json) - authoring with coordinates
-- Zone files (data/zones/*.json) - game truth without coordinates
+Maps are stored in the SQLite database. Zone files are exported as JSON for
+the game server and listed separately.
 
 See Also
 --------
@@ -79,9 +76,13 @@ def create_file_browser() -> dbc.Card:
     - Uses monospace font for code-like appearance
     """
     paths = get_path_settings()
-    maps_label = format_display_path(paths["maps_dir"])
+    db_path = paths["db_path"]
+    # Reuse path formatters for the parent directory, then append filename.
+    # This keeps display output consistent with other path chips while
+    # avoiding an incorrect trailing slash on the file itself.
+    db_label = f"{format_display_path(db_path.parent).rstrip('/')}/{db_path.name}"
+    db_short = f"{format_short_path(db_path.parent).rstrip('/')}/{db_path.name}"
     zones_label = format_display_path(paths["zones_dir"])
-    maps_short = format_short_path(paths["maps_dir"])
     zones_short = format_short_path(paths["zones_dir"])
 
     # Separate cards clarify the three distinct file sources.
@@ -90,7 +91,7 @@ def create_file_browser() -> dbc.Card:
             dbc.CardHeader(
                 html.Div(
                     [
-                        html.Span("Mapper Files", className="me-auto"),
+                        html.Span("Mapper DB", className="me-auto"),
                         dbc.Button(
                             [
                                 html.Span("Refresh All"),
@@ -110,11 +111,11 @@ def create_file_browser() -> dbc.Card:
                 [
                     html.Div(
                         [
-                            html.I(className="bi bi-folder-fill me-2 text-warning"),
-                            html.Span(maps_short),
+                            html.I(className="bi bi-database-fill me-2 text-warning"),
+                            html.Span(db_short),
                         ],
                         className="file-path-chip mb-2",
-                        title=maps_label,
+                        title=db_label,
                     ),
                     html.Div(
                         id="file-list-container",
@@ -122,7 +123,7 @@ def create_file_browser() -> dbc.Card:
                     ),
                     html.Div(
                         id="status-indicator",
-                        children="No file loaded",
+                        children="No map loaded",
                         className="text-muted small mt-2",
                     ),
                 ],

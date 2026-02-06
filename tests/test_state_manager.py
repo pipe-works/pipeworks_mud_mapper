@@ -197,16 +197,14 @@ def test_apply_zone_action_exit_adds_bidirectional():
 
 def test_apply_zone_action_load_map_success(tmp_path):
     """LOAD_MAP should return zone data and zone name."""
-    fake_file = tmp_path / "zone.map.json"
-    fake_file.write_text("{}", encoding="utf-8")
 
     class DummyMap:
         def to_dict_with_list_coords(self):
             return {"name": "Loaded Zone", "rooms": {}}
 
-    action = ZoneAction(type="LOAD_MAP", payload={"file_path": fake_file})
+    action = ZoneAction(type="LOAD_MAP", payload={"map_id": "zone"})
     with patch(
-        "pipeworks_mud_mapper.services.state.actions_load.zone_service.load_map_file",
+        "pipeworks_mud_mapper.services.state.actions_load.map_db_service.load_map",
         return_value=DummyMap(),
     ):
         transition = apply_zone_action(None, action)

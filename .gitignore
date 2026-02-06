@@ -98,3 +98,8 @@ data/maps/dev_snapshots/
 data/maps/
 data/zones/
 data/validation/
+data/*.db
+data/*.sqlite
+data/*.sqlite3
+data/*.db-shm
+data/*.db-wal

@@ -1,6 +1,6 @@
 """Validation callbacks for PipeWorks MUD Mapper.
 
-This module provides callbacks for running validation checks on map files
+This module provides callbacks for running validation checks on maps
 and displaying results in a modal dialog. It also writes validation reports
 to the data/validation/ directory for CI/CD and record-keeping purposes.
 
@@ -69,7 +69,7 @@ def update_validate_button_state(selected_file: str | None) -> bool:
     Parameters
     ----------
     selected_file : str or None
-        Currently selected map file name, or None if no file is loaded.
+        Currently selected map ID, or None if no map is loaded.
 
     Returns
     -------
@@ -109,7 +109,7 @@ def run_validation(
     zone_data : dict or None
         Current zone data from the store.
     selected_file : str or None
-        Name of the currently selected map file.
+        Map ID of the currently selected map.
 
     Returns
     -------
