@@ -17,6 +17,7 @@ from pipeworks_mud_mapper.models.room import (
     SHORT_TO_DIRECTION,
     Direction,
 )
+from pipeworks_mud_mapper.services.exit_utils import split_exits_by_scope
 from pipeworks_mud_mapper.services.state.types import ZoneTransition
 
 
@@ -95,9 +96,12 @@ def apply_exit_changes(
         return ZoneTransition(zone_data=None, changed=False)
 
     coords = room.get("coords", [0, 0, 0])
+    # Split exits so the checkbox UI only reflects local (same-zone) exits.
+    # Cross-zone exits are managed in a separate UI section.
     current_exits = room.get("exits", {})
+    local_exits, zone_exits = split_exits_by_scope(current_exits)
 
-    current_checked = {DIRECTION_SHORT[d] for d in current_exits if d in DIRECTION_SHORT}
+    current_checked = {DIRECTION_SHORT[d] for d in local_exits if d in DIRECTION_SHORT}
     new_checked = set(checked_values)
 
     added = new_checked - current_checked
@@ -109,20 +113,26 @@ def apply_exit_changes(
     updated_zone = dict(zone_data)
     updated_zone["rooms"] = {rid: dict(r) for rid, r in zone_data.get("rooms", {}).items()}
     updated_room = updated_zone["rooms"][selected_room]
-    updated_exits = dict(current_exits)
+    # Preserve cross-zone exits and only mutate local exits in this handler.
+    updated_local_exits = dict(local_exits)
 
     feedback_messages: list[str] = []
-    rejected_directions: list[str] = []
+    rejected_directions: list[tuple[str, str]] = []
 
     for short_dir in removed:
         direction = SHORT_TO_DIRECTION.get(short_dir)
-        if direction and direction in updated_exits:
-            del updated_exits[direction]
+        if direction and direction in updated_local_exits:
+            del updated_local_exits[direction]
             feedback_messages.append(f"Removed {short_dir}")
 
     for short_dir in added:
         direction = SHORT_TO_DIRECTION.get(short_dir)
         if not direction:
+            continue
+
+        if direction in zone_exits:
+            rejected_directions.append((short_dir, "zone exit set"))
+            feedback_messages.append(f"⚠️ {short_dir}: zone exit set")
             continue
 
         target_room_id = _find_room_in_direction(
@@ -133,7 +143,7 @@ def apply_exit_changes(
         )
 
         if target_room_id:
-            updated_exits[direction] = target_room_id
+            updated_local_exits[direction] = target_room_id
             feedback_messages.append(f"{short_dir}→{target_room_id}")
 
             opposite_dir = OPPOSITE_DIRECTION.get(direction)
@@ -144,15 +154,16 @@ def apply_exit_changes(
                     target_exits[opposite_dir] = selected_room
                     target_room_data["exits"] = target_exits
         else:
-            rejected_directions.append(short_dir)
+            rejected_directions.append((short_dir, "no room"))
             feedback_messages.append(f"⚠️ {short_dir}: no room")
 
-    updated_room["exits"] = updated_exits
+    # Merge local exits back with any preserved cross-zone exits.
+    updated_room["exits"] = {**zone_exits, **updated_local_exits}
 
-    final_checked = [v for v in checked_values if v not in rejected_directions]
+    final_checked = [v for v in checked_values if v not in {d for d, _ in rejected_directions}]
 
     exit_info: list[Any] = []
-    if updated_exits:
+    if updated_local_exits:
         exit_info = [
             html.Span(
                 [
@@ -161,30 +172,22 @@ def apply_exit_changes(
                 ],
                 className="me-2",
             )
-            for d, t in updated_exits.items()
+            for d, t in updated_local_exits.items()
         ]
-        if rejected_directions:
-            exit_info.append(html.Br())
-            exit_info.extend(
-                [
-                    html.Span(
-                        f"⚠️ No room {d} ",
-                        className="text-warning small",
-                    )
-                    for d in rejected_directions
-                ]
-            )
     else:
-        if rejected_directions:
-            exit_info = [
+        exit_info = [html.Small("No exits defined", className="text-muted")]
+
+    if rejected_directions:
+        exit_info.append(html.Br())
+        exit_info.extend(
+            [
                 html.Span(
-                    f"⚠️ No room {d} ",
+                    f"⚠️ {direction}: {reason} ",
                     className="text-warning small",
                 )
-                for d in rejected_directions
+                for direction, reason in rejected_directions
             ]
-        else:
-            exit_info = [html.Small("No exits defined", className="text-muted")]
+        )
 
     return ZoneTransition(
         zone_data=updated_zone,

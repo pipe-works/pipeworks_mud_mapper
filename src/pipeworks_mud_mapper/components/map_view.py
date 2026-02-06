@@ -8,7 +8,8 @@ as nodes and exits as connecting lines, with support for:
 - **Flattened multi-level display**: All Z-levels shown on a single 2D plane
 - **Visual Z-level differentiation**: Size and color distinguish floor levels
 - **Room selection highlighting**: Selected room shown in red
-- **Exit visualization**: Lines for cardinal directions, labels for up/down
+- **Exit visualization**: Lines for cardinal directions, labels for up/down,
+  and triangle markers for cross-zone exits
 - **Interactive pan, zoom, and hover tooltips**
 
 Design Principles
@@ -41,7 +42,8 @@ Rooms are styled by Z-level for easy identification:
 Exit connections:
 
 - **Cardinal exits (N/E/S/W)**: Gray lines between rooms on same Z-level
-- **Vertical exits (U/D)**: Text labels ("U", "D", or "U/D") near stacked rooms
+- **Vertical exits (U/D)**: Dashed lines between stacked rooms plus U/D labels
+- **Zone exits**: Triangle markers pointing in the exit direction
 - **Crosshair**: Dashed gray lines at origin for orientation
 
 Constants
@@ -68,6 +70,10 @@ _find_stacked_positions(rooms, visible_z_levels) -> dict
     Find X,Y positions with rooms at multiple Z-levels
 _draw_all_exit_lines(fig, rooms, visible_z_levels) -> None
     Draw connecting lines for cardinal exits
+_draw_vertical_exit_lines(fig, rooms, visible_z_levels) -> None
+    Draw dashed lines for up/down exits
+_draw_zone_exit_markers(fig, rooms, visible_z_levels) -> None
+    Draw directional markers for cross-zone exits
 _draw_rooms_at_z_level(fig, rooms_at_level, z_level, selected_room) -> None
     Render rooms for a single Z-level as a Scatter trace
 _add_vertical_exit_labels(fig, stacked_positions, rooms) -> None
@@ -116,11 +122,17 @@ The module uses a layered rendering approach:
    - Drawn first so rooms appear on top
    - Only cardinal directions on same Z-level
 
-3. **Room Nodes** (_draw_rooms_at_z_level)
+3. **Vertical Exit Lines** (_draw_vertical_exit_lines)
+   - Dashed connectors between stacked rooms with U/D exits
+
+4. **Zone Exit Markers** (_draw_zone_exit_markers)
+   - Directional triangles for cross-zone exits
+
+5. **Room Nodes** (_draw_rooms_at_z_level)
    - Rendered in Z-order: z=-1 first, z=+1 second, z=0 last
    - Ground level on top ensures it receives clicks
 
-4. **Vertical Labels** (_add_vertical_exit_labels)
+6. **Vertical Labels** (_add_vertical_exit_labels)
    - Added last as annotations
    - Show U/D for stacked rooms with vertical exits
 
@@ -128,11 +140,14 @@ Performance Considerations
 --------------------------
 - Rooms batched into single Scatter trace per Z-level
 - Exit lines deduplicated (bidirectional exits draw once)
+- Zone exit markers render as a single Scatter trace
 - For zones with 100+ rooms, consider filter controls
 - Figure creation is synchronous and typically < 50ms
 """
 
 import plotly.graph_objects as go
+
+from pipeworks_mud_mapper.models.room import DIRECTION_SHORT
 
 # =============================================================================
 # Z-Level Visual Configuration
@@ -239,6 +254,46 @@ The offset value (0.4) is small enough that stacked rooms are clearly at the
 Note: This is purely visual. The logical coordinates used for U/D connections
 remain unchanged.
 """
+
+# =============================================================================
+# Zone Exit Marker Configuration
+# =============================================================================
+
+ZONE_EXIT_MARKER_COLOR: str = "rgba(255, 165, 0, 0.85)"
+"""
+Color used for cross-zone exit markers.
+
+Zone exits are visually distinct from local exits so authors can quickly
+spot which directions lead out of the current zone. The orange hue reads
+as a "handoff" indicator without overpowering room nodes.
+"""
+
+ZONE_EXIT_MARKER_OFFSETS: dict[str, tuple[float, float]] = {
+    "north": (0.0, 0.7),
+    "south": (0.0, -0.7),
+    "east": (0.7, 0.0),
+    "west": (-0.7, 0.0),
+    # Vertical exits are offset diagonally to distinguish from cardinal markers.
+    "up": (0.6, 0.6),
+    "down": (-0.6, -0.6),
+}
+"""
+Offsets for positioning zone exit markers relative to the room node.
+
+Each offset is expressed in map units and is applied after the Z-level
+visual offset. This keeps markers near their originating room but prevents
+overlap with the room node itself.
+"""
+
+ZONE_EXIT_MARKER_SYMBOLS: dict[str, str] = {
+    "north": "triangle-up",
+    "south": "triangle-down",
+    "east": "triangle-right",
+    "west": "triangle-left",
+    "up": "triangle-up-open",
+    "down": "triangle-down-open",
+}
+"""Plotly marker symbols for zone exits by direction."""
 
 
 # =============================================================================
@@ -564,10 +619,13 @@ def create_map_figure_with_rooms(
     # -------------------------------------------------------------------------
     # Draw Exit Lines (First Layer)
     # -------------------------------------------------------------------------
-    # Exit lines are drawn first so that room nodes appear on top. Only
-    # cardinal directions (N/E/S/W) on the same Z-level get lines.
+    # Exit lines are drawn first so that room nodes appear on top. Cardinal
+    # exits get solid lines; vertical exits get dashed connectors between
+    # stacked rooms so U/D links remain visible.
 
     _draw_all_exit_lines(fig, rooms, visible_z_levels, visual_offset_x, visual_offset_y)
+    _draw_vertical_exit_lines(fig, rooms, visible_z_levels, visual_offset_x, visual_offset_y)
+    _draw_zone_exit_markers(fig, rooms, visible_z_levels, visual_offset_x, visual_offset_y)
 
     # -------------------------------------------------------------------------
     # Draw Room Nodes (Second Layer, Z-Ordered)
@@ -913,6 +971,158 @@ def _draw_all_exit_lines(
                     showlegend=False,
                 )
             )
+
+
+def _draw_vertical_exit_lines(
+    fig: go.Figure,
+    rooms: dict[str, dict],
+    visible_z_levels: list[int],
+    visual_offset_x: float = 1.0,
+    visual_offset_y: float = 1.0,
+) -> None:
+    """Draw dashed lines for vertical (up/down) exits.
+
+    Vertical exits connect rooms on different Z-levels that often share
+    the same X,Y coordinates. We render a dashed connector between the
+    visually offset positions so the relationship remains visible in the
+    2D map without overwhelming the cardinal exit lines.
+    """
+    drawn_pairs: set[tuple[str, str]] = set()
+
+    for room_id, room in rooms.items():
+        coords = room.get("coords", [0, 0, 0])
+        z = coords[2] if len(coords) > 2 else 0
+
+        if z not in visible_z_levels:
+            continue
+
+        x1, y1 = _get_visual_coords(coords[0], coords[1], z, visual_offset_x, visual_offset_y)
+
+        for direction, target in room.get("exits", {}).items():
+            if ":" in str(target):
+                continue
+
+            if direction not in ("up", "down"):
+                continue
+
+            if target not in rooms:
+                continue
+
+            pair = tuple(sorted([room_id, target]))
+            if pair in drawn_pairs:
+                continue
+            drawn_pairs.add(pair)
+
+            target_room = rooms[target]
+            target_coords = target_room.get("coords", [0, 0, 0])
+            target_z = target_coords[2] if len(target_coords) > 2 else 0
+
+            if target_z == z or target_z not in visible_z_levels:
+                continue
+
+            x2, y2 = _get_visual_coords(
+                target_coords[0],
+                target_coords[1],
+                target_z,
+                visual_offset_x,
+                visual_offset_y,
+            )
+
+            fig.add_trace(
+                go.Scatter(
+                    x=[x1, x2],
+                    y=[y1, y2],
+                    mode="lines",
+                    line={"color": "rgba(120, 120, 120, 0.45)", "width": 1, "dash": "dot"},
+                    hoverinfo="skip",
+                    showlegend=False,
+                )
+            )
+
+
+def _draw_zone_exit_markers(
+    fig: go.Figure,
+    rooms: dict[str, dict],
+    visible_z_levels: list[int],
+    visual_offset_x: float = 1.0,
+    visual_offset_y: float = 1.0,
+) -> None:
+    """Draw triangle markers for cross-zone exits.
+
+    Parameters
+    ----------
+    fig : go.Figure
+        Plotly figure to add traces to (modified in place).
+    rooms : dict[str, dict]
+        All rooms in the zone, keyed by room ID.
+    visible_z_levels : list[int]
+        Z-levels being displayed.
+    visual_offset_x : float, optional
+        X-axis scale factor for Z-level visual offset (default: 1.0).
+    visual_offset_y : float, optional
+        Y-axis scale factor for Z-level visual offset (default: 1.0).
+
+    Notes
+    -----
+    - Cross-zone exits are detected by a ":" in the target value.
+    - Markers are offset from the room node to reduce overlap.
+    - Marker traces are lightweight and do not include text labels, so
+      room selection is unaffected (clicks on markers are ignored).
+    """
+    x_coords: list[float] = []
+    y_coords: list[float] = []
+    symbols: list[str] = []
+    hover_texts: list[str] = []
+
+    for room_id, room in rooms.items():
+        coords = room.get("coords", [0, 0, 0])
+        z = coords[2] if len(coords) > 2 else 0
+
+        if z not in visible_z_levels:
+            continue
+
+        base_x, base_y = _get_visual_coords(
+            coords[0],
+            coords[1],
+            z,
+            visual_offset_x,
+            visual_offset_y,
+        )
+
+        for direction, target in room.get("exits", {}).items():
+            if ":" not in str(target):
+                continue
+
+            offset = ZONE_EXIT_MARKER_OFFSETS.get(direction)
+            if offset is None:
+                continue
+
+            x_coords.append(base_x + offset[0])
+            y_coords.append(base_y + offset[1])
+            symbols.append(ZONE_EXIT_MARKER_SYMBOLS.get(direction, "triangle-up"))
+            short_dir = DIRECTION_SHORT.get(direction, direction)
+            hover_texts.append(f"Zone exit {short_dir}→{target}")
+
+    if not x_coords:
+        return
+
+    fig.add_trace(
+        go.Scatter(
+            x=x_coords,
+            y=y_coords,
+            mode="markers",
+            marker={
+                "size": 10,
+                "color": ZONE_EXIT_MARKER_COLOR,
+                "symbol": symbols,
+                "line": {"width": 1, "color": "rgba(120, 90, 20, 0.9)"},
+            },
+            hovertext=hover_texts,
+            hoverinfo="text",
+            showlegend=False,
+            name="Zone exits",
+        )
+    )
 
 
 def _draw_rooms_at_z_level(

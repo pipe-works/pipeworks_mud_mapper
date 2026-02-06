@@ -115,7 +115,7 @@ def test_update_workspace_room_table_with_rooms() -> None:
         id="a",
         name="Room A",
         coords=Coords(x=0, y=0, z=0),
-        exits={"north": "b"},
+        exits={"north": "b", "east": "other_zone:spawn"},
     )
     room_b = MapRoom(
         id="b",
@@ -134,6 +134,8 @@ def test_update_workspace_room_table_with_rooms() -> None:
     assert isinstance(result, dbc.Table)
     assert "Room A" in str(result)
     assert "Room B" in str(result)
+    assert "Zone Exits" in str(result)
+    assert "E=other_zone:spawn" in str(result)
 
 
 def test_update_workspace_room_table_empty_rooms() -> None:

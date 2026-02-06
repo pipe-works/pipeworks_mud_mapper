@@ -195,6 +195,26 @@ def test_apply_zone_action_exit_adds_bidirectional():
     assert updated["rooms"]["north"]["exits"].get("south") == "spawn"
 
 
+def test_apply_zone_action_exit_rejects_when_zone_exit_present():
+    """EXIT_CHANGE should not overwrite cross-zone exits."""
+    zone = simple_zone()
+    zone["rooms"]["spawn"]["exits"]["north"] = "other_zone:spawn"
+
+    action = ZoneAction(
+        type="EXIT_CHANGE",
+        payload={
+            "selected_room": "spawn",
+            "checked_values": ["N"],
+        },
+    )
+    transition = apply_zone_action(zone, action)
+
+    assert transition.changed is True
+    assert transition.zone_data is not None
+    assert transition.zone_data["rooms"]["spawn"]["exits"]["north"] == "other_zone:spawn"
+    assert transition.effects.get("exit_values") == []
+
+
 def test_apply_zone_action_load_map_success(tmp_path):
     """LOAD_MAP should return zone data and zone name."""
 

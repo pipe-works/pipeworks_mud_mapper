@@ -49,6 +49,7 @@ import dash_bootstrap_components as dbc
 from dash import dcc, html
 
 from pipeworks_mud_mapper.components.map_view import create_map_figure
+from pipeworks_mud_mapper.services.exit_utils import EXIT_SHORT_ORDER
 
 
 def create_map_panel() -> dbc.Card:
@@ -95,6 +96,20 @@ def create_map_panel() -> dbc.Card:
         >>> panel = create_map_panel()
         >>> # Panel contains 'map-graph' and 'z-level-filter' components
     """
+    # Keep shared dropdown options small and reusable for the workspace editor.
+    exit_direction_options = [
+        {"label": direction, "value": direction} for direction in EXIT_SHORT_ORDER
+    ]
+    zone_exit_help_text = (
+        "Cross-zone exits hand off players to a room in another zone. "
+        "Use the editor below or click a row to edit."
+    )
+    zone_exit_header_class = "fw-semibold mb-1"
+    zone_exit_help_class = "small text-muted mb-2"
+    zone_exit_feedback_class = "small mb-2"
+    zone_exit_row_class = "g-2 align-items-end mb-2"
+    zone_exit_save_icon = html.I(className="bi bi-check me-1")
+    zone_exit_clear_icon = html.I(className="bi bi-x me-1")
     return dbc.Card(
         [
             dbc.CardBody(
@@ -248,6 +263,93 @@ def create_map_panel() -> dbc.Card:
                                                             ),
                                                             html.Div(
                                                                 id="workspace-room-table",
+                                                            ),
+                                                            html.Hr(className="my-2"),
+                                                            html.Div(
+                                                                [
+                                                                    html.Div(
+                                                                        "Zone Exits",
+                                                                        className=zone_exit_header_class,
+                                                                    ),
+                                                                    html.P(
+                                                                        zone_exit_help_text,
+                                                                        className=zone_exit_help_class,
+                                                                    ),
+                                                                    # Feedback
+                                                                    html.Div(
+                                                                        id="workspace-zone-exit-feedback",
+                                                                        className=zone_exit_feedback_class,
+                                                                    ),
+                                                                    # Editor row
+                                                                    dbc.Row(
+                                                                        [
+                                                                            dbc.Col(
+                                                                                dcc.Dropdown(
+                                                                                    id="workspace-zone-exit-direction",
+                                                                                    options=exit_direction_options,
+                                                                                    placeholder="Dir",
+                                                                                    clearable=True,
+                                                                                    className="small",
+                                                                                ),
+                                                                                width=2,
+                                                                            ),
+                                                                            dbc.Col(
+                                                                                dcc.Dropdown(
+                                                                                    id="workspace-zone-exit-zone",
+                                                                                    options=[],
+                                                                                    placeholder="Zone",
+                                                                                    clearable=True,
+                                                                                    className="small",
+                                                                                ),
+                                                                                width=4,
+                                                                            ),
+                                                                            dbc.Col(
+                                                                                dcc.Dropdown(
+                                                                                    id="workspace-zone-exit-room",
+                                                                                    options=[],
+                                                                                    placeholder="Room",
+                                                                                    clearable=True,
+                                                                                    disabled=True,
+                                                                                    className="small",
+                                                                                ),
+                                                                                width=4,
+                                                                            ),
+                                                                            dbc.Col(
+                                                                                dbc.Button(
+                                                                                    [
+                                                                                        zone_exit_save_icon,
+                                                                                        "Save",
+                                                                                    ],
+                                                                                    id="workspace-zone-exit-save",
+                                                                                    color="primary",
+                                                                                    size="sm",
+                                                                                    className="w-100",
+                                                                                ),
+                                                                                width=1,
+                                                                            ),
+                                                                            dbc.Col(
+                                                                                dbc.Button(
+                                                                                    [
+                                                                                        zone_exit_clear_icon,
+                                                                                        "Clear",
+                                                                                    ],
+                                                                                    id="workspace-zone-exit-clear",
+                                                                                    color="secondary",
+                                                                                    size="sm",
+                                                                                    outline=True,
+                                                                                    className="w-100",
+                                                                                ),
+                                                                                width=1,
+                                                                            ),
+                                                                        ],
+                                                                        className=zone_exit_row_class,
+                                                                    ),
+                                                                    # Table view
+                                                                    html.Div(
+                                                                        id="workspace-zone-exit-table",
+                                                                    ),
+                                                                ],
+                                                                className="mt-2",
                                                             ),
                                                         ],
                                                         label="Rooms",
