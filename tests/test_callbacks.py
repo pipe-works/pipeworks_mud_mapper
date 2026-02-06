@@ -849,6 +849,12 @@ class TestFileCallbacks:
         result = render_export_status(payload)
         assert result == "Export queued"
 
+    def test_render_export_status_missing_content(self):
+        """render_export_status should no-op when content is missing."""
+        payload = {"ts": 1.0}
+        result = render_export_status(payload)
+        assert result is no_update
+
     def test_handle_file_click_no_clicks(self):
         """handle_file_click should return no_update when nothing clicked."""
         result = handle_file_click(
@@ -856,6 +862,85 @@ class TestFileCallbacks:
             current_file=None,
         )
         assert result == (no_update, no_update, no_update, no_update, no_update)
+
+    def test_handle_file_click_invalid_trigger(self):
+        """handle_file_click should no-op when triggered_id is invalid."""
+        with patch("pipeworks_mud_mapper.callbacks.file_callbacks.ctx") as mock_ctx:
+            mock_ctx.triggered_id = "file-item"
+            result = handle_file_click(
+                map_clicks=[1],
+                current_file=None,
+            )
+
+        assert result == (no_update, no_update, no_update, no_update, no_update)
+
+    def test_handle_file_click_missing_filename(self):
+        """handle_file_click should no-op when trigger has no filename."""
+        with patch("pipeworks_mud_mapper.callbacks.file_callbacks.ctx") as mock_ctx:
+            mock_ctx.triggered_id = {"type": "file-item"}
+            result = handle_file_click(
+                map_clicks=[1],
+                current_file=None,
+            )
+
+        assert result == (no_update, no_update, no_update, no_update, no_update)
+
+    def test_handle_file_click_same_file(self):
+        """handle_file_click should no-op when clicking the current file."""
+        with patch("pipeworks_mud_mapper.callbacks.file_callbacks.ctx") as mock_ctx:
+            mock_ctx.triggered_id = {"type": "file-item", "filename": "zone.map.json"}
+            result = handle_file_click(
+                map_clicks=[1],
+                current_file="zone.map.json",
+            )
+
+        assert result == (no_update, no_update, no_update, no_update, no_update)
+
+    def test_handle_file_click_load_failure(self):
+        """handle_file_click should no-op when load transition fails."""
+        fake_transition = type(
+            "Transition", (), {"changed": False, "zone_data": None, "effects": {}}
+        )()
+        with (
+            patch("pipeworks_mud_mapper.callbacks.file_callbacks.ctx") as mock_ctx,
+            patch(
+                "pipeworks_mud_mapper.callbacks.file_callbacks.apply_zone_action",
+                return_value=fake_transition,
+            ),
+        ):
+            mock_ctx.triggered_id = {"type": "file-item", "filename": "zone.map.json"}
+            result = handle_file_click(
+                map_clicks=[1],
+                current_file=None,
+            )
+
+        assert result == (no_update, no_update, no_update, no_update, no_update)
+
+    def test_handle_file_click_success(self):
+        """handle_file_click should load and return zone data."""
+        fake_transition = type(
+            "Transition",
+            (),
+            {
+                "changed": True,
+                "zone_data": {"id": "zone"},
+                "effects": {"zone_name": "Test Zone"},
+            },
+        )()
+        with (
+            patch("pipeworks_mud_mapper.callbacks.file_callbacks.ctx") as mock_ctx,
+            patch(
+                "pipeworks_mud_mapper.callbacks.file_callbacks.apply_zone_action",
+                return_value=fake_transition,
+            ),
+        ):
+            mock_ctx.triggered_id = {"type": "file-item", "filename": "zone.map.json"}
+            result = handle_file_click(
+                map_clicks=[1],
+                current_file=None,
+            )
+
+        assert result == ("zone.map.json", {"id": "zone"}, "Zone: Test Zone", False, None)
 
     def test_handle_zone_file_click_loads_json(self, tmp_path):
         """handle_zone_file_click should load JSON and set selection."""
