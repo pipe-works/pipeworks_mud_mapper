@@ -2,7 +2,11 @@
 
 import json
 
-from pipeworks_mud_mapper.services.world_service import load_world_zone_ids, load_zone_room_ids
+from pipeworks_mud_mapper.services.world_service import (
+    load_world_json,
+    load_world_zone_ids,
+    load_zone_room_ids,
+)
 
 
 def test_load_world_zone_ids_prefers_world_json(tmp_path):
@@ -16,6 +20,37 @@ def test_load_world_zone_ids_prefers_world_json(tmp_path):
 
     zone_ids = load_world_zone_ids(zones_dir)
     assert zone_ids == ["alpha", "beta"]
+
+
+def test_load_world_json_reads_payload(tmp_path):
+    zones_dir = tmp_path / "zones"
+    zones_dir.mkdir()
+    world_path = tmp_path / "world.json"
+    world_path.write_text(json.dumps({"zones": ["alpha"]}), encoding="utf-8")
+
+    payload = load_world_json(world_path=world_path, zones_dir=zones_dir)
+
+    assert payload == {"zones": ["alpha"]}
+
+
+def test_load_world_json_missing_file(tmp_path):
+    zones_dir = tmp_path / "zones"
+    zones_dir.mkdir()
+
+    payload = load_world_json(zones_dir=zones_dir)
+
+    assert payload is None
+
+
+def test_load_world_json_invalid_payload(tmp_path):
+    zones_dir = tmp_path / "zones"
+    zones_dir.mkdir()
+    world_path = tmp_path / "world.json"
+    world_path.write_text("[]", encoding="utf-8")
+
+    payload = load_world_json(world_path=world_path, zones_dir=zones_dir)
+
+    assert payload is None
 
 
 def test_load_world_zone_ids_fallback_to_zone_files(tmp_path):

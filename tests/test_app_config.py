@@ -29,6 +29,7 @@ def test_get_path_settings_defaults(tmp_path, monkeypatch):
     assert settings["db_path"] == project_root / "data" / "mapper.db"
     assert settings["maps_dir"] == project_root / "data" / "maps"
     assert settings["zones_dir"] == project_root / "data" / "zones"
+    assert settings["world_json_path"] == project_root / "data" / "world.json"
 
 
 def test_get_path_settings_from_server_ini(tmp_path, monkeypatch):
@@ -43,6 +44,7 @@ def test_get_path_settings_from_server_ini(tmp_path, monkeypatch):
         "db_path = custom/mapper.db\n"
         "maps_dir = custom/maps\n"
         "zones_dir = custom/zones\n"
+        "world_json_path = custom/world.json\n"
     )
 
     monkeypatch.setattr(app_config, "PROJECT_ROOT", project_root)
@@ -54,6 +56,7 @@ def test_get_path_settings_from_server_ini(tmp_path, monkeypatch):
     assert settings["db_path"] == project_root / "custom" / "mapper.db"
     assert settings["maps_dir"] == project_root / "custom" / "maps"
     assert settings["zones_dir"] == project_root / "custom" / "zones"
+    assert settings["world_json_path"] == project_root / "custom" / "world.json"
 
 
 def test_format_display_path_relative(tmp_path, monkeypatch):

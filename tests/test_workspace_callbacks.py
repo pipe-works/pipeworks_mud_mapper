@@ -191,6 +191,38 @@ def test_handle_workspace_room_click_invalid_trigger() -> None:
     assert result is no_update
 
 
+def test_update_workspace_world_json_missing() -> None:
+    """update_workspace_world_json should handle missing world.json."""
+    with (
+        patch.object(wc, "PATHS", {"world_json_path": Path("data/world.json")}),
+        patch(
+            "pipeworks_mud_mapper.callbacks.workspace_callbacks.world_service.load_world_json",
+            return_value=None,
+        ),
+    ):
+        result = wc.update_workspace_world_json(1, None)
+
+    assert "world.json not found" in str(result)
+
+
+def test_update_workspace_world_json_payload() -> None:
+    """update_workspace_world_json should render payload and zone count."""
+    payload = {"zones": ["alpha", "beta"]}
+
+    with (
+        patch.object(wc, "PATHS", {"world_json_path": Path("data/world.json")}),
+        patch(
+            "pipeworks_mud_mapper.callbacks.workspace_callbacks.world_service.load_world_json",
+            return_value=payload,
+        ),
+    ):
+        result = wc.update_workspace_world_json(1, None)
+
+    assert "World Path" in str(result)
+    assert "Zones" in str(result)
+    assert '"zones"' in str(result)
+
+
 def test_timestamped_name_has_prefix_and_suffix() -> None:
     """_timestamped_name should generate a name with the requested prefix/suffix."""
     name = wc._timestamped_name("mapper_backup", ".db")

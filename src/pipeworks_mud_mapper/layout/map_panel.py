@@ -110,6 +110,7 @@ def create_map_panel() -> dbc.Card:
     zone_exit_row_class = "g-2 align-items-end mb-2"
     zone_exit_save_icon = html.I(className="bi bi-check me-1")
     zone_exit_clear_icon = html.I(className="bi bi-x me-1")
+    world_refresh_icon = html.I(className="bi bi-arrow-clockwise me-1")
     return dbc.Card(
         [
             dbc.CardBody(
@@ -355,11 +356,38 @@ def create_map_panel() -> dbc.Card:
                                                         label="Rooms",
                                                     ),
                                                     dbc.Tab(
-                                                        html.P(
-                                                            "Placeholder: query runner",
-                                                            className="small text-muted mb-0",
-                                                        ),
-                                                        label="Queries",
+                                                        [
+                                                            dbc.Row(
+                                                                [
+                                                                    dbc.Col(
+                                                                        html.Div(
+                                                                            "World JSON",
+                                                                            className="fw-semibold",
+                                                                        ),
+                                                                        width=8,
+                                                                    ),
+                                                                    dbc.Col(
+                                                                        dbc.Button(
+                                                                            [
+                                                                                world_refresh_icon,
+                                                                                "Refresh",
+                                                                            ],
+                                                                            id="workspace-world-json-refresh",
+                                                                            color="secondary",
+                                                                            size="sm",
+                                                                            outline=True,
+                                                                            className="w-100",
+                                                                        ),
+                                                                        width=4,
+                                                                    ),
+                                                                ],
+                                                                className="align-items-center mb-2",
+                                                            ),
+                                                            html.Div(
+                                                                id="workspace-world-json",
+                                                            ),
+                                                        ],
+                                                        label="World JSON",
                                                     ),
                                                     dbc.Tab(
                                                         html.P(
