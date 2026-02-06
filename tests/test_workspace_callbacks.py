@@ -9,6 +9,7 @@ import dash_bootstrap_components as dbc
 from dash import no_update
 
 from pipeworks_mud_mapper.callbacks import workspace_callbacks as wc
+from pipeworks_mud_mapper.models.room import Coords, MapRoom
 
 
 def test_format_bytes() -> None:
@@ -89,6 +90,63 @@ def test_update_workspace_db_with_overview() -> None:
     assert "1 maps" in str(summary)
     assert isinstance(table, dbc.Table)
     assert "alpha" in str(table)
+
+
+def test_update_workspace_room_table_no_selection() -> None:
+    """update_workspace_room_table should prompt when no map is selected."""
+    result = wc.update_workspace_room_table(None, None, None, None, None)
+    assert "Select a map" in str(result)
+
+
+def test_update_workspace_room_table_map_missing() -> None:
+    """update_workspace_room_table should handle missing maps gracefully."""
+    with patch(
+        "pipeworks_mud_mapper.callbacks.workspace_callbacks.map_db_service.load_map",
+        side_effect=KeyError("missing"),
+    ):
+        result = wc.update_workspace_room_table("missing", None, None, None, None)
+
+    assert "not found" in str(result)
+
+
+def test_update_workspace_room_table_with_rooms() -> None:
+    """update_workspace_room_table should render a room table."""
+    room_a = MapRoom(
+        id="a",
+        name="Room A",
+        coords=Coords(x=0, y=0, z=0),
+        exits={"north": "b"},
+    )
+    room_b = MapRoom(
+        id="b",
+        name="Room B",
+        coords=Coords(x=1, y=0, z=0),
+        exits={},
+    )
+    map_stub = type("MapStub", (), {"rooms": {"a": room_a, "b": room_b}})()
+
+    with patch(
+        "pipeworks_mud_mapper.callbacks.workspace_callbacks.map_db_service.load_map",
+        return_value=map_stub,
+    ):
+        result = wc.update_workspace_room_table("alpha", None, None, None, "b")
+
+    assert isinstance(result, dbc.Table)
+    assert "Room A" in str(result)
+    assert "Room B" in str(result)
+
+
+def test_handle_workspace_room_click_toggle() -> None:
+    """handle_workspace_room_click should select and toggle rooms."""
+    with patch("pipeworks_mud_mapper.callbacks.workspace_callbacks.ctx") as mock_ctx:
+        mock_ctx.triggered_id = {"type": "workspace-room-row", "room_id": "room_1"}
+        result = wc.handle_workspace_room_click([1], None)
+    assert result == "room_1"
+
+    with patch("pipeworks_mud_mapper.callbacks.workspace_callbacks.ctx") as mock_ctx:
+        mock_ctx.triggered_id = {"type": "workspace-room-row", "room_id": "room_1"}
+        result = wc.handle_workspace_room_click([1], "room_1")
+    assert result is None
 
 
 def test_timestamped_name_has_prefix_and_suffix() -> None:

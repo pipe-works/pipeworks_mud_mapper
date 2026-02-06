@@ -733,7 +733,7 @@ class TestFileCallbacks:
             map_clicks=[0, 0],
             current_file=None,
         )
-        assert result == (no_update, no_update, no_update, no_update, no_update)
+        assert result == (no_update, no_update, no_update, no_update, no_update, no_update)
 
     def test_handle_file_click_invalid_trigger(self):
         """handle_file_click should no-op when triggered_id is invalid."""
@@ -744,7 +744,7 @@ class TestFileCallbacks:
                 current_file=None,
             )
 
-        assert result == (no_update, no_update, no_update, no_update, no_update)
+        assert result == (no_update, no_update, no_update, no_update, no_update, no_update)
 
     def test_handle_file_click_missing_filename(self):
         """handle_file_click should no-op when trigger has no filename."""
@@ -755,7 +755,7 @@ class TestFileCallbacks:
                 current_file=None,
             )
 
-        assert result == (no_update, no_update, no_update, no_update, no_update)
+        assert result == (no_update, no_update, no_update, no_update, no_update, no_update)
 
     def test_handle_file_click_same_file(self):
         """handle_file_click should no-op when clicking the current file."""
@@ -766,7 +766,7 @@ class TestFileCallbacks:
                 current_file="zone",
             )
 
-        assert result == (no_update, no_update, no_update, no_update, no_update)
+        assert result == (no_update, no_update, no_update, no_update, no_update, no_update)
 
     def test_handle_file_click_load_failure(self):
         """handle_file_click should no-op when load transition fails."""
@@ -786,7 +786,7 @@ class TestFileCallbacks:
                 current_file=None,
             )
 
-        assert result == (no_update, no_update, no_update, no_update, no_update)
+        assert result == (no_update, no_update, no_update, no_update, no_update, no_update)
 
     def test_handle_file_click_success(self):
         """handle_file_click should load and return zone data."""
@@ -812,7 +812,7 @@ class TestFileCallbacks:
                 current_file=None,
             )
 
-        assert result == ("zone", {"id": "zone"}, "Zone: Test Zone", False, None)
+        assert result == ("zone", {"id": "zone"}, "Zone: Test Zone", False, None, None)
 
     def test_handle_zone_file_click_loads_json(self, tmp_path):
         """handle_zone_file_click should load JSON and set selection."""
@@ -892,24 +892,37 @@ class TestFileCallbacks:
 
     def test_render_file_properties_none_selected(self):
         """render_file_properties should disable delete when nothing selected."""
-        name, detail, disabled = render_file_properties(None, None)
+        name, detail, disabled = render_file_properties(None, None, None, None)
         assert "No file selected" in str(name)
         assert detail == ""
         assert disabled is True
 
     def test_render_file_properties_map_selected(self):
         """render_file_properties should show map selection info."""
-        name, detail, disabled = render_file_properties("zone", None)
+        name, detail, disabled = render_file_properties("zone", None, None, None)
         assert "zone" in str(name)
         assert "Map" in str(detail)
         assert disabled is False
 
     def test_render_file_properties_zone_selected(self):
         """render_file_properties should show zone export selection info."""
-        name, detail, disabled = render_file_properties(None, "zone.json")
+        name, detail, disabled = render_file_properties(None, "zone.json", None, None)
         assert "zone.json" in str(name)
         assert "Zone export" in str(detail)
         assert disabled is False
+
+    def test_render_file_properties_room_selected(self):
+        """render_file_properties should show room details when selected."""
+        zone_data = {
+            "rooms": {
+                "spawn": {"name": "Spawn", "coords": [0, 0, 0]},
+            }
+        }
+        name, detail, disabled = render_file_properties(None, None, "spawn", zone_data)
+        assert "spawn" in str(name)
+        assert "Room" in str(detail)
+        assert "Coords" in str(detail)
+        assert disabled is True
 
     def test_request_file_delete_no_selection(self):
         """request_file_delete should no-op without a selection."""

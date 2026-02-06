@@ -237,11 +237,20 @@ def create_map_panel() -> dbc.Card:
                                                     ),
                                                     # Additional placeholder tabs for upcoming work.
                                                     dbc.Tab(
-                                                        html.P(
-                                                            "Placeholder: schema explorer",
-                                                            className="small text-muted mb-0",
-                                                        ),
-                                                        label="Schema",
+                                                        [
+                                                            html.P(
+                                                                "Rooms for the selected map.",
+                                                                className="small text-muted mb-2",
+                                                            ),
+                                                            html.P(
+                                                                "Click a row to focus the editor.",
+                                                                className="small text-muted mb-2",
+                                                            ),
+                                                            html.Div(
+                                                                id="workspace-room-table",
+                                                            ),
+                                                        ],
+                                                        label="Rooms",
                                                     ),
                                                     dbc.Tab(
                                                         html.P(
