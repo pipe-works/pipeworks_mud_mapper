@@ -93,3 +93,8 @@ docs/source/autoapi/
 
 # Data authoring snapshots
 data/maps/dev_snapshots/
+
+# Local data (not tracked in mapper repo)
+data/maps/
+data/zones/
+data/validation/
