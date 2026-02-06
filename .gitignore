@@ -103,3 +103,5 @@ data/*.sqlite
 data/*.sqlite3
 data/*.db-shm
 data/*.db-wal
+data/backups/
+data/exports/
