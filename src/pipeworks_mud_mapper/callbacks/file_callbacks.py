@@ -2,9 +2,7 @@
 
 This module handles:
 
-- Loading map list from SQLite on startup
-- Rendering the map browser list
-- Loading map data when a map is clicked
+- Loading map data when a map is selected from the Workspace table
 - New map modal open/close/create
 - Save and export functionality
 - Status updates
@@ -23,10 +21,9 @@ Component Dependencies
 ----------------------
 **Inputs:**
 - ``initial-load``: Interval trigger for startup
-- ``zone-files-store``: List of available maps (IDs)
-- ``zones-files-store``: List of available zone export files
+- ``zones-files-store``: List of exported zone files
 - ``selected-file``: Currently selected map ID
-- ``file-item`` (pattern): Clickable file list items
+- ``workspace-map-row`` (pattern): Clickable Workspace table rows
 - ``new-map-btn``: Open new map modal
 - ``new-map-cancel-btn``: Close modal
 - ``new-map-create-btn``: Create new zone
@@ -34,8 +31,6 @@ Component Dependencies
 - ``export-zone-btn``: Export zone JSON
 
 **Outputs:**
-- ``zone-files-store``: Updated file list
-- ``file-list-container``: Rendered map file list
 - ``zone-files-list-container``: Rendered zone export list
 - ``exports-status-indicator``: Export status display
 - ``selected-file``: Selected map ID
@@ -73,43 +68,9 @@ ZONES_DIR = PATHS["zones_dir"]
 # =============================================================================
 # File Listing Cache
 # =============================================================================
-# These cache structures reduce repeated DB queries or filesystem scans when
-# callbacks are triggered in quick succession.
-# The cache is intentionally short-lived to keep the UI responsive while
-# avoiding expensive directory scans on slower disks.
-
-FILE_LIST_CACHE_TTL_SECONDS = 1.0
-_MAP_LIST_CACHE: dict[Path, tuple[float, list[str]]] = {}
+# These cache structures reduce repeated filesystem scans when callbacks are
+# triggered in quick succession.
 _FILE_LIST_CACHE: dict[Path, tuple[float, list[Path]]] = {}
-
-
-def _get_cached_map_ids(db_path: Path, *, force_refresh: bool = False) -> list[str]:
-    """Return cached map IDs with a short TTL.
-
-    Parameters
-    ----------
-    db_path : Path
-        SQLite database path.
-    force_refresh : bool
-        When True, bypasses the cache and queries immediately.
-
-    Returns
-    -------
-    list[str]
-        Map IDs stored in the database.
-    """
-    # Monotonic clock avoids issues if system time changes.
-    now = time.monotonic()
-    cached = _MAP_LIST_CACHE.get(db_path)
-
-    if cached and not force_refresh:
-        last_scan, map_ids = cached
-        if now - last_scan <= FILE_LIST_CACHE_TTL_SECONDS:
-            return map_ids
-
-    map_ids = map_db_service.list_maps(db_path)
-    _MAP_LIST_CACHE[db_path] = (now, map_ids)
-    return map_ids
 
 
 def _room_feedback_payload(content: Any) -> dict[str, Any]:
@@ -143,45 +104,17 @@ def _export_zone_job(
 
 
 # =============================================================================
-# File List Callbacks
+# Export List Callbacks
 # =============================================================================
-
-
-@callback(
-    Output("zone-files-store", "data"),
-    Input("initial-load", "n_intervals"),
-    Input("file-browser-refresh-btn", "n_clicks"),
-    prevent_initial_call=False,
-)
-def load_map_files_list(_: int, __: int | None) -> list[str]:
-    """Load list of maps from the SQLite authoring database.
-
-    This callback is triggered once on initial page load (via dcc.Interval)
-    and populates the zone-files-store with available map IDs.
-
-    Parameters
-    ----------
-    _ : int
-        Interval count (ignored, we just need the trigger).
-
-    Returns
-    -------
-    list[str]
-        List of map IDs (e.g., ["dungeon", "town"]).
-    """
-    # Use cached listing to minimize repeated DB reads.
-    force_refresh = ctx.triggered_id == "file-browser-refresh-btn"
-    return _get_cached_map_ids(DB_PATH, force_refresh=force_refresh)
 
 
 @callback(
     Output("zones-files-store", "data"),
     Input("initial-load", "n_intervals"),
     Input("room-feedback-export", "data"),
-    Input("file-browser-refresh-btn", "n_clicks"),
     prevent_initial_call=False,
 )
-def load_zone_files_list(_: int, __: dict | None, ___: int | None) -> list[str]:
+def load_zone_files_list(_: int, __: dict | None) -> list[str]:
     """Load list of exported zone files from the zones directory.
 
     This callback is triggered on initial page load and after export
@@ -190,61 +123,8 @@ def load_zone_files_list(_: int, __: dict | None, ___: int | None) -> list[str]:
     # Ensure the export directory exists so the UI list can render consistently.
     ZONES_DIR.mkdir(parents=True, exist_ok=True)
     # Zone files are game-truth JSON (no coordinates), so we list *.json.
-    if ctx.triggered_id == "file-browser-refresh-btn":
-        # Force refresh on demand.
-        _FILE_LIST_CACHE.pop(ZONES_DIR, None)
     files = zone_service.list_zone_files(ZONES_DIR)
     return [f.name for f in files]
-
-
-@callback(
-    Output("file-list-container", "children"),
-    Input("zone-files-store", "data"),
-    Input("selected-file", "data"),
-)
-def render_file_list(files: list[str], selected_file: str | None) -> list:
-    """Render the map list in the browser with clickable items.
-
-    Creates a list of clickable div elements, one for each map.
-    The currently selected map is highlighted with different styling.
-
-    Parameters
-    ----------
-    files : list[str]
-        List of map IDs from zone-files-store.
-    selected_file : str | None
-        Currently selected map ID, or None.
-
-    Returns
-    -------
-    list
-        List of html.Div elements for each map, or placeholder
-        message if no maps found.
-    """
-    if not files:
-        return [html.Span("No maps found", className="text-muted fst-italic")]
-
-    items = []
-    for map_id in files:
-        is_selected = map_id == selected_file
-        icon_class = "bi bi-file-earmark-code me-2"
-        if is_selected:
-            icon_class += " text-primary"
-
-        items.append(
-            html.Div(
-                [
-                    html.I(className=icon_class),
-                    html.Span(map_id, className="fw-bold" if is_selected else ""),
-                ],
-                id={"type": "file-item", "filename": map_id},
-                className="mb-1 p-1 rounded file-item"
-                + (" bg-primary bg-opacity-10" if is_selected else ""),
-                style={"cursor": "pointer"},
-                n_clicks=0,
-            )
-        )
-    return items
 
 
 @callback(
@@ -433,7 +313,6 @@ def request_file_delete(
 
 
 @callback(
-    Output("zone-files-store", "data", allow_duplicate=True),
     Output("zones-files-store", "data", allow_duplicate=True),
     Output("selected-file", "data", allow_duplicate=True),
     Output("current-zone-data", "data", allow_duplicate=True),
@@ -451,49 +330,34 @@ def confirm_file_delete(
 ) -> tuple:
     """Delete a file after confirmation and refresh the relevant list."""
     if not confirm_clicks or not pending:
-        return no_update, no_update, no_update, no_update, no_update, no_update
+        return no_update, no_update, no_update, no_update, no_update
 
     delete_type = pending.get("type")
     filename = pending.get("filename")
     if not delete_type or not filename:
-        return no_update, no_update, no_update, no_update, no_update, no_update
+        return no_update, no_update, no_update, no_update, no_update
 
-    if delete_type == "file-delete-btn":
-        # Remove the map from SQLite; no filesystem delete needed.
-        map_db_service.delete_map(filename, db_path=DB_PATH)
-        list_key = "maps"
-    else:
-        file_path = ZONES_DIR / filename
-        list_dir = ZONES_DIR
-        list_fn = zone_service.list_zone_files
-        list_key = "zones"
-
-    if list_key == "zones":
-        if file_path.exists():
-            file_path.unlink()
-        files = list_fn(list_dir)
-        _FILE_LIST_CACHE[list_dir] = (time.monotonic(), files)
-        file_names = [f.name for f in files]
-    else:
-        file_names = _get_cached_map_ids(DB_PATH, force_refresh=True)
-
-    maps_update = no_update
     zones_update = no_update
     selected_update = no_update
     zone_data_update = no_update
     unsaved_update = no_update
 
-    if list_key == "maps":
-        maps_update = file_names
+    if delete_type == "file-delete-btn":
+        # Remove the map from SQLite; no filesystem delete needed.
+        map_db_service.delete_map(filename, db_path=DB_PATH)
         if filename == selected_file:
             selected_update = None
             zone_data_update = None
             unsaved_update = False
     else:
-        zones_update = file_names
+        file_path = ZONES_DIR / filename
+        if file_path.exists():
+            file_path.unlink()
+        files = zone_service.list_zone_files(ZONES_DIR)
+        _FILE_LIST_CACHE[ZONES_DIR] = (time.monotonic(), files)
+        zones_update = [f.name for f in files]
 
     return (
-        maps_update,
         zones_update,
         selected_update,
         zone_data_update,
@@ -508,7 +372,7 @@ def confirm_file_delete(
     Output("current-zone", "children"),
     Output("has-unsaved-changes", "data", allow_duplicate=True),
     Output("selected-zone-file", "data", allow_duplicate=True),
-    Input({"type": "file-item", "filename": ALL}, "n_clicks"),
+    Input({"type": "workspace-map-row", "map_id": ALL}, "n_clicks"),
     State("selected-file", "data"),
     prevent_initial_call=True,
 )
@@ -516,12 +380,12 @@ def handle_file_click(
     map_clicks: list[int],
     current_file: str | None,
 ) -> tuple:
-    """Load map data when a map is clicked in the file browser.
+    """Load map data when a Workspace table row is clicked.
 
     Parameters
     ----------
     map_clicks : list[int]
-        Click counts for regular map items.
+        Click counts for workspace map rows.
     current_file : str | None
         Currently selected map ID (used to avoid redundant reloads).
 
@@ -545,7 +409,7 @@ def handle_file_click(
         print("[DEBUG] handle_file_click: no valid trigger, returning no_update")
         return no_update, no_update, no_update, no_update, no_update
 
-    map_id = triggered.get("filename")
+    map_id = triggered.get("map_id")
     if not map_id:
         print("[DEBUG] handle_file_click: no filename in trigger, returning no_update")
         return no_update, no_update, no_update, no_update, no_update
@@ -574,7 +438,6 @@ def handle_file_click(
 
 @callback(
     Output("new-map-modal", "is_open"),
-    Output("zone-files-store", "data", allow_duplicate=True),
     Output("new-map-feedback", "children"),
     Output("new-zone-id", "value"),
     Output("new-zone-name", "value"),
@@ -605,15 +468,15 @@ def handle_new_map_modal(
 
     # Open the modal when the "New Map" button is clicked.
     if trigger == "new-map-btn":
-        return True, no_update, no_update, no_update, no_update, no_update
+        return True, no_update, no_update, no_update, no_update
 
     # Close the modal when Cancel is clicked.
     if trigger == "new-map-cancel-btn":
-        return False, no_update, no_update, no_update, no_update, no_update
+        return False, no_update, no_update, no_update, no_update
 
     # Only the Create button should run creation logic.
     if trigger != "new-map-create-btn" or not create_clicks:
-        return no_update, no_update, no_update, no_update, no_update, no_update
+        return no_update, no_update, no_update, no_update, no_update
 
     # Normalize inputs to avoid whitespace and casing issues.
     zone_id = (zone_id or "").strip().lower()
@@ -623,7 +486,7 @@ def handle_new_map_modal(
     # Validate zone_id.
     if not zone_id:
         feedback = dbc.Alert("Zone ID is required.", color="danger", className="mb-0")
-        return True, no_update, feedback, no_update, no_update, no_update
+        return True, feedback, no_update, no_update, no_update
 
     if not re.match(r"^[a-z][a-z0-9_]*$", zone_id):
         feedback = dbc.Alert(
@@ -632,12 +495,12 @@ def handle_new_map_modal(
             color="danger",
             className="mb-0",
         )
-        return True, no_update, feedback, no_update, no_update, no_update
+        return True, feedback, no_update, no_update, no_update
 
     # Validate zone_name.
     if not zone_name:
         feedback = dbc.Alert("Zone Name is required.", color="danger", className="mb-0")
-        return True, no_update, feedback, no_update, no_update, no_update
+        return True, feedback, no_update, no_update, no_update
 
     # Check if map already exists in SQLite.
     if map_db_service.map_exists(zone_id, db_path=DB_PATH):
@@ -646,7 +509,7 @@ def handle_new_map_modal(
             color="warning",
             className="mb-0",
         )
-        return True, no_update, feedback, no_update, no_update, no_update
+        return True, feedback, no_update, no_update, no_update
 
     # Create and save the map in SQLite using the MapFile model.
     map_file = zone_service.create_new_map_file(
@@ -657,11 +520,8 @@ def handle_new_map_modal(
     )
     map_db_service.save_map(map_file, db_path=DB_PATH)
 
-    # Refresh map list after creation.
-    file_names = _get_cached_map_ids(DB_PATH, force_refresh=True)
-
     # Close modal and clear form on success.
-    return False, file_names, "", "", "", ""
+    return False, "", "", "", ""
 
 
 # =============================================================================
@@ -701,14 +561,14 @@ def update_save_status(has_unsaved: bool, selected_file: str | None) -> tuple:
 
     if not selected_file:
         print("[DEBUG] update_save_status: no map loaded")
-        return True, True, "No map loaded"
+        return True, True, html.Span("No map loaded", className="text-muted")
 
     # Display full map ID for clarity
     display_name = selected_file
 
     if has_unsaved:
         print("[DEBUG] update_save_status: unsaved changes - save=ENABLED")
-        return False, True, f"Unsaved: {display_name}"
+        return False, True, html.Span(f"Unsaved: {display_name}", className="text-muted")
 
     print("[DEBUG] update_save_status: saved - export=ENABLED")
     saved_alert = dbc.Alert(

@@ -29,7 +29,7 @@ State Stores
 ------------
 The layout includes hidden dcc.Store components for application state:
 
-- ``zone-files-store``: List of available zone file names
+- ``zones-files-store``: List of exported zone file names
 - ``current-zone-data``: Currently loaded zone data (dict)
 - ``selected-file``: Currently selected file name
 - ``selected-room``: Currently selected room ID
@@ -102,7 +102,6 @@ def create_app_layout() -> dbc.Container:
             # -----------------------------------------------------------------
             # State Stores (invisible, hold application state)
             # -----------------------------------------------------------------
-            dcc.Store(id="zone-files-store", data=[]),  # List of map file names
             dcc.Store(id="zones-files-store", data=[]),  # List of exported zone files
             dcc.Store(id="current-zone-data", data=None),  # Current zone dict
             dcc.Store(id="selected-file", data=None),  # Selected file name
