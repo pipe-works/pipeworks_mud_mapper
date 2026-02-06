@@ -1262,7 +1262,7 @@ class TestFileCallbacks:
 
     def test_update_save_status_no_file(self):
         """update_save_status should show no file loaded state."""
-        save_disabled, export_disabled, status, debug = update_save_status(
+        save_disabled, export_disabled, status = update_save_status(
             has_unsaved=False,
             selected_file=None,
         )
@@ -1272,7 +1272,7 @@ class TestFileCallbacks:
 
     def test_update_save_status_unsaved(self):
         """update_save_status should enable save when unsaved changes."""
-        save_disabled, export_disabled, status, debug = update_save_status(
+        save_disabled, export_disabled, status = update_save_status(
             has_unsaved=True,
             selected_file="test.map.json",
         )
@@ -1282,7 +1282,7 @@ class TestFileCallbacks:
 
     def test_update_save_status_saved(self):
         """update_save_status should enable export when all saved."""
-        save_disabled, export_disabled, status, debug = update_save_status(
+        save_disabled, export_disabled, status = update_save_status(
             has_unsaved=False,
             selected_file="test.map.json",
         )

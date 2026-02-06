@@ -9,12 +9,8 @@ Component Structure
 ::
 
     ┌───────────────────────────────────────────────────────────────────┐
-    │                                              [debug-btn-state]    │
+    │                                                                    │
     └───────────────────────────────────────────────────────────────────┘
-
-Component IDs
--------------
-- ``debug-btn-state``: Debug output for button state (hidden in production)
 
 Notes
 -----
@@ -44,10 +40,6 @@ def create_action_bar() -> html.Div:
     html.Div
         Container with action bar content.
 
-    Component IDs
-    -------------
-    - ``debug-btn-state``: Debug output span (development use)
-
     Notes
     -----
     This component was simplified after flexbox issues in v0.0.8.
@@ -55,15 +47,8 @@ def create_action_bar() -> html.Div:
     """
     return html.Div(
         [
-            # Spacer to push debug output to the right
+            # Spacer to keep the footer height consistent.
             html.Span(className="flex-grow-1"),
-            # Debug output for development - shows button state
-            # Can be hidden in production via CSS if needed
-            html.Span(
-                id="debug-btn-state",
-                children="",
-                className="small text-muted",
-            ),
         ],
         className="d-flex align-items-center p-2 bg-light border-top",
     )

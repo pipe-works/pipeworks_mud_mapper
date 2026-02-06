@@ -104,14 +104,189 @@ def create_map_panel() -> dbc.Card:
                     # ---------------------------------------------------------
                     # Interactive map showing rooms as nodes and exits as lines.
                     # Displays all Z-levels simultaneously (flattened view).
-                    dcc.Graph(
-                        id="map-graph",
-                        figure=create_map_figure(),  # No title for flattened view
-                        config={
-                            "displayModeBar": True,
-                            "scrollZoom": True,
-                            "modeBarButtonsToRemove": ["lasso2d", "select2d"],
-                        },
+                    # ---------------------------------------------------------------------
+                    # Map + Workspace Split Row
+                    # ---------------------------------------------------------------------
+                    # The Plotly map keeps its fixed 700px width (see create_map_figure),
+                    # which leaves usable space to the right inside the center column.
+                    # We reserve that space for a "Workspace" card with tabs for upcoming
+                    # SQLite tooling and other utilities.
+                    dbc.Row(
+                        [
+                            # Map column: auto-sized to the Plotly figure width.
+                            dbc.Col(
+                                html.Div(
+                                    dcc.Graph(
+                                        id="map-graph",
+                                        figure=create_map_figure(),  # No title for flattened view
+                                        config={
+                                            "displayModeBar": True,
+                                            "scrollZoom": True,
+                                            "modeBarButtonsToRemove": ["lasso2d", "select2d"],
+                                        },
+                                    ),
+                                    # Adds a subtle divider so the workspace feels distinct.
+                                    className="map-graph-frame",
+                                ),
+                                width="auto",
+                                className="pe-0",
+                            ),
+                            # Workspace column: fills remaining horizontal space.
+                            dbc.Col(
+                                dbc.Card(
+                                    [
+                                        dbc.CardHeader("Workspace"),
+                                        dbc.CardBody(
+                                            # Tabs provide room for future tooling.
+                                            # First tab is a SQLite DB placeholder with a faux
+                                            # table.
+                                            dbc.Tabs(
+                                                [
+                                                    dbc.Tab(
+                                                        [
+                                                            html.P(
+                                                                "SQLite DB (placeholder)",
+                                                                className="small text-muted mb-2",
+                                                            ),
+                                                            dbc.Table(
+                                                                [
+                                                                    html.Thead(
+                                                                        html.Tr(
+                                                                            [
+                                                                                html.Th("Table"),
+                                                                                html.Th("Rows"),
+                                                                                html.Th("Notes"),
+                                                                            ]
+                                                                        )
+                                                                    ),
+                                                                    html.Tbody(
+                                                                        [
+                                                                            html.Tr(
+                                                                                [
+                                                                                    html.Td(
+                                                                                        "zones"
+                                                                                    ),
+                                                                                    html.Td("12"),
+                                                                                    html.Td(
+                                                                                        "Zone"
+                                                                                        " metadata"
+                                                                                    ),
+                                                                                ]
+                                                                            ),
+                                                                            html.Tr(
+                                                                                [
+                                                                                    html.Td(
+                                                                                        "rooms"
+                                                                                    ),
+                                                                                    html.Td("184"),
+                                                                                    html.Td(
+                                                                                        "Room graph"
+                                                                                    ),
+                                                                                ]
+                                                                            ),
+                                                                            html.Tr(
+                                                                                [
+                                                                                    html.Td(
+                                                                                        "exits"
+                                                                                    ),
+                                                                                    html.Td("412"),
+                                                                                    html.Td(
+                                                                                        [
+                                                                                            "Room",
+                                                                                            html.Br(),
+                                                                                            "connections",
+                                                                                        ]
+                                                                                    ),
+                                                                                ]
+                                                                            ),
+                                                                            html.Tr(
+                                                                                [
+                                                                                    html.Td(
+                                                                                        "items"
+                                                                                    ),
+                                                                                    html.Td("57"),
+                                                                                    html.Td(
+                                                                                        "Inventory"
+                                                                                        " table"
+                                                                                    ),
+                                                                                ]
+                                                                            ),
+                                                                            html.Tr(
+                                                                                [
+                                                                                    html.Td(
+                                                                                        "llm_generations"
+                                                                                    ),
+                                                                                    html.Td("38"),
+                                                                                    html.Td(
+                                                                                        "Prompt"
+                                                                                        " history"
+                                                                                    ),
+                                                                                ]
+                                                                            ),
+                                                                        ]
+                                                                    ),
+                                                                ],
+                                                                bordered=True,
+                                                                hover=True,
+                                                                size="sm",
+                                                                className="small mb-0",
+                                                            ),
+                                                        ],
+                                                        label="SQLite DB",
+                                                    ),
+                                                    # Additional placeholder tabs for upcoming work.
+                                                    dbc.Tab(
+                                                        html.P(
+                                                            "Placeholder: schema explorer",
+                                                            className="small text-muted mb-0",
+                                                        ),
+                                                        label="Schema",
+                                                    ),
+                                                    dbc.Tab(
+                                                        html.P(
+                                                            "Placeholder: query runner",
+                                                            className="small text-muted mb-0",
+                                                        ),
+                                                        label="Queries",
+                                                    ),
+                                                    dbc.Tab(
+                                                        html.P(
+                                                            "Placeholder: migrations log",
+                                                            className="small text-muted mb-0",
+                                                        ),
+                                                        label="Migrations",
+                                                    ),
+                                                    dbc.Tab(
+                                                        html.P(
+                                                            "Placeholder: index inspector",
+                                                            className="small text-muted mb-0",
+                                                        ),
+                                                        label="Indexes",
+                                                    ),
+                                                    dbc.Tab(
+                                                        html.P(
+                                                            "Placeholder: stats and vacuum",
+                                                            className="small text-muted mb-0",
+                                                        ),
+                                                        label="Stats",
+                                                    ),
+                                                    dbc.Tab(
+                                                        html.P(
+                                                            "Placeholder: notes and todos",
+                                                            className="small text-muted mb-0",
+                                                        ),
+                                                        label="Notes",
+                                                    ),
+                                                ]
+                                            )
+                                        ),
+                                    ],
+                                    className="map-side-card",
+                                ),
+                                className="ps-0",
+                            ),
+                        ],
+                        className="g-2 align-items-start",
                     ),
                     # ---------------------------------------------------------
                     # Z-Level Filter Checkboxes
