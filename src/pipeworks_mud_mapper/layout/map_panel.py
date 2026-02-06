@@ -414,7 +414,7 @@ def create_map_panel() -> dbc.Card:
                                 className="d-flex align-items-center",
                             ),
                         ],
-                        className="d-flex align-items-center mt-2 p-2 bg-light rounded",
+                        className="d-flex align-items-center mt-2 p-2 bg-body-tertiary rounded",
                     ),
                 ]
             ),

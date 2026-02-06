@@ -806,7 +806,7 @@ def create_ollama_panel() -> dbc.Card:
                                                     ],
                                                     className="py-2",
                                                 ),
-                                                className="mb-2 bg-light",
+                                                className="mb-2 bg-body-tertiary",
                                             ),
                                         ],
                                         id="ollama-params-collapse",
@@ -1004,7 +1004,7 @@ def create_ollama_panel() -> dbc.Card:
                                                 ),
                                             ],
                                         ),
-                                        className="bg-light",
+                                        className="bg-body-tertiary",
                                     )
                                 ],
                                 width=5,

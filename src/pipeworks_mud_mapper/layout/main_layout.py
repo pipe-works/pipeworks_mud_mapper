@@ -91,6 +91,14 @@ def create_app_layout() -> dbc.Container:
     """
     return dbc.Container(
         [
+            # Bootstrap theme stylesheet (swapped via theme toggle callback).
+            # Using a link tag keeps the toggle fast and avoids rebuilding
+            # the Dash app on theme changes.
+            html.Link(
+                id="theme-link",
+                rel="stylesheet",
+                href=dbc.themes.BOOTSTRAP,
+            ),
             # -----------------------------------------------------------------
             # State Stores (invisible, hold application state)
             # -----------------------------------------------------------------
@@ -252,7 +260,23 @@ def create_app_layout() -> dbc.Container:
                         width="auto",
                     ),
                     dbc.Col(
-                        html.Span("Zone: (none)", className="text-muted", id="current-zone"),
+                        html.Div(
+                            [
+                                html.Span(
+                                    "Zone: (none)",
+                                    className="text-muted",
+                                    id="current-zone",
+                                ),
+                                # Theme toggle for light/dark preferences.
+                                dbc.Switch(
+                                    id="theme-toggle",
+                                    label="Dark mode",
+                                    value=False,
+                                    className="mb-0",
+                                ),
+                            ],
+                            className="d-flex align-items-center gap-3",
+                        ),
                         width="auto",
                         className="ms-auto",
                     ),

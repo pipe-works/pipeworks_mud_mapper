@@ -282,7 +282,7 @@ def create_properties_panel() -> html.Div:
                                 className="small",
                             ),
                         ],
-                        className="mb-3 p-2 bg-light rounded",
+                        className="mb-3 p-2 bg-body-tertiary rounded",
                     ),
                 ]
             ),

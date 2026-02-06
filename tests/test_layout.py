@@ -785,6 +785,16 @@ class TestMainLayout:
         result = create_app_layout()
         assert component_has_id(result, "current-zone")
 
+    def test_create_app_layout_has_theme_toggle(self):
+        """create_app_layout should include theme toggle."""
+        result = create_app_layout()
+        assert component_has_id(result, "theme-toggle")
+
+    def test_create_app_layout_has_theme_link(self):
+        """create_app_layout should include theme stylesheet link."""
+        result = create_app_layout()
+        assert component_has_id(result, "theme-link")
+
     def test_create_app_layout_has_new_map_modal(self):
         """create_app_layout should include new-map-modal."""
         result = create_app_layout()
@@ -855,6 +865,10 @@ class TestMainLayout:
         assert "export-zone-btn" in ids
         assert "status-indicator" in ids
 
+        # Theme IDs
+        assert "theme-toggle" in ids
+        assert "theme-link" in ids
+
 
 # =============================================================================
 # Integration Tests
@@ -897,6 +911,13 @@ class TestLayoutIntegration:
         ]
         for id_ in file_callback_ids:
             assert id_ in ids, f"Missing ID for file callbacks: {id_}"
+
+        theme_callback_ids = [
+            "theme-toggle",
+            "theme-link",
+        ]
+        for id_ in theme_callback_ids:
+            assert id_ in ids, f"Missing ID for theme callbacks: {id_}"
 
         # IDs used in map_callbacks.py
         map_callback_ids = [

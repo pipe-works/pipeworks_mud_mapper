@@ -59,6 +59,7 @@ from pipeworks_mud_mapper.callbacks import (
     map_callbacks,  # noqa: F401
     ollama_callbacks,  # noqa: F401
     room_callbacks,  # noqa: F401
+    theme_callbacks,  # noqa: F401
     validation_callbacks,  # noqa: F401
 )
 
