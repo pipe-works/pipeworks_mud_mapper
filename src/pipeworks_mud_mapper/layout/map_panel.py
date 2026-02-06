@@ -163,6 +163,68 @@ def create_map_panel() -> dbc.Card:
                                                                 ),
                                                             ),
                                                             html.Div(
+                                                                [
+                                                                    # Workspace utility actions.
+                                                                    # Background jobs keep UI fast.
+                                                                    # Tooltips explain each action.
+                                                                    dbc.ButtonGroup(
+                                                                        [
+                                                                            dbc.Button(
+                                                                                "Backup DB",
+                                                                                id="workspace-db-backup-btn",
+                                                                                size="sm",
+                                                                                color="secondary",
+                                                                                outline=True,
+                                                                            ),
+                                                                            dbc.Button(
+                                                                                "Export Map JSON",
+                                                                                id="workspace-db-export-map-btn",
+                                                                                size="sm",
+                                                                                color="secondary",
+                                                                                outline=True,
+                                                                            ),
+                                                                            dbc.Button(
+                                                                                "Export Zone JSON",
+                                                                                id="workspace-db-export-zone-btn",
+                                                                                size="sm",
+                                                                                color="secondary",
+                                                                                outline=True,
+                                                                            ),
+                                                                            dbc.Button(
+                                                                                "Dump SQL",
+                                                                                id="workspace-db-export-sql-btn",
+                                                                                size="sm",
+                                                                                color="secondary",
+                                                                                outline=True,
+                                                                            ),
+                                                                        ],
+                                                                        size="sm",
+                                                                        className="flex-wrap gap-1",
+                                                                    ),
+                                                                    dbc.Tooltip(
+                                                                        "Timestamped DB backup.",
+                                                                        target="workspace-db-backup-btn",
+                                                                    ),
+                                                                    dbc.Tooltip(
+                                                                        "Export authoring JSON.",
+                                                                        target="workspace-db-export-map-btn",
+                                                                    ),
+                                                                    dbc.Tooltip(
+                                                                        "Export zone JSON.",
+                                                                        target="workspace-db-export-zone-btn",
+                                                                    ),
+                                                                    dbc.Tooltip(
+                                                                        "Dump SQL schema + data.",
+                                                                        target="workspace-db-export-sql-btn",
+                                                                    ),
+                                                                ],
+                                                                className="mb-2",
+                                                            ),
+                                                            html.Div(
+                                                                id="workspace-db-feedback",
+                                                                className="small mb-2",
+                                                            ),
+                                                            html.Div(
                                                                 id="workspace-db-summary",
                                                                 className="small",
                                                             ),

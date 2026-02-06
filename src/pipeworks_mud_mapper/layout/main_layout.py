@@ -125,6 +125,8 @@ def create_app_layout() -> dbc.Container:
             dcc.Store(id="ollama-validation-history", data=[]),
             # Background I/O job tracking for saves/exports.
             dcc.Store(id="io-jobs", data={"jobs": []}),
+            # Background job tracking for workspace DB tools.
+            dcc.Store(id="workspace-jobs", data={"jobs": []}),
             # Interval to trigger initial file load
             dcc.Interval(id="initial-load", interval=100, max_intervals=1),
             # Interval to poll background I/O jobs.
