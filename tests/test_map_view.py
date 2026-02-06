@@ -325,6 +325,56 @@ class TestCreateMapFigureWithRooms:
 
         assert dashed_lines, "Expected dashed vertical exit line trace"
 
+    def test_vertical_exit_lines_skip_invalid_targets(self):
+        """Vertical exit rendering should skip invalid or same-level targets."""
+        rooms = {
+            "ground": {
+                "id": "ground",
+                "name": "Ground",
+                "coords": [0, 0, 0],
+                "exits": {"up": "missing"},
+            },
+            "loft": {
+                "id": "loft",
+                "name": "Loft",
+                "coords": [5, 0, 0],
+                "exits": {"down": "ground"},
+            },
+        }
+        fig = create_map_figure_with_rooms(rooms=rooms)
+
+        dashed_lines = [
+            trace
+            for trace in fig.data
+            if getattr(trace, "mode", None) == "lines"
+            and getattr(trace, "line", None)
+            and getattr(trace.line, "dash", None) == "dot"
+        ]
+
+        assert dashed_lines == []
+
+    def test_vertical_exit_lines_skip_cross_zone_targets(self):
+        """Cross-zone vertical exits should not draw dashed lines."""
+        rooms = {
+            "ground": {
+                "id": "ground",
+                "name": "Ground",
+                "coords": [0, 0, 0],
+                "exits": {"up": "other_zone:spawn"},
+            },
+        }
+        fig = create_map_figure_with_rooms(rooms=rooms)
+
+        dashed_lines = [
+            trace
+            for trace in fig.data
+            if getattr(trace, "mode", None) == "lines"
+            and getattr(trace, "line", None)
+            and getattr(trace.line, "dash", None) == "dot"
+        ]
+
+        assert dashed_lines == []
+
 
 class TestZLevelConstants:
     """Tests for Z-level configuration constants."""

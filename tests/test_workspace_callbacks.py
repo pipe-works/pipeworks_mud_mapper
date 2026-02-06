@@ -3,13 +3,14 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import cast
 from unittest.mock import patch
 
 import dash_bootstrap_components as dbc
 from dash import no_update
 
 from pipeworks_mud_mapper.callbacks import workspace_callbacks as wc
-from pipeworks_mud_mapper.models.room import Coords, MapRoom
+from pipeworks_mud_mapper.models.room import Coords, Direction, MapRoom
 
 
 def test_format_bytes() -> None:
@@ -115,7 +116,10 @@ def test_update_workspace_room_table_with_rooms() -> None:
         id="a",
         name="Room A",
         coords=Coords(x=0, y=0, z=0),
-        exits={"north": "b", "east": "other_zone:spawn"},
+        exits=cast(
+            dict[Direction, str],
+            {"north": "b", "east": "other_zone:spawn", "portal": "beta:gate"},
+        ),
     )
     room_b = MapRoom(
         id="b",
@@ -136,6 +140,7 @@ def test_update_workspace_room_table_with_rooms() -> None:
     assert "Room B" in str(result)
     assert "Zone Exits" in str(result)
     assert "E=other_zone:spawn" in str(result)
+    assert "P=beta:gate" in str(result)
 
 
 def test_update_workspace_room_table_empty_rooms() -> None:

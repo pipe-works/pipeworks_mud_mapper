@@ -28,6 +28,27 @@ def test_load_world_zone_ids_fallback_to_zone_files(tmp_path):
     assert zone_ids == ["alpha", "beta"]
 
 
+def test_load_world_zone_ids_invalid_world_json_fallback(tmp_path):
+    zones_dir = tmp_path / "zones"
+    zones_dir.mkdir()
+    world_path = tmp_path / "world.json"
+    world_path.write_text("{bad json", encoding="utf-8")
+    (zones_dir / "alpha.json").write_text(json.dumps({"rooms": {}}), encoding="utf-8")
+
+    zone_ids = load_world_zone_ids(zones_dir)
+    assert zone_ids == ["alpha"]
+
+
+def test_load_world_zone_ids_filters_non_strings(tmp_path):
+    zones_dir = tmp_path / "zones"
+    zones_dir.mkdir()
+    world_path = tmp_path / "world.json"
+    world_path.write_text(json.dumps({"zones": ["alpha", "", 123]}), encoding="utf-8")
+
+    zone_ids = load_world_zone_ids(zones_dir)
+    assert zone_ids == ["alpha"]
+
+
 def test_load_zone_room_ids(tmp_path):
     zones_dir = tmp_path / "zones"
     zones_dir.mkdir()
@@ -39,3 +60,29 @@ def test_load_zone_room_ids(tmp_path):
 
     room_ids = load_zone_room_ids("alpha", zones_dir)
     assert room_ids == ["hall", "kitchen", "spawn"]
+
+
+def test_load_zone_room_ids_missing_zone(tmp_path):
+    zones_dir = tmp_path / "zones"
+    zones_dir.mkdir()
+
+    assert load_zone_room_ids("", zones_dir) == []
+    assert load_zone_room_ids("missing", zones_dir) == []
+
+
+def test_load_zone_room_ids_invalid_json(tmp_path):
+    zones_dir = tmp_path / "zones"
+    zones_dir.mkdir()
+    zone_path = zones_dir / "alpha.json"
+    zone_path.write_text("{bad json", encoding="utf-8")
+
+    assert load_zone_room_ids("alpha", zones_dir) == []
+
+
+def test_load_zone_room_ids_rooms_not_dict(tmp_path):
+    zones_dir = tmp_path / "zones"
+    zones_dir.mkdir()
+    zone_path = zones_dir / "alpha.json"
+    zone_path.write_text(json.dumps({"rooms": []}), encoding="utf-8")
+
+    assert load_zone_room_ids("alpha", zones_dir) == []
