@@ -50,6 +50,7 @@ Component Dependencies
 """
 
 import copy
+import json
 import re
 import time
 from datetime import UTC, datetime
@@ -166,9 +167,10 @@ def _export_zone_job(map_file: Any, export_path: Path) -> None:
 @callback(
     Output("zone-files-store", "data"),
     Input("initial-load", "n_intervals"),
+    Input("file-browser-refresh-btn", "n_clicks"),
     prevent_initial_call=False,
 )
-def load_map_files_list(_: int) -> list[str]:
+def load_map_files_list(_: int, __: int | None) -> list[str]:
     """Load list of map files from the maps directory.
 
     This callback is triggered once on initial page load (via dcc.Interval)
@@ -188,7 +190,8 @@ def load_map_files_list(_: int) -> list[str]:
     MAPS_DIR.mkdir(parents=True, exist_ok=True)
 
     # Use cached listing to minimize repeated disk reads.
-    files = _get_cached_map_files(MAPS_DIR)
+    force_refresh = ctx.triggered_id == "file-browser-refresh-btn"
+    files = _get_cached_map_files(MAPS_DIR, force_refresh=force_refresh)
     return [f.name for f in files]
 
 
@@ -196,9 +199,10 @@ def load_map_files_list(_: int) -> list[str]:
     Output("zones-files-store", "data"),
     Input("initial-load", "n_intervals"),
     Input("room-feedback-export", "data"),
+    Input("file-browser-refresh-btn", "n_clicks"),
     prevent_initial_call=False,
 )
-def load_zone_files_list(_: int, __: dict | None) -> list[str]:
+def load_zone_files_list(_: int, __: dict | None, ___: int | None) -> list[str]:
     """Load list of exported zone files from the zones directory.
 
     This callback is triggered on initial page load and after export
@@ -207,6 +211,9 @@ def load_zone_files_list(_: int, __: dict | None) -> list[str]:
     # Ensure the export directory exists so the UI list can render consistently.
     ZONES_DIR.mkdir(parents=True, exist_ok=True)
     # Zone files are game-truth JSON (no coordinates), so we list *.json.
+    if ctx.triggered_id == "file-browser-refresh-btn":
+        # Mirror the maps/dev snapshots behavior: force refresh on demand.
+        _FILE_LIST_CACHE.pop(ZONES_DIR, None)
     files = zone_service.list_zone_files(ZONES_DIR)
     return [f.name for f in files]
 
@@ -216,9 +223,15 @@ def load_zone_files_list(_: int, __: dict | None) -> list[str]:
     Input("initial-load", "n_intervals"),
     Input("dev-snapshot-status", "data"),
     Input("save-map-btn", "n_clicks"),
+    Input("file-browser-refresh-btn", "n_clicks"),
     prevent_initial_call=False,
 )
-def load_dev_snapshot_files_list(_: int, __: dict | None, ___: int | None) -> list[str]:
+def load_dev_snapshot_files_list(
+    _: int,
+    __: dict | None,
+    ___: int | None,
+    ____: int | None,
+) -> list[str]:
     """Load list of dev snapshot files from the dev snapshots directory.
 
     This callback is intentionally triggered by:
@@ -244,7 +257,11 @@ def load_dev_snapshot_files_list(_: int, __: dict | None, ___: int | None) -> li
     DEV_MAPS_DIR.mkdir(parents=True, exist_ok=True)
 
     # If a snapshot was just written, bypass the cache to show it immediately.
-    force_refresh = ctx.triggered_id in {"dev-snapshot-status", "save-map-btn"}
+    force_refresh = ctx.triggered_id in {
+        "dev-snapshot-status",
+        "save-map-btn",
+        "file-browser-refresh-btn",
+    }
 
     # Collect dev snapshot map files and return their names for display.
     files = _get_cached_map_files(DEV_MAPS_DIR, force_refresh=force_refresh)
@@ -385,10 +402,244 @@ def render_zone_files_list(files: list[str]) -> list:
                     html.I(className=icon_class),
                     html.Span(display_name),
                 ],
-                className="mb-1 p-1 rounded",
+                id={"type": "zone-file-item", "filename": filename},
+                className="mb-1 p-1 rounded file-item",
+                style={"cursor": "pointer"},
+                n_clicks=0,
             )
         )
     return items
+
+
+@callback(
+    Output("zone-json-modal", "is_open"),
+    Output("zone-json-modal-title", "children"),
+    Output("zone-json-modal-body", "children"),
+    Output("selected-zone-file", "data", allow_duplicate=True),
+    Input({"type": "zone-file-item", "filename": ALL}, "n_clicks"),
+    Input("zone-json-close-btn", "n_clicks"),
+    prevent_initial_call=True,
+)
+def handle_zone_file_click(zone_clicks: list[int], close_clicks: int | None) -> tuple:
+    """Open a modal showing the selected zone JSON."""
+    trigger = ctx.triggered_id
+    if trigger == "zone-json-close-btn":
+        return False, no_update, no_update, no_update
+
+    if not any(zone_clicks):
+        return no_update, no_update, no_update, no_update
+
+    if not trigger or not isinstance(trigger, dict):
+        return no_update, no_update, no_update, no_update
+
+    filename = trigger.get("filename")
+    if not filename:
+        return no_update, no_update, no_update, no_update
+
+    file_path = ZONES_DIR / filename
+    if not file_path.exists():
+        feedback = dbc.Alert(
+            f"Zone file not found: {filename}",
+            color="warning",
+            className="mb-0",
+        )
+        return True, "Zone JSON", feedback, filename
+
+    try:
+        data = json.loads(file_path.read_text(encoding="utf-8"))
+        pretty = json.dumps(data, indent=2, sort_keys=True)
+        content = html.Pre(pretty, className="mb-0 small")
+        return True, f"Zone JSON: {filename}", content, filename
+    except json.JSONDecodeError as exc:
+        feedback = dbc.Alert(
+            f"Invalid JSON in {filename}: {exc}",
+            color="danger",
+            className="mb-0",
+        )
+        return True, "Zone JSON", feedback, filename
+
+
+@callback(
+    Output("file-properties-name", "children"),
+    Output("file-properties-type", "children"),
+    Output("file-properties-delete-btn", "disabled"),
+    Input("selected-file", "data"),
+    Input("selected-file-type", "data"),
+    Input("selected-zone-file", "data"),
+)
+def render_file_properties(
+    selected_file: str | None,
+    selected_file_type: str | None,
+    selected_zone_file: str | None,
+) -> tuple:
+    """Render the file properties summary in the right column."""
+    if selected_file:
+        label = "Dev snapshot" if selected_file_type == "dev_snapshot" else "Map file"
+        badge_color = "warning" if selected_file_type == "dev_snapshot" else "primary"
+        name = html.Span(selected_file)
+        badge = dbc.Badge(label, color=badge_color, className="me-2")
+        return name, html.Div([badge, html.Span("Selected")]), False
+
+    if selected_zone_file:
+        name = html.Span(selected_zone_file)
+        badge = dbc.Badge("Zone export", color="info", className="me-2")
+        return name, html.Div([badge, html.Span("Selected")]), False
+
+    return html.Span("No file selected", className="text-muted"), "", True
+
+
+@callback(
+    Output("file-delete-confirm-modal", "is_open"),
+    Output("file-delete-confirm-body", "children"),
+    Output("file-delete-pending", "data"),
+    Input("file-properties-delete-btn", "n_clicks"),
+    Input("file-delete-cancel-btn", "n_clicks"),
+    State("selected-file", "data"),
+    State("selected-file-type", "data"),
+    State("selected-zone-file", "data"),
+    prevent_initial_call=True,
+)
+def request_file_delete(
+    delete_clicks: int | None,
+    cancel_clicks: int | None,
+    selected_file: str | None,
+    selected_file_type: str | None,
+    selected_zone_file: str | None,
+) -> tuple:
+    """Open confirmation modal when a delete button is clicked."""
+    trigger = ctx.triggered_id
+    if trigger == "file-delete-cancel-btn":
+        return False, no_update, None
+
+    if not delete_clicks:
+        return no_update, no_update, no_update
+
+    # Prefer the currently loaded map/snapshot over a zone export selection.
+    if selected_file:
+        filename = selected_file
+        if selected_file_type == "dev_snapshot":
+            delete_type = "dev-snapshot-delete-btn"
+            label = "dev snapshot"
+            badge_color = "warning"
+            path_hint = DEV_MAPS_DIR / filename
+        else:
+            delete_type = "file-delete-btn"
+            label = "map file"
+            badge_color = "primary"
+            path_hint = MAPS_DIR / filename
+    elif selected_zone_file:
+        filename = selected_zone_file
+        delete_type = "zone-file-delete-btn"
+        label = "zone export"
+        badge_color = "info"
+        path_hint = ZONES_DIR / filename
+    else:
+        return no_update, no_update, no_update
+
+    body = html.Div(
+        [
+            html.P("Are you sure you want to delete this file?"),
+            html.Div(
+                [
+                    dbc.Badge(label, color=badge_color, className="me-2"),
+                    html.Span(filename, className="fw-bold"),
+                ],
+                className="mb-1",
+            ),
+            html.Div(
+                [
+                    html.Span("Path: ", className="text-muted"),
+                    html.Code(str(path_hint)),
+                ],
+                className="small text-muted",
+            ),
+        ],
+        className="mb-0",
+    )
+    return True, body, {"type": delete_type, "filename": filename}
+
+
+@callback(
+    Output("zone-files-store", "data", allow_duplicate=True),
+    Output("dev-snapshot-files-store", "data", allow_duplicate=True),
+    Output("zones-files-store", "data", allow_duplicate=True),
+    Output("selected-file", "data", allow_duplicate=True),
+    Output("current-zone-data", "data", allow_duplicate=True),
+    Output("has-unsaved-changes", "data", allow_duplicate=True),
+    Output("file-delete-confirm-modal", "is_open", allow_duplicate=True),
+    Input("file-delete-confirm-btn", "n_clicks"),
+    State("file-delete-pending", "data"),
+    State("selected-file", "data"),
+    prevent_initial_call=True,
+)
+def confirm_file_delete(
+    confirm_clicks: int | None,
+    pending: dict | None,
+    selected_file: str | None,
+) -> tuple:
+    """Delete a file after confirmation and refresh the relevant list."""
+    if not confirm_clicks or not pending:
+        return no_update, no_update, no_update, no_update, no_update, no_update, no_update
+
+    delete_type = pending.get("type")
+    filename = pending.get("filename")
+    if not delete_type or not filename:
+        return no_update, no_update, no_update, no_update, no_update, no_update, no_update
+
+    if delete_type == "file-delete-btn":
+        file_path = MAPS_DIR / filename
+        list_dir = MAPS_DIR
+        list_fn = zone_service.list_map_files
+        list_key = "maps"
+    elif delete_type == "dev-snapshot-delete-btn":
+        file_path = DEV_MAPS_DIR / filename
+        list_dir = DEV_MAPS_DIR
+        list_fn = zone_service.list_map_files
+        list_key = "snapshots"
+    else:
+        file_path = ZONES_DIR / filename
+        list_dir = ZONES_DIR
+        list_fn = zone_service.list_zone_files
+        list_key = "zones"
+
+    if file_path.exists():
+        file_path.unlink()
+
+    files = list_fn(list_dir)
+    _FILE_LIST_CACHE[list_dir] = (time.monotonic(), files)
+    file_names = [f.name for f in files]
+
+    maps_update = no_update
+    snapshots_update = no_update
+    zones_update = no_update
+    selected_update = no_update
+    zone_data_update = no_update
+    unsaved_update = no_update
+
+    if list_key == "maps":
+        maps_update = file_names
+        if filename == selected_file:
+            selected_update = None
+            zone_data_update = None
+            unsaved_update = False
+    elif list_key == "snapshots":
+        snapshots_update = file_names
+        if filename == selected_file:
+            selected_update = None
+            zone_data_update = None
+            unsaved_update = False
+    else:
+        zones_update = file_names
+
+    return (
+        maps_update,
+        snapshots_update,
+        zones_update,
+        selected_update,
+        zone_data_update,
+        unsaved_update,
+        False,
+    )
 
 
 @callback(
@@ -396,6 +647,8 @@ def render_zone_files_list(files: list[str]) -> list:
     Output("current-zone-data", "data"),
     Output("current-zone", "children"),
     Output("has-unsaved-changes", "data", allow_duplicate=True),
+    Output("selected-file-type", "data", allow_duplicate=True),
+    Output("selected-zone-file", "data", allow_duplicate=True),
     Input({"type": "file-item", "filename": ALL}, "n_clicks"),
     Input({"type": "dev-snapshot-item", "filename": ALL}, "n_clicks"),
     State("selected-file", "data"),
@@ -429,7 +682,7 @@ def handle_file_click(
     # Bail out early when nothing has been clicked in either list.
     if not any(map_clicks) and not any(snapshot_clicks):
         print("[DEBUG] handle_file_click: no clicks, returning no_update")
-        return no_update, no_update, no_update, no_update
+        return no_update, no_update, no_update, no_update, no_update, no_update
 
     # Log the trigger details so we can trace clicks across both lists.
     print(
@@ -442,25 +695,27 @@ def handle_file_click(
     triggered = ctx.triggered_id
     if not triggered or not isinstance(triggered, dict):
         print("[DEBUG] handle_file_click: no valid trigger, returning no_update")
-        return no_update, no_update, no_update, no_update
+        return no_update, no_update, no_update, no_update, no_update, no_update
 
     filename = triggered.get("filename")
     if not filename:
         print("[DEBUG] handle_file_click: no filename in trigger, returning no_update")
-        return no_update, no_update, no_update, no_update
+        return no_update, no_update, no_update, no_update, no_update, no_update
 
     # Avoid reloading the same file if it is already selected.
     if filename == current_file:
         print(f"[DEBUG] handle_file_click: same file {filename}, returning no_update")
-        return no_update, no_update, no_update, no_update
+        return no_update, no_update, no_update, no_update, no_update, no_update
 
     # Decide which directory to load from based on which list fired.
     # Default to MAPS_DIR so we always have a safe fallback.
     source_type = triggered.get("type")
     if source_type == "dev-snapshot-item":
         file_path = DEV_MAPS_DIR / filename
+        file_type = "dev_snapshot"
     else:
         file_path = MAPS_DIR / filename
+        file_type = "map"
 
     # Load the selected map file and reset unsaved changes.
     action = ZoneAction(type="LOAD_MAP", payload={"file_path": file_path})
@@ -468,10 +723,10 @@ def handle_file_click(
 
     if not transition.changed or transition.zone_data is None:
         print(f"Error loading map file {filename}")
-        return no_update, no_update, no_update, no_update
+        return no_update, no_update, no_update, no_update, no_update, no_update
 
     zone_name = transition.effects.get("zone_name", filename)
-    return filename, transition.zone_data, f"Zone: {zone_name}", False
+    return filename, transition.zone_data, f"Zone: {zone_name}", False, file_type, None
 
 
 # =============================================================================

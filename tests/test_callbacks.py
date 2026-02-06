@@ -44,17 +44,21 @@ from pipeworks_mud_mapper.callbacks.exit_callbacks import handle_exit_changes
 from pipeworks_mud_mapper.callbacks.file_callbacks import (
     _get_cached_map_files,
     _should_throttle_snapshot,
+    confirm_file_delete,
     export_zone_to_file,
     handle_dev_snapshotting,
     handle_file_click,
     handle_new_map_modal,
+    handle_zone_file_click,
     load_dev_snapshot_files_list,
     load_map_files_list,
     load_zone_files_list,
     poll_io_jobs,
     render_dev_snapshot_list,
     render_file_list,
+    render_file_properties,
     render_zone_files_list,
+    request_file_delete,
     save_map_to_file,
     update_save_status,
 )
@@ -695,11 +699,15 @@ class TestFileCallbacks:
         (temp_maps_dir / "zone2.map.json").write_text("{}")
         (temp_maps_dir / "other.json").write_text("{}")  # Not a .map.json
 
-        with patch(
-            "pipeworks_mud_mapper.callbacks.file_callbacks.MAPS_DIR",
-            temp_maps_dir,
+        with (
+            patch(
+                "pipeworks_mud_mapper.callbacks.file_callbacks.MAPS_DIR",
+                temp_maps_dir,
+            ),
+            patch("pipeworks_mud_mapper.callbacks.file_callbacks.ctx") as mock_ctx,
         ):
-            result = load_map_files_list(1)  # Positional arg (interval count)
+            mock_ctx.triggered_id = "initial-load"
+            result = load_map_files_list(1, None)  # Positional arg (interval count)
 
         assert "zone1.map.json" in result
         assert "zone2.map.json" in result
@@ -780,7 +788,7 @@ class TestFileCallbacks:
             patch("pipeworks_mud_mapper.callbacks.file_callbacks.ctx") as mock_ctx,
         ):
             mock_ctx.triggered_id = "initial-load"
-            result = load_dev_snapshot_files_list(1, None, None)
+            result = load_dev_snapshot_files_list(1, None, None, None)
 
         assert "snapshot1.map.json" in result
         assert "snapshot2.map.json" in result
@@ -794,8 +802,12 @@ class TestFileCallbacks:
         (zones_dir / "zone2.json").write_text("{}")
         (zones_dir / "ignore.map.json").write_text("{}")
 
-        with patch("pipeworks_mud_mapper.callbacks.file_callbacks.ZONES_DIR", zones_dir):
-            result = load_zone_files_list(1, None)
+        with (
+            patch("pipeworks_mud_mapper.callbacks.file_callbacks.ZONES_DIR", zones_dir),
+            patch("pipeworks_mud_mapper.callbacks.file_callbacks.ctx") as mock_ctx,
+        ):
+            mock_ctx.triggered_id = "initial-load"
+            result = load_zone_files_list(1, None, None)
 
         assert "zone1.json" in result
         assert "zone2.json" in result
@@ -859,7 +871,105 @@ class TestFileCallbacks:
             snapshot_clicks=[0, 0],
             current_file=None,
         )
-        assert result == (no_update, no_update, no_update, no_update)
+        assert result == (no_update, no_update, no_update, no_update, no_update, no_update)
+
+    def test_handle_zone_file_click_loads_json(self, tmp_path):
+        """handle_zone_file_click should load JSON and set selection."""
+        zone_path = tmp_path / "zone.json"
+        zone_path.write_text('{"id": "zone"}')
+
+        with (
+            patch("pipeworks_mud_mapper.callbacks.file_callbacks.ZONES_DIR", tmp_path),
+            patch("pipeworks_mud_mapper.callbacks.file_callbacks.ctx") as mock_ctx,
+        ):
+            mock_ctx.triggered_id = {"type": "zone-file-item", "filename": "zone.json"}
+            result = handle_zone_file_click(zone_clicks=[1], close_clicks=None)
+
+        assert result[0] is True
+        assert "Zone JSON" in str(result[1])
+        assert "zone.json" in str(result[1])
+        assert result[3] == "zone.json"
+
+    def test_render_file_properties_none_selected(self):
+        """render_file_properties should disable delete when nothing selected."""
+        name, detail, disabled = render_file_properties(None, None, None)
+        assert "No file selected" in str(name)
+        assert detail == ""
+        assert disabled is True
+
+    def test_render_file_properties_map_selected(self):
+        """render_file_properties should show map selection info."""
+        name, detail, disabled = render_file_properties("zone.map.json", "map", None)
+        assert "zone.map.json" in str(name)
+        assert "Map file" in str(detail)
+        assert disabled is False
+
+    def test_render_file_properties_snapshot_selected(self):
+        """render_file_properties should show dev snapshot selection info."""
+        name, detail, disabled = render_file_properties("snap.map.json", "dev_snapshot", None)
+        assert "snap.map.json" in str(name)
+        assert "Dev snapshot" in str(detail)
+        assert disabled is False
+
+    def test_render_file_properties_zone_selected(self):
+        """render_file_properties should show zone export selection info."""
+        name, detail, disabled = render_file_properties(None, None, "zone.json")
+        assert "zone.json" in str(name)
+        assert "Zone export" in str(detail)
+        assert disabled is False
+
+    def test_request_file_delete_no_selection(self):
+        """request_file_delete should no-op without a selection."""
+        with patch("pipeworks_mud_mapper.callbacks.file_callbacks.ctx") as mock_ctx:
+            mock_ctx.triggered_id = "file-properties-delete-btn"
+            result = request_file_delete(1, None, None, None, None)
+
+        assert result == (no_update, no_update, no_update)
+
+    def test_request_file_delete_map_selected(self, tmp_path):
+        """request_file_delete should open modal for map files."""
+        with (
+            patch("pipeworks_mud_mapper.callbacks.file_callbacks.MAPS_DIR", tmp_path),
+            patch("pipeworks_mud_mapper.callbacks.file_callbacks.ctx") as mock_ctx,
+        ):
+            mock_ctx.triggered_id = "file-properties-delete-btn"
+            result = request_file_delete(1, None, "zone.map.json", "map", None)
+
+        assert result[0] is True
+        assert "map file" in str(result[1]).lower()
+        assert result[2]["type"] == "file-delete-btn"
+
+    def test_request_file_delete_zone_selected(self, tmp_path):
+        """request_file_delete should open modal for zone exports."""
+        with (
+            patch("pipeworks_mud_mapper.callbacks.file_callbacks.ZONES_DIR", tmp_path),
+            patch("pipeworks_mud_mapper.callbacks.file_callbacks.ctx") as mock_ctx,
+        ):
+            mock_ctx.triggered_id = "file-properties-delete-btn"
+            result = request_file_delete(1, None, None, None, "zone.json")
+
+        assert result[0] is True
+        assert "zone export" in str(result[1]).lower()
+        assert result[2]["type"] == "zone-file-delete-btn"
+
+    def test_confirm_file_delete_map(self, tmp_path):
+        """confirm_file_delete should remove map files and refresh list."""
+        map_path = tmp_path / "zone.map.json"
+        map_path.write_text("{}")
+
+        with (
+            patch("pipeworks_mud_mapper.callbacks.file_callbacks.MAPS_DIR", tmp_path),
+            patch("pipeworks_mud_mapper.callbacks.file_callbacks._FILE_LIST_CACHE", {}),
+        ):
+            result = confirm_file_delete(
+                confirm_clicks=1,
+                pending={"type": "file-delete-btn", "filename": "zone.map.json"},
+                selected_file="zone.map.json",
+            )
+
+        assert map_path.exists() is False
+        assert result[0] == []  # maps list refresh
+        assert result[3] is None  # selected file cleared
 
     def test_handle_new_map_modal_open(self):
         """handle_new_map_modal should open when the button is clicked."""

@@ -48,6 +48,7 @@ from dash import html
 
 from pipeworks_mud_mapper.services.app_config import (
     format_display_path,
+    format_short_path,
     get_path_settings,
 )
 
@@ -82,106 +83,111 @@ def create_file_browser() -> dbc.Card:
     maps_label = format_display_path(paths["maps_dir"])
     dev_snapshots_label = format_display_path(paths["dev_snapshots_dir"])
     zones_label = format_display_path(paths["zones_dir"])
+    maps_short = format_short_path(paths["maps_dir"])
+    dev_snapshots_short = format_short_path(paths["dev_snapshots_dir"])
+    zones_short = format_short_path(paths["zones_dir"])
     dev_snapshots_toggle_label = f"Dev snapshots ({dev_snapshots_label.rstrip('/')})"
 
-    return dbc.Card(
+    # Separate cards clarify the three distinct file sources.
+    mapper_files = dbc.Card(
         [
-            dbc.CardHeader("File Browser"),
+            dbc.CardHeader(
+                html.Div(
+                    [
+                        html.Span("Mapper Files", className="me-auto"),
+                        dbc.Button(
+                            [
+                                html.Span("Refresh All"),
+                                html.Span("↻", className="ms-1"),
+                            ],
+                            id="file-browser-refresh-btn",
+                            color="link",
+                            className="file-browser-refresh",
+                            size="sm",
+                            title="Refresh all file lists",
+                        ),
+                    ],
+                    className="d-flex align-items-center",
+                )
+            ),
             dbc.CardBody(
                 [
-                    # Folder header
                     html.Div(
                         [
                             html.I(className="bi bi-folder-fill me-2 text-warning"),
-                            html.Span(maps_label),
+                            html.Span(maps_short),
                         ],
-                        className="mb-2",
+                        className="file-path-chip mb-2",
+                        title=maps_label,
                     ),
-                    # Dynamic file list (populated by callback)
-                    html.Div(id="file-list-container", className="ms-3 mb-3 file-list-scroll"),
-                    html.Hr(),
-                    # New Map button
-                    dbc.Button(
-                        [html.I(className="bi bi-plus me-2"), "New Map"],
-                        id="new-map-btn",
-                        color="secondary",
-                        size="sm",
-                        outline=True,
-                        className="w-100 mb-2",
+                    html.Div(
+                        id="file-list-container",
+                        className="ms-3 mb-2 file-list-scroll",
                     ),
-                    # Save Map button
-                    dbc.Button(
-                        [html.I(className="bi bi-save me-2"), "Save Map"],
-                        id="save-map-btn",
-                        color="success",
-                        size="sm",
-                        className="w-100 mb-2",
-                        disabled=True,
+                    html.Div(
+                        id="status-indicator",
+                        children="No file loaded",
+                        className="text-muted small mt-2",
                     ),
-                    # Dev snapshots browser header and list
-                    # This mirrors the main file list, but is scoped to data/maps/dev_snapshots.
-                    # The list is rendered by a dedicated callback so it can update when
-                    # snapshots are created.
+                ],
+                className="font-monospace small",
+            ),
+        ]
+    )
+
+    dev_snapshots = dbc.Card(
+        [
+            dbc.CardHeader("Dev Snapshots"),
+            dbc.CardBody(
+                [
                     html.Div(
                         [
                             html.I(className="bi bi-folder-fill me-2 text-warning"),
-                            html.Span(dev_snapshots_label),
+                            html.Span(dev_snapshots_short),
                         ],
-                        className="mb-2",
+                        className="file-path-chip mb-2",
+                        title=dev_snapshots_label,
                     ),
-                    # Dynamic dev snapshot list (populated by callback)
                     html.Div(
                         id="dev-snapshot-list-container",
-                        className="ms-3 mb-3 file-list-scroll",
+                        className="ms-3 mb-2 file-list-scroll",
                     ),
                     dbc.Checkbox(
                         id="dev-save-toggle",
                         label=dev_snapshots_toggle_label,
                         value=False,
-                        className="small mb-2",
-                    ),
-                    # Zones browser header and list (read-only export visibility)
-                    html.Div(
-                        [
-                            html.I(className="bi bi-folder-fill me-2 text-warning"),
-                            html.Span(zones_label),
-                        ],
-                        className="mb-2",
-                    ),
-                    html.Div(
-                        id="zone-files-list-container",
-                        className="ms-3 mb-3 file-list-scroll",
-                    ),
-                    # Export Zone JSON button
-                    dbc.Button(
-                        [html.I(className="bi bi-download me-2"), "Export Zone"],
-                        id="export-zone-btn",
-                        color="primary",
-                        size="sm",
-                        className="w-100 mb-2",
-                        disabled=True,
-                    ),
-                    # Validate Zone button - runs validation checks and shows results
-                    # Disabled until a map file is loaded
-                    dbc.Button(
-                        [html.I(className="bi bi-check-circle me-2"), "Validate Zone"],
-                        id="validate-zone-btn",
-                        color="info",
-                        size="sm",
-                        outline=True,
-                        className="w-100 mb-2",
-                        disabled=True,
-                    ),
-                    # Status indicator - shows current file state
-                    # Updated by file_callbacks.update_save_status
-                    html.Div(
-                        id="status-indicator",
-                        children="No file loaded",
-                        className="text-muted small text-center mt-2",
+                        className="small",
                     ),
                 ],
                 className="font-monospace small",
             ),
-        ],
-        className="h-100",
+        ]
+    )
+
+    exports = dbc.Card(
+        [
+            dbc.CardHeader("Game Server Exports"),
+            dbc.CardBody(
+                [
+                    html.Div(
+                        [
+                            html.I(className="bi bi-folder-fill me-2 text-warning"),
+                            html.Span(zones_short),
+                        ],
+                        className="file-path-chip mb-2",
+                        title=zones_label,
+                    ),
+                    html.Div(
+                        id="zone-files-list-container",
+                        className="ms-3 mb-2 file-list-scroll",
+                    ),
+                ],
+                className="font-monospace small",
+            ),
+        ]
+    )
+
+    return html.Div(
+        [mapper_files, dev_snapshots, exports],
+        className="d-grid gap-2",
     )

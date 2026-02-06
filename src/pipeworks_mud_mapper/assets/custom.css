@@ -43,3 +43,33 @@
     overflow-y: auto;
     padding-right: 4px; /* Avoid text hiding beneath the scrollbar */
 }
+
+/* =============================================================================
+ * File Browser Header
+ * =============================================================================
+ */
+
+.file-browser-refresh {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.85rem;
+    text-decoration: none;
+}
+
+.file-browser-refresh .bi {
+    font-size: 0.9rem;
+}
+
+/* Path chips beneath browser titles for clearer separation. */
+.file-path-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 6px;
+    border-radius: 6px;
+    background: #f2f4f7;
+    color: #546372;
+    font-size: 0.75rem;
+    cursor: help;
+}

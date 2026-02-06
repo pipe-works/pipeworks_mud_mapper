@@ -54,11 +54,13 @@ import dash_bootstrap_components as dbc
 from dash import dcc, html
 
 
-def create_properties_panel() -> dbc.Card:
-    """Create the right column properties panel for room editing.
+def create_properties_panel() -> html.Div:
+    """Create the right column properties panels for file + room editing.
 
     The properties panel contains:
 
+    - File Properties card (selected file + delete action)
+    - Action row (New/Save/Validate/Export)
     - Header with "New Room" button
     - Room ID input (disabled when editing existing room)
     - Room name input
@@ -69,8 +71,8 @@ def create_properties_panel() -> dbc.Card:
 
     Returns
     -------
-    dbc.Card
-        Bootstrap Card containing the room editing form.
+    html.Div
+        Container with the File Properties card, action row, and Room Properties card.
 
     Component IDs
     -------------
@@ -92,7 +94,35 @@ def create_properties_panel() -> dbc.Card:
     - Exit checkboxes show current exits and allow adding/removing
     - Form feedback shows success/error messages temporarily
     """
-    return dbc.Card(
+    # File Properties are kept separate so file actions feel distinct from room edits.
+    file_properties = dbc.Card(
+        [
+            dbc.CardHeader(
+                [
+                    html.Span("File Properties", className="me-auto"),
+                    dbc.Button(
+                        [html.I(className="bi bi-trash me-1"), "Delete File"],
+                        id="file-properties-delete-btn",
+                        color="danger",
+                        outline=True,
+                        size="sm",
+                        disabled=True,
+                    ),
+                ],
+                className="d-flex align-items-center",
+            ),
+            dbc.CardBody(
+                [
+                    html.Div(id="file-properties-name", className="fw-bold mb-1"),
+                    html.Div(id="file-properties-type", className="text-muted small"),
+                ],
+                className="small",
+            ),
+        ],
+        className="mb-3",
+    )
+
+    room_properties = dbc.Card(
         [
             dbc.CardHeader(
                 [
@@ -260,3 +290,57 @@ def create_properties_panel() -> dbc.Card:
         className="h-100",
         style={"overflowY": "auto"},
     )
+
+    # Compact one-line action row keeps file actions visible without dominating the UI.
+    action_row = dbc.Row(
+        [
+            dbc.Col(
+                dbc.Button(
+                    [html.I(className="bi bi-plus me-1"), "New Map"],
+                    id="new-map-btn",
+                    color="secondary",
+                    size="sm",
+                    outline=True,
+                    className="w-100",
+                ),
+                width=3,
+            ),
+            dbc.Col(
+                dbc.Button(
+                    [html.I(className="bi bi-save me-1"), "Save"],
+                    id="save-map-btn",
+                    color="success",
+                    size="sm",
+                    className="w-100",
+                    disabled=True,
+                ),
+                width=3,
+            ),
+            dbc.Col(
+                dbc.Button(
+                    [html.I(className="bi bi-check-circle me-1"), "Validate"],
+                    id="validate-zone-btn",
+                    color="info",
+                    size="sm",
+                    outline=True,
+                    className="w-100",
+                    disabled=True,
+                ),
+                width=3,
+            ),
+            dbc.Col(
+                dbc.Button(
+                    [html.I(className="bi bi-download me-1"), "Export"],
+                    id="export-zone-btn",
+                    color="primary",
+                    size="sm",
+                    className="w-100",
+                    disabled=True,
+                ),
+                width=3,
+            ),
+        ],
+        className="g-2 mb-3",
+    )
+
+    return html.Div([file_properties, action_row, room_properties])
