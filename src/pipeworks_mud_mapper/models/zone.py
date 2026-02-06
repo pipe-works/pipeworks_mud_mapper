@@ -77,6 +77,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
+from pipeworks_mud_mapper.models.metadata import ZoneMetadata
 from pipeworks_mud_mapper.models.room import Room
 
 
@@ -97,6 +98,8 @@ class Zone(BaseModel):
         Should be lowercase with underscores (e.g., "crooked_pipe").
     name : str
         Human-readable display name (e.g., "Crooked Pipe District").
+    metadata : ZoneMetadata
+        Versioning metadata that accompanies exported zone files.
     description : str
         Optional zone description for authoring reference.
     spawn_room : str
@@ -136,6 +139,10 @@ class Zone(BaseModel):
 
     id: str = Field(..., min_length=1, description="Unique zone identifier")
     name: str = Field(..., min_length=1, description="Display name")
+    metadata: ZoneMetadata = Field(
+        default_factory=ZoneMetadata,
+        description="Versioning metadata for exported zone files",
+    )
     description: str = Field(default="", description="Zone description")
     spawn_room: str = Field(..., min_length=1, description="Entry room ID")
     rooms: dict[str, Room] = Field(default_factory=dict, description="Room ID to Room mapping")

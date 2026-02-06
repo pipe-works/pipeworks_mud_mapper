@@ -68,10 +68,13 @@ See Also
 """
 
 import json
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, cast
 
+from pipeworks_mud_mapper import __version__ as mapper_version
 from pipeworks_mud_mapper.models import Coords, MapFile, MapRoom, Zone
+from pipeworks_mud_mapper.models.metadata import ExportedFrom
 
 
 def load_map_file(path: Path) -> MapFile:
@@ -144,7 +147,7 @@ def _parse_map_data(data: dict[str, Any]) -> MapFile:
     return MapFile.from_dict(data)
 
 
-def save_map_file(map_file: MapFile, path: Path) -> None:
+def save_map_file(map_file: MapFile, path: Path, *, bump_revision: bool = True) -> None:
     """Save a map file to disk.
 
     Saves in the legacy format with coords as [x, y, z] lists for
@@ -156,6 +159,9 @@ def save_map_file(map_file: MapFile, path: Path) -> None:
         The map file to save.
     path : Path
         Destination path. Parent directories are created if needed.
+    bump_revision : bool, optional
+        When True, increment ``metadata.map_revision`` before saving.
+        This is the default for explicit save actions.
 
     Examples
     --------
@@ -163,6 +169,10 @@ def save_map_file(map_file: MapFile, path: Path) -> None:
     """
     # Ensure parent directory exists
     path.parent.mkdir(parents=True, exist_ok=True)
+
+    # Optionally increment map revision for authoring history.
+    if bump_revision:
+        map_file.bump_revision()
 
     # Convert to dict with list coords for compatibility
     data = map_file.to_dict_with_list_coords()
@@ -220,12 +230,21 @@ def export_zone(map_file: MapFile, path: Path) -> None:
     # Ensure parent directory exists
     path.parent.mkdir(parents=True, exist_ok=True)
 
-    # Convert to zone (strips coords and llm_generation via MapRoom.to_room())
+    # Convert to zone (strips coords and llm_generation via MapRoom.to_room()).
     # The Room model doesn't have these fields, so they're automatically excluded.
     zone = map_file.to_zone()
 
-    # Serialize without coords
-    data = zone.model_dump(exclude_none=True)
+    # Stamp export provenance using the map metadata at export time.
+    zone.metadata.exported_from = ExportedFrom(
+        map_id=map_file.id,
+        map_version=map_file.metadata.map_version,
+        map_revision=map_file.metadata.map_revision,
+        exported_at=datetime.now(UTC),
+        exporter=f"pipeworks_mud_mapper {mapper_version}",
+    )
+
+    # Serialize with JSON-friendly values (datetime -> ISO string).
+    data = zone.model_dump(mode="json", exclude_none=True)
 
     # Belt-and-suspenders: Remove any lingering authoring fields.
     # These should already be gone from the model conversion above,

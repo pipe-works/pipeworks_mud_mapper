@@ -78,6 +78,7 @@ from typing import Any, cast
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
+from pipeworks_mud_mapper.models.metadata import MapMetadata, ZoneMetadata
 from pipeworks_mud_mapper.models.room import Coords, Direction, MapRoom
 from pipeworks_mud_mapper.models.zone import Zone
 
@@ -97,6 +98,8 @@ class MapFile(BaseModel):
         Unique zone identifier. Becomes the filename for both map and zone files.
     name : str
         Human-readable display name.
+    metadata : MapMetadata
+        Versioning metadata used to pair map and zone exports.
     description : str
         Optional zone description.
     spawn_room : str
@@ -135,6 +138,10 @@ class MapFile(BaseModel):
 
     id: str = Field(..., min_length=1, description="Unique zone identifier")
     name: str = Field(..., min_length=1, description="Display name")
+    metadata: MapMetadata = Field(
+        default_factory=MapMetadata,
+        description="Versioning metadata for authoring files",
+    )
     description: str = Field(default="", description="Zone description")
     spawn_room: str = Field(..., min_length=1, description="Entry room ID")
     rooms: dict[str, MapRoom] = Field(
@@ -183,6 +190,7 @@ class MapFile(BaseModel):
 
         Creates a Zone instance suitable for export to the MUD server.
         All MapRooms are converted to Rooms (without coordinates).
+        Versioning metadata is carried into the Zone metadata.
 
         Returns
         -------
@@ -202,6 +210,7 @@ class MapFile(BaseModel):
         False
         """
         return Zone(
+            metadata=ZoneMetadata(schema_version=self.metadata.schema_version),
             id=self.id,
             name=self.name,
             description=self.description,
@@ -209,6 +218,29 @@ class MapFile(BaseModel):
             rooms={room_id: room.to_room() for room_id, room in self.rooms.items()},
             items=self.items.copy(),
         )
+
+    def bump_revision(self) -> int:
+        """Increment the authoring revision counter.
+
+        This is called on every map save to provide a lightweight edit history.
+        """
+        self.metadata.map_revision += 1
+        return self.metadata.map_revision
+
+    def bump_version(self) -> str:
+        """Increment the authoring milestone version.
+
+        Map versions are stored as strings for flexibility, but must be
+        numeric for auto-increment. If non-numeric, raise a clear error.
+        """
+        try:
+            next_version = int(self.metadata.map_version) + 1
+        except ValueError as exc:
+            raise ValueError(
+                f"map_version must be numeric to auto-increment: {self.metadata.map_version}"
+            ) from exc
+        self.metadata.map_version = str(next_version)
+        return self.metadata.map_version
 
     def get_room(self, room_id: str) -> MapRoom | None:
         """Get a room by ID.

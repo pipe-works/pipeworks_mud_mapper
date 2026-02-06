@@ -1300,7 +1300,7 @@ class TestFileCallbacks:
             selected_file="test.map.json",
             io_jobs=None,
         )
-        assert result == (no_update, no_update, no_update)
+        assert result == (no_update, no_update, no_update, no_update)
 
     def test_save_map_to_file_no_data(self):
         """save_map_to_file should return no_update when no zone data."""
@@ -1310,7 +1310,7 @@ class TestFileCallbacks:
             selected_file="test.map.json",
             io_jobs=None,
         )
-        assert result == (no_update, no_update, no_update)
+        assert result == (no_update, no_update, no_update, no_update)
 
     def test_save_map_to_file_success(self, simple_zone_data, temp_maps_dir):
         """save_map_to_file should queue a save job on success."""
@@ -1325,9 +1325,10 @@ class TestFileCallbacks:
                 io_jobs=None,
             )
 
-        unsaved, feedback, job_store = result
+        unsaved, feedback, job_store, updated_zone = result
         assert unsaved is True  # Save queued, still unsaved until job completes
         assert job_store and job_store["jobs"]
+        assert updated_zone["metadata"]["map_revision"] == 1
 
     def test_export_zone_to_file_no_click(self, simple_zone_data):
         """export_zone_to_file should return no_update when not clicked."""
@@ -1337,7 +1338,7 @@ class TestFileCallbacks:
             selected_file="test.map.json",
             io_jobs=None,
         )
-        assert result == (no_update, no_update)
+        assert result == (no_update, no_update, no_update)
 
     def test_export_zone_to_file_no_data(self):
         """export_zone_to_file should return no_update when no zone data."""
@@ -1347,7 +1348,7 @@ class TestFileCallbacks:
             selected_file="test.map.json",
             io_jobs=None,
         )
-        assert result == (no_update, no_update)
+        assert result == (no_update, no_update, no_update)
 
     def test_export_zone_to_file_success(self, simple_zone_data, temp_maps_dir):
         """export_zone_to_file should queue an export job."""
@@ -1370,8 +1371,9 @@ class TestFileCallbacks:
                 io_jobs=None,
             )
 
-        feedback, job_store = result
+        feedback, job_store, updated_zone = result
         assert job_store and job_store["jobs"]
+        assert updated_zone["metadata"]["map_version"] == "1"
 
     def test_update_theme_light(self):
         """update_theme should return the light theme when disabled."""
