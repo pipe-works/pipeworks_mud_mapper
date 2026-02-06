@@ -2,22 +2,22 @@
 
 from __future__ import annotations
 
-from pipeworks_mud_mapper.services import zone_service
+from pipeworks_mud_mapper.services import map_db_service
 from pipeworks_mud_mapper.services.state.types import ZoneTransition
 
 
-def load_map(*, file_path) -> ZoneTransition:
-    """Load a map file into zone data.
+def load_map(*, map_id: str) -> ZoneTransition:
+    """Load a map from SQLite into zone data.
 
     Parameters
     ----------
-    file_path : Path
-        Full path to the map file.
+    map_id : str
+        Map identifier in the SQLite database.
     """
     try:
-        map_file = zone_service.load_map_file(file_path)
+        map_file = map_db_service.load_map(map_id)
         zone_data = map_file.to_dict_with_list_coords()
-        zone_name = zone_data.get("name", file_path.name)
+        zone_name = zone_data.get("name", map_id)
     except Exception:
         return ZoneTransition(zone_data=None, changed=False)
 

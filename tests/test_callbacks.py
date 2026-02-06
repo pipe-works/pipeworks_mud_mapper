@@ -32,7 +32,6 @@ See Also
 - ``test_services.py``: Tests for the underlying service layer
 """
 
-import tempfile
 from pathlib import Path
 from unittest.mock import patch
 
@@ -43,7 +42,7 @@ from dash import no_update
 
 from pipeworks_mud_mapper.callbacks.exit_callbacks import handle_exit_changes
 from pipeworks_mud_mapper.callbacks.file_callbacks import (
-    _get_cached_map_files,
+    _get_cached_map_ids,
     confirm_file_delete,
     export_zone_to_file,
     handle_file_click,
@@ -140,12 +139,9 @@ def connected_zone_data() -> dict:
 
 
 @pytest.fixture
-def temp_maps_dir():
-    """Create a temporary maps directory for file tests."""
-    with tempfile.TemporaryDirectory() as tmpdir:
-        maps_dir = Path(tmpdir) / "maps"
-        maps_dir.mkdir()
-        yield maps_dir
+def temp_db_path(tmp_path):
+    """Create a temporary SQLite database path for map tests."""
+    return tmp_path / "mapper.db"
 
 
 # =============================================================================
@@ -691,84 +687,80 @@ class TestRoomCallbacks:
 class TestFileCallbacks:
     """Tests for file_callbacks module."""
 
-    def test_load_map_files_list(self, temp_maps_dir):
-        """load_map_files_list should return list of map files."""
-        # Create test files
-        (temp_maps_dir / "zone1.map.json").write_text("{}")
-        (temp_maps_dir / "zone2.map.json").write_text("{}")
-        (temp_maps_dir / "other.json").write_text("{}")  # Not a .map.json
-
+    def test_load_map_files_list(self, temp_db_path):
+        """load_map_files_list should return list of map IDs."""
         with (
+            patch("pipeworks_mud_mapper.callbacks.file_callbacks.DB_PATH", temp_db_path),
+            patch("pipeworks_mud_mapper.callbacks.file_callbacks._MAP_LIST_CACHE", {}),
             patch(
-                "pipeworks_mud_mapper.callbacks.file_callbacks.MAPS_DIR",
-                temp_maps_dir,
+                "pipeworks_mud_mapper.callbacks.file_callbacks.map_db_service.list_maps",
+                return_value=["zone1", "zone2"],
             ),
             patch("pipeworks_mud_mapper.callbacks.file_callbacks.ctx") as mock_ctx,
         ):
             mock_ctx.triggered_id = "initial-load"
-            result = load_map_files_list(1, None)  # Positional arg (interval count)
+            result = load_map_files_list(1, None)
 
-        assert "zone1.map.json" in result
-        assert "zone2.map.json" in result
-        assert "other.json" not in result
+        assert result == ["zone1", "zone2"]
 
-    def test_load_map_files_list_refresh_bypasses_cache(self, temp_maps_dir):
+    def test_load_map_files_list_refresh_bypasses_cache(self, temp_db_path):
         """load_map_files_list should force refresh on refresh click."""
-        (temp_maps_dir / "zone1.map.json").write_text("{}")
         with (
-            patch("pipeworks_mud_mapper.callbacks.file_callbacks.MAPS_DIR", temp_maps_dir),
-            patch("pipeworks_mud_mapper.callbacks.file_callbacks._FILE_LIST_CACHE", {}),
+            patch("pipeworks_mud_mapper.callbacks.file_callbacks.DB_PATH", temp_db_path),
+            patch("pipeworks_mud_mapper.callbacks.file_callbacks._MAP_LIST_CACHE", {}),
+            patch(
+                "pipeworks_mud_mapper.callbacks.file_callbacks.map_db_service.list_maps",
+                return_value=["zone1"],
+            ),
             patch("pipeworks_mud_mapper.callbacks.file_callbacks.ctx") as mock_ctx,
         ):
             mock_ctx.triggered_id = "file-browser-refresh-btn"
             result = load_map_files_list(1, 1)
 
-        assert "zone1.map.json" in result
+        assert result == ["zone1"]
 
-    def test_get_cached_map_files_uses_cache(self):
-        """_get_cached_map_files should return cached results within TTL."""
-        fake_dir = Path("/tmp/fake")
+    def test_get_cached_map_ids_uses_cache(self, temp_db_path):
+        """_get_cached_map_ids should return cached results within TTL."""
         with (
-            patch("pipeworks_mud_mapper.callbacks.file_callbacks._FILE_LIST_CACHE", {}),
+            patch("pipeworks_mud_mapper.callbacks.file_callbacks._MAP_LIST_CACHE", {}),
             patch(
-                "pipeworks_mud_mapper.callbacks.file_callbacks.zone_service.list_map_files"
+                "pipeworks_mud_mapper.callbacks.file_callbacks.map_db_service.list_maps"
             ) as mock_list,
             patch("pipeworks_mud_mapper.callbacks.file_callbacks.time.monotonic") as mock_clock,
         ):
             mock_list.side_effect = [
-                [Path("first.map.json")],
-                [Path("second.map.json")],
+                ["first"],
+                ["second"],
             ]
             mock_clock.side_effect = [0.0, 0.1]
 
-            first = _get_cached_map_files(fake_dir)
-            second = _get_cached_map_files(fake_dir)
+            first = _get_cached_map_ids(temp_db_path)
+            second = _get_cached_map_ids(temp_db_path)
 
-        assert first == [Path("first.map.json")]
-        assert second == [Path("first.map.json")]
+        assert first == ["first"]
+        assert second == ["first"]
         assert mock_list.call_count == 1
 
-    def test_get_cached_map_files_force_refresh(self):
-        """_get_cached_map_files should bypass cache when forced."""
-        fake_dir = Path("/tmp/fake")
+    def test_get_cached_map_ids_force_refresh(self, temp_db_path):
+        """_get_cached_map_ids should bypass cache when forced."""
         with (
-            patch("pipeworks_mud_mapper.callbacks.file_callbacks._FILE_LIST_CACHE", {}),
+            patch("pipeworks_mud_mapper.callbacks.file_callbacks._MAP_LIST_CACHE", {}),
             patch(
-                "pipeworks_mud_mapper.callbacks.file_callbacks.zone_service.list_map_files"
+                "pipeworks_mud_mapper.callbacks.file_callbacks.map_db_service.list_maps"
             ) as mock_list,
             patch("pipeworks_mud_mapper.callbacks.file_callbacks.time.monotonic") as mock_clock,
         ):
             mock_list.side_effect = [
-                [Path("first.map.json")],
-                [Path("second.map.json")],
+                ["first"],
+                ["second"],
             ]
             mock_clock.side_effect = [0.0, 0.1]
 
-            first = _get_cached_map_files(fake_dir)
-            second = _get_cached_map_files(fake_dir, force_refresh=True)
+            first = _get_cached_map_ids(temp_db_path)
+            second = _get_cached_map_ids(temp_db_path, force_refresh=True)
 
-        assert first == [Path("first.map.json")]
-        assert second == [Path("second.map.json")]
+        assert first == ["first"]
+        assert second == ["second"]
         assert mock_list.call_count == 2
 
     def test_load_zone_files_list(self, tmp_path):
@@ -812,18 +804,18 @@ class TestFileCallbacks:
         """render_file_list should show message when no files."""
         result = render_file_list(files=[], selected_file=None)
         assert len(result) == 1
-        assert "No map files" in str(result[0])
+        assert "No maps" in str(result[0])
 
     def test_render_file_list_with_files(self):
         """render_file_list should render file items."""
-        files = ["zone1.map.json", "zone2.map.json"]
+        files = ["zone1", "zone2"]
         result = render_file_list(files=files, selected_file=None)
         assert len(result) == 2
 
     def test_render_file_list_with_selection(self):
         """render_file_list should highlight selected file."""
-        files = ["zone1.map.json", "zone2.map.json"]
-        result = render_file_list(files=files, selected_file="zone1.map.json")
+        files = ["zone1", "zone2"]
+        result = render_file_list(files=files, selected_file="zone1")
         assert len(result) == 2
         # Selected item should have different styling
         assert "bg-primary" in result[0].className
@@ -890,10 +882,10 @@ class TestFileCallbacks:
     def test_handle_file_click_same_file(self):
         """handle_file_click should no-op when clicking the current file."""
         with patch("pipeworks_mud_mapper.callbacks.file_callbacks.ctx") as mock_ctx:
-            mock_ctx.triggered_id = {"type": "file-item", "filename": "zone.map.json"}
+            mock_ctx.triggered_id = {"type": "file-item", "filename": "zone"}
             result = handle_file_click(
                 map_clicks=[1],
-                current_file="zone.map.json",
+                current_file="zone",
             )
 
         assert result == (no_update, no_update, no_update, no_update, no_update)
@@ -910,7 +902,7 @@ class TestFileCallbacks:
                 return_value=fake_transition,
             ),
         ):
-            mock_ctx.triggered_id = {"type": "file-item", "filename": "zone.map.json"}
+            mock_ctx.triggered_id = {"type": "file-item", "filename": "zone"}
             result = handle_file_click(
                 map_clicks=[1],
                 current_file=None,
@@ -936,13 +928,13 @@ class TestFileCallbacks:
                 return_value=fake_transition,
             ),
         ):
-            mock_ctx.triggered_id = {"type": "file-item", "filename": "zone.map.json"}
+            mock_ctx.triggered_id = {"type": "file-item", "filename": "zone"}
             result = handle_file_click(
                 map_clicks=[1],
                 current_file=None,
             )
 
-        assert result == ("zone.map.json", {"id": "zone"}, "Zone: Test Zone", False, None)
+        assert result == ("zone", {"id": "zone"}, "Zone: Test Zone", False, None)
 
     def test_handle_zone_file_click_loads_json(self, tmp_path):
         """handle_zone_file_click should load JSON and set selection."""
@@ -1029,9 +1021,9 @@ class TestFileCallbacks:
 
     def test_render_file_properties_map_selected(self):
         """render_file_properties should show map selection info."""
-        name, detail, disabled = render_file_properties("zone.map.json", None)
-        assert "zone.map.json" in str(name)
-        assert "Map file" in str(detail)
+        name, detail, disabled = render_file_properties("zone", None)
+        assert "zone" in str(name)
+        assert "Map" in str(detail)
         assert disabled is False
 
     def test_render_file_properties_zone_selected(self):
@@ -1053,21 +1045,21 @@ class TestFileCallbacks:
         """request_file_delete should close modal on cancel."""
         with patch("pipeworks_mud_mapper.callbacks.file_callbacks.ctx") as mock_ctx:
             mock_ctx.triggered_id = "file-delete-cancel-btn"
-            result = request_file_delete(0, 1, "zone.map.json", None)
+            result = request_file_delete(0, 1, "zone", None)
 
         assert result == (False, no_update, None)
 
     def test_request_file_delete_map_selected(self, tmp_path):
         """request_file_delete should open modal for map files."""
         with (
-            patch("pipeworks_mud_mapper.callbacks.file_callbacks.MAPS_DIR", tmp_path),
+            patch("pipeworks_mud_mapper.callbacks.file_callbacks.DB_PATH", tmp_path / "mapper.db"),
             patch("pipeworks_mud_mapper.callbacks.file_callbacks.ctx") as mock_ctx,
         ):
             mock_ctx.triggered_id = "file-properties-delete-btn"
-            result = request_file_delete(1, None, "zone.map.json", None)
+            result = request_file_delete(1, None, "zone", None)
 
         assert result[0] is True
-        assert "map file" in str(result[1]).lower()
+        assert "map" in str(result[1]).lower()
         assert result[2]["type"] == "file-delete-btn"
 
     def test_request_file_delete_zone_selected(self, tmp_path):
@@ -1084,21 +1076,27 @@ class TestFileCallbacks:
         assert result[2]["type"] == "zone-file-delete-btn"
 
     def test_confirm_file_delete_map(self, tmp_path):
-        """confirm_file_delete should remove map files and refresh list."""
-        map_path = tmp_path / "zone.map.json"
-        map_path.write_text("{}")
+        """confirm_file_delete should remove maps and refresh list."""
+        db_path = tmp_path / "mapper.db"
 
         with (
-            patch("pipeworks_mud_mapper.callbacks.file_callbacks.MAPS_DIR", tmp_path),
-            patch("pipeworks_mud_mapper.callbacks.file_callbacks._FILE_LIST_CACHE", {}),
+            patch("pipeworks_mud_mapper.callbacks.file_callbacks.DB_PATH", db_path),
+            patch("pipeworks_mud_mapper.callbacks.file_callbacks._MAP_LIST_CACHE", {}),
+            patch(
+                "pipeworks_mud_mapper.callbacks.file_callbacks.map_db_service.delete_map"
+            ) as mock_delete,
+            patch(
+                "pipeworks_mud_mapper.callbacks.file_callbacks.map_db_service.list_maps",
+                return_value=[],
+            ),
         ):
             result = confirm_file_delete(
                 confirm_clicks=1,
-                pending={"type": "file-delete-btn", "filename": "zone.map.json"},
-                selected_file="zone.map.json",
+                pending={"type": "file-delete-btn", "filename": "zone"},
+                selected_file="zone",
             )
 
-        assert map_path.exists() is False
+        mock_delete.assert_called_once_with("zone", db_path=db_path)
         assert result[0] == []  # maps list refresh
         assert result[2] is None  # selected file cleared
 
@@ -1213,12 +1211,18 @@ class TestFileCallbacks:
         assert result[0] is True
         assert result[2] is not no_update  # feedback
 
-    def test_handle_new_map_modal_success(self, temp_maps_dir):
-        """handle_new_map_modal should create file on success."""
+    def test_handle_new_map_modal_success(self, temp_db_path):
+        """handle_new_map_modal should create map on success."""
         with (
+            patch("pipeworks_mud_mapper.callbacks.file_callbacks.DB_PATH", temp_db_path),
             patch(
-                "pipeworks_mud_mapper.callbacks.file_callbacks.MAPS_DIR",
-                temp_maps_dir,
+                "pipeworks_mud_mapper.callbacks.file_callbacks.map_db_service.map_exists",
+                return_value=False,
+            ),
+            patch("pipeworks_mud_mapper.callbacks.file_callbacks.map_db_service.save_map"),
+            patch(
+                "pipeworks_mud_mapper.callbacks.file_callbacks.map_db_service.list_maps",
+                return_value=["newzone"],
             ),
             patch("pipeworks_mud_mapper.callbacks.file_callbacks.ctx") as mock_ctx,
         ):
@@ -1234,18 +1238,15 @@ class TestFileCallbacks:
 
         modal_open, file_list, feedback, zone_id, name, desc = result
         assert modal_open is False  # Modal closes
-        assert "newzone.map.json" in file_list
-        assert (temp_maps_dir / "newzone.map.json").exists()
+        assert file_list == ["newzone"]
 
-    def test_handle_new_map_modal_duplicate(self, temp_maps_dir):
+    def test_handle_new_map_modal_duplicate(self, temp_db_path):
         """handle_new_map_modal should reject duplicate zone ID."""
-        # Create existing file
-        (temp_maps_dir / "existing.map.json").write_text("{}")
-
         with (
+            patch("pipeworks_mud_mapper.callbacks.file_callbacks.DB_PATH", temp_db_path),
             patch(
-                "pipeworks_mud_mapper.callbacks.file_callbacks.MAPS_DIR",
-                temp_maps_dir,
+                "pipeworks_mud_mapper.callbacks.file_callbacks.map_db_service.map_exists",
+                return_value=True,
             ),
             patch("pipeworks_mud_mapper.callbacks.file_callbacks.ctx") as mock_ctx,
         ):
@@ -1270,13 +1271,13 @@ class TestFileCallbacks:
         )
         assert save_disabled is True
         assert export_disabled is True
-        assert "No file loaded" in status
+        assert "No map loaded" in status
 
     def test_update_save_status_unsaved(self):
         """update_save_status should enable save when unsaved changes."""
         save_disabled, export_disabled, status = update_save_status(
             has_unsaved=True,
-            selected_file="test.map.json",
+            selected_file="test",
         )
         assert save_disabled is False  # Save enabled
         assert export_disabled is True  # Export disabled until saved
@@ -1286,7 +1287,7 @@ class TestFileCallbacks:
         """update_save_status should enable export when all saved."""
         save_disabled, export_disabled, status = update_save_status(
             has_unsaved=False,
-            selected_file="test.map.json",
+            selected_file="test",
         )
         assert save_disabled is True  # Save disabled (nothing to save)
         assert export_disabled is False  # Export enabled
@@ -1297,7 +1298,7 @@ class TestFileCallbacks:
         result = save_map_to_file(
             n_clicks=0,
             zone_data=simple_zone_data,
-            selected_file="test.map.json",
+            selected_file="test",
             io_jobs=None,
         )
         assert result == (no_update, no_update, no_update, no_update)
@@ -1307,21 +1308,21 @@ class TestFileCallbacks:
         result = save_map_to_file(
             n_clicks=1,
             zone_data=None,
-            selected_file="test.map.json",
+            selected_file="test",
             io_jobs=None,
         )
         assert result == (no_update, no_update, no_update, no_update)
 
-    def test_save_map_to_file_success(self, simple_zone_data, temp_maps_dir):
+    def test_save_map_to_file_success(self, simple_zone_data, temp_db_path):
         """save_map_to_file should queue a save job on success."""
         with patch(
-            "pipeworks_mud_mapper.callbacks.file_callbacks.MAPS_DIR",
-            temp_maps_dir,
+            "pipeworks_mud_mapper.callbacks.file_callbacks.DB_PATH",
+            temp_db_path,
         ):
             result = save_map_to_file(
                 n_clicks=1,
                 zone_data=simple_zone_data,
-                selected_file="test.map.json",
+                selected_file="test",
                 io_jobs=None,
             )
 
@@ -1335,7 +1336,7 @@ class TestFileCallbacks:
         result = export_zone_to_file(
             n_clicks=0,
             zone_data=simple_zone_data,
-            selected_file="test.map.json",
+            selected_file="test",
             io_jobs=None,
         )
         assert result == (no_update, no_update, no_update)
@@ -1345,19 +1346,19 @@ class TestFileCallbacks:
         result = export_zone_to_file(
             n_clicks=1,
             zone_data=None,
-            selected_file="test.map.json",
+            selected_file="test",
             io_jobs=None,
         )
         assert result == (no_update, no_update, no_update)
 
-    def test_export_zone_to_file_success(self, simple_zone_data, temp_maps_dir):
+    def test_export_zone_to_file_success(self, simple_zone_data, temp_db_path):
         """export_zone_to_file should queue an export job."""
-        temp_zones_dir = temp_maps_dir.parent / "zones"
+        temp_zones_dir = temp_db_path.parent / "zones"
 
         with (
             patch(
-                "pipeworks_mud_mapper.callbacks.file_callbacks.MAPS_DIR",
-                temp_maps_dir,
+                "pipeworks_mud_mapper.callbacks.file_callbacks.DB_PATH",
+                temp_db_path,
             ),
             patch(
                 "pipeworks_mud_mapper.callbacks.file_callbacks.ZONES_DIR",
@@ -1367,7 +1368,7 @@ class TestFileCallbacks:
             result = export_zone_to_file(
                 n_clicks=1,
                 zone_data=simple_zone_data,
-                selected_file="test.map.json",
+                selected_file="test",
                 io_jobs=None,
             )
 
@@ -1758,7 +1759,7 @@ class TestValidationCallbacks:
             update_validate_button_state,
         )
 
-        result = update_validate_button_state(selected_file="test.map.json")
+        result = update_validate_button_state(selected_file="test")
         assert result is False  # Enabled
 
     def test_run_validation_no_click(self, simple_zone_data):
@@ -1768,7 +1769,7 @@ class TestValidationCallbacks:
         result = run_validation(
             n_clicks=0,
             zone_data=simple_zone_data,
-            selected_file="test.map.json",
+            selected_file="test",
         )
         assert result == (no_update, no_update, no_update)
 
@@ -1779,7 +1780,7 @@ class TestValidationCallbacks:
         result = run_validation(
             n_clicks=1,
             zone_data=None,
-            selected_file="test.map.json",
+            selected_file="test",
         )
         assert result == (no_update, no_update, no_update)
 
@@ -1796,7 +1797,7 @@ class TestValidationCallbacks:
             result = run_validation(
                 n_clicks=1,
                 zone_data=simple_zone_data,
-                selected_file="test.map.json",
+                selected_file="test",
             )
 
         modal_open, modal_body, report = result
@@ -1827,7 +1828,7 @@ class TestValidationCallbacks:
             result = run_validation(
                 n_clicks=1,
                 zone_data=zone_with_issues,
-                selected_file="test.map.json",
+                selected_file="test",
             )
 
         modal_open, modal_body, report = result
