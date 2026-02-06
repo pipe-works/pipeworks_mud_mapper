@@ -136,6 +136,18 @@ def test_update_workspace_room_table_with_rooms() -> None:
     assert "Room B" in str(result)
 
 
+def test_update_workspace_room_table_empty_rooms() -> None:
+    """update_workspace_room_table should handle maps with no rooms."""
+    map_stub = type("MapStub", (), {"rooms": {}})()
+    with patch(
+        "pipeworks_mud_mapper.callbacks.workspace_callbacks.map_db_service.load_map",
+        return_value=map_stub,
+    ):
+        result = wc.update_workspace_room_table("alpha", None, None, None, None)
+
+    assert "No rooms" in str(result)
+
+
 def test_handle_workspace_room_click_toggle() -> None:
     """handle_workspace_room_click should select and toggle rooms."""
     with patch("pipeworks_mud_mapper.callbacks.workspace_callbacks.ctx") as mock_ctx:
@@ -147,6 +159,25 @@ def test_handle_workspace_room_click_toggle() -> None:
         mock_ctx.triggered_id = {"type": "workspace-room-row", "room_id": "room_1"}
         result = wc.handle_workspace_room_click([1], "room_1")
     assert result is None
+
+
+def test_handle_workspace_room_click_no_clicks() -> None:
+    """handle_workspace_room_click should no-op when nothing clicked."""
+    result = wc.handle_workspace_room_click([0, 0], None)
+    assert result is no_update
+
+
+def test_handle_workspace_room_click_invalid_trigger() -> None:
+    """handle_workspace_room_click should ignore invalid trigger payloads."""
+    with patch("pipeworks_mud_mapper.callbacks.workspace_callbacks.ctx") as mock_ctx:
+        mock_ctx.triggered_id = "workspace-room-row"
+        result = wc.handle_workspace_room_click([1], None)
+    assert result is no_update
+
+    with patch("pipeworks_mud_mapper.callbacks.workspace_callbacks.ctx") as mock_ctx:
+        mock_ctx.triggered_id = {"type": "workspace-room-row"}
+        result = wc.handle_workspace_room_click([1], None)
+    assert result is no_update
 
 
 def test_timestamped_name_has_prefix_and_suffix() -> None:
@@ -175,6 +206,15 @@ def test_summarize_export_variants() -> None:
         ["exports/a.json", "exports/b.json"],
         output_dir,
     )
+
+
+def test_direction_helpers() -> None:
+    """Direction helpers should format exits cleanly."""
+    assert wc._short_direction("north") == "N"
+    assert wc._short_direction("Weird") == "W"
+    assert wc._short_direction("") == "?"
+    assert wc._format_direction_list([]) == "—"
+    assert wc._format_direction_list(["D", "N"]) == "D, N"
 
 
 def test_queue_workspace_db_tool_no_trigger() -> None:
