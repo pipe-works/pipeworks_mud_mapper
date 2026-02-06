@@ -314,7 +314,7 @@ def test_handle_workspace_zone_exit_invalid_direction(monkeypatch):
     )
 
     assert updated_zone is no_update
-    assert "Invalid direction" in str(feedback)
+    assert "Choose a direction" in str(feedback)
     assert unsaved is no_update
 
 

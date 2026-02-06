@@ -118,7 +118,11 @@ def test_update_workspace_room_table_with_rooms() -> None:
         coords=Coords(x=0, y=0, z=0),
         exits=cast(
             dict[Direction, str],
-            {"north": "b", "east": "other_zone:spawn", "portal": "beta:gate"},
+            {
+                "north": "b",
+                "east": "other_zone:spawn",
+                "west": "beta:gate",
+            },
         ),
     )
     room_b = MapRoom(
@@ -140,7 +144,7 @@ def test_update_workspace_room_table_with_rooms() -> None:
     assert "Room B" in str(result)
     assert "Zone Exits" in str(result)
     assert "E=other_zone:spawn" in str(result)
-    assert "P=beta:gate" in str(result)
+    assert "W=beta:gate" in str(result)
 
 
 def test_update_workspace_room_table_empty_rooms() -> None:

@@ -250,6 +250,16 @@ def update_workspace_zone_exit_table(
     table_rows = []
     for row in rows:
         direction_short = row["direction_short"]
+        row_kwargs: dict[str, object] = {}
+        if direction_short in EXIT_SHORT_ORDER:
+            # Only allow editing standard directions from the table.
+            row_kwargs = {
+                "id": {"type": "workspace-zone-exit-row", "direction": direction_short},
+                "style": {"cursor": "pointer"},
+                "n_clicks": 0,
+                "title": "Click to edit zone exit",
+            }
+
         table_rows.append(
             html.Tr(
                 [
@@ -258,15 +268,7 @@ def update_workspace_zone_exit_table(
                     html.Td(row["room_id"]),
                     html.Td(row["target"]),
                 ],
-                # Only allow editing standard directions from the table.
-                id=(
-                    {"type": "workspace-zone-exit-row", "direction": direction_short}
-                    if direction_short in EXIT_SHORT_ORDER
-                    else None
-                ),
-                style={"cursor": "pointer"} if direction_short in EXIT_SHORT_ORDER else None,
-                n_clicks=0 if direction_short in EXIT_SHORT_ORDER else None,
-                title="Click to edit zone exit" if direction_short in EXIT_SHORT_ORDER else None,
+                **row_kwargs,
             )
         )
 
