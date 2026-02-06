@@ -282,7 +282,8 @@ class TestMapCallbacks:
             zone_data=None,
             visible_z_levels=[-1, 0, 1],
             selected_room=None,
-            visual_offset=1.0,
+            visual_offset_x=1.0,
+            visual_offset_y=1.0,
         )
         assert isinstance(figure, go.Figure)
         assert hasattr(figure, "data")
@@ -294,7 +295,8 @@ class TestMapCallbacks:
             zone_data=simple_zone_data,
             visible_z_levels=[-1, 0, 1],
             selected_room=None,
-            visual_offset=1.0,
+            visual_offset_x=1.0,
+            visual_offset_y=1.0,
         )
         assert isinstance(figure, go.Figure)
         assert len(figure.data) > 0  # Should have room markers
@@ -305,7 +307,8 @@ class TestMapCallbacks:
             zone_data=simple_zone_data,
             visible_z_levels=[-1, 0, 1],
             selected_room="spawn",
-            visual_offset=1.0,
+            visual_offset_x=1.0,
+            visual_offset_y=1.0,
         )
         assert isinstance(figure, go.Figure)
 
@@ -315,7 +318,8 @@ class TestMapCallbacks:
             zone_data=simple_zone_data,
             visible_z_levels=[1],  # Only show z=1, spawn is at z=0
             selected_room=None,
-            visual_offset=1.0,
+            visual_offset_x=1.0,
+            visual_offset_y=1.0,
         )
         assert isinstance(figure, go.Figure)
         # No room markers at z=1 (spawn is at z=0), filter out background
@@ -328,7 +332,8 @@ class TestMapCallbacks:
             zone_data=simple_zone_data,
             visible_z_levels=[],  # No levels visible
             selected_room=None,
-            visual_offset=1.0,
+            visual_offset_x=1.0,
+            visual_offset_y=1.0,
         )
         assert isinstance(figure, go.Figure)
         # No room traces, filter out background
