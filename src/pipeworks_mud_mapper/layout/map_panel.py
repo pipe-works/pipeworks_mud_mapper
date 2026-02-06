@@ -387,7 +387,7 @@ def create_map_panel() -> dbc.Card:
                             html.Div(
                                 [
                                     html.Label(
-                                        "Stack Offset:",
+                                        "Stack Offset X:",
                                         className="ms-4 me-2",
                                         style={"whiteSpace": "nowrap"},
                                     ),
@@ -395,16 +395,16 @@ def create_map_panel() -> dbc.Card:
                                         [
                                             dbc.Button(
                                                 "-",
-                                                id="z-level-offset-decrease",
+                                                id="z-level-offset-x-decrease",
                                                 color="secondary",
                                                 size="sm",
                                                 style={"width": "32px"},
                                             ),
                                             dbc.Input(
-                                                id="z-level-offset",
+                                                id="z-level-offset-x",
                                                 type="number",
                                                 value=0.4,
-                                                min=0,
+                                                min=-5,
                                                 max=5,
                                                 step=0.1,
                                                 size="sm",
@@ -412,7 +412,41 @@ def create_map_panel() -> dbc.Card:
                                             ),
                                             dbc.Button(
                                                 "+",
-                                                id="z-level-offset-increase",
+                                                id="z-level-offset-x-increase",
+                                                color="secondary",
+                                                size="sm",
+                                                style={"width": "32px"},
+                                            ),
+                                        ],
+                                        size="sm",
+                                    ),
+                                    html.Label(
+                                        "Y:",
+                                        className="ms-3 me-2",
+                                        style={"whiteSpace": "nowrap"},
+                                    ),
+                                    dbc.InputGroup(
+                                        [
+                                            dbc.Button(
+                                                "-",
+                                                id="z-level-offset-y-decrease",
+                                                color="secondary",
+                                                size="sm",
+                                                style={"width": "32px"},
+                                            ),
+                                            dbc.Input(
+                                                id="z-level-offset-y",
+                                                type="number",
+                                                value=0.4,
+                                                min=-5,
+                                                max=5,
+                                                step=0.1,
+                                                size="sm",
+                                                style={"width": "70px", "textAlign": "center"},
+                                            ),
+                                            dbc.Button(
+                                                "+",
+                                                id="z-level-offset-y-increase",
                                                 color="secondary",
                                                 size="sm",
                                                 style={"width": "32px"},
