@@ -35,6 +35,9 @@ Callbacks are organized into functional modules:
     Map validation checks.
     Results display and report generation.
 
+**workspace_callbacks**
+    Workspace panel utilities (SQLite overview, health, etc.).
+
 Registration
 ------------
 Callbacks are registered when their modules are imported.
@@ -61,6 +64,7 @@ from pipeworks_mud_mapper.callbacks import (
     room_callbacks,  # noqa: F401
     theme_callbacks,  # noqa: F401
     validation_callbacks,  # noqa: F401
+    workspace_callbacks,  # noqa: F401
 )
 
 

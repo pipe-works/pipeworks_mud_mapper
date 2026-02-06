@@ -58,3 +58,35 @@ def test_map_exists_and_delete(tmp_path):
 
     map_db_service.delete_map("alpha", db_path)
     assert map_db_service.map_exists("alpha", db_path) is False
+
+
+def test_get_db_stats_empty(tmp_path):
+    """get_db_stats should return zero counts for empty DB."""
+    db_path = tmp_path / "mapper.db"
+    stats = map_db_service.get_db_stats(db_path)
+
+    assert stats["map_count"] == 0
+    assert stats["room_count"] == 0
+    assert stats["llm_generation_count"] == 0
+    assert stats["last_updated"] is None
+
+
+def test_get_map_overview_counts_rooms(tmp_path):
+    """get_map_overview should include room counts per map."""
+    db_path = tmp_path / "mapper.db"
+    map_file = MapFile(
+        id="alpha",
+        name="Alpha",
+        spawn_room="spawn",
+        rooms={
+            "spawn": MapRoom(id="spawn", name="Spawn"),
+            "hall": MapRoom(id="hall", name="Hall"),
+        },
+    )
+
+    map_db_service.save_map(map_file, db_path)
+    overview = map_db_service.get_map_overview(db_path)
+
+    assert len(overview) == 1
+    assert overview[0]["map_id"] == "alpha"
+    assert overview[0]["room_count"] == 2

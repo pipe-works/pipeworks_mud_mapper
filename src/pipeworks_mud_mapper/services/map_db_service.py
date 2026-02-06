@@ -263,3 +263,58 @@ def delete_map(map_id: str, db_path: Path | None = None) -> None:
     """Delete a map and its rooms from SQLite."""
     with _connect(db_path) as conn:
         conn.execute("DELETE FROM maps WHERE id = ?", (map_id,))
+
+
+def get_db_stats(db_path: Path | None = None) -> dict[str, Any]:
+    """Return high-level database stats for UI health panels."""
+    resolved = _resolve_db_path(db_path)
+    size_bytes = resolved.stat().st_size if resolved.exists() else 0
+
+    with _connect(db_path) as conn:
+        row = conn.execute("""
+            SELECT
+                (SELECT COUNT(*) FROM maps) AS map_count,
+                (SELECT COUNT(*) FROM rooms) AS room_count,
+                (SELECT COUNT(*) FROM rooms WHERE llm_generation_json IS NOT NULL)
+                    AS llm_generation_count,
+                (SELECT MAX(updated_at) FROM maps) AS last_updated
+            """).fetchone()
+
+    return {
+        "path": resolved,
+        "size_bytes": size_bytes,
+        "map_count": int(row["map_count"] or 0),
+        "room_count": int(row["room_count"] or 0),
+        "llm_generation_count": int(row["llm_generation_count"] or 0),
+        "last_updated": row["last_updated"],
+    }
+
+
+def get_map_overview(db_path: Path | None = None) -> list[dict[str, Any]]:
+    """Return per-map summary rows for UI tables."""
+    with _connect(db_path) as conn:
+        rows = conn.execute("""
+            SELECT
+                maps.id AS map_id,
+                maps.name AS name,
+                maps.map_version AS map_version,
+                maps.map_revision AS map_revision,
+                maps.updated_at AS updated_at,
+                COUNT(rooms.id) AS room_count
+            FROM maps
+            LEFT JOIN rooms ON rooms.map_id = maps.id
+            GROUP BY maps.id
+            ORDER BY maps.id
+            """).fetchall()
+
+    return [
+        {
+            "map_id": row["map_id"],
+            "name": row["name"],
+            "map_version": row["map_version"],
+            "map_revision": row["map_revision"],
+            "updated_at": row["updated_at"],
+            "room_count": int(row["room_count"] or 0),
+        }
+        for row in rows
+    ]
