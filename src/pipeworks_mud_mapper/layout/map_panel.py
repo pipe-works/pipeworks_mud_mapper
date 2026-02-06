@@ -144,92 +144,31 @@ def create_map_panel() -> dbc.Card:
                                                 [
                                                     dbc.Tab(
                                                         [
-                                                            html.P(
-                                                                "SQLite DB (placeholder)",
-                                                                className="small text-muted mb-2",
-                                                            ),
-                                                            dbc.Table(
+                                                            html.Div(
                                                                 [
-                                                                    html.Thead(
-                                                                        html.Tr(
-                                                                            [
-                                                                                html.Th("Table"),
-                                                                                html.Th("Rows"),
-                                                                                html.Th("Notes"),
-                                                                            ]
-                                                                        )
+                                                                    html.Span(
+                                                                        "SQLite DB",
+                                                                        className="fw-semibold",
                                                                     ),
-                                                                    html.Tbody(
-                                                                        [
-                                                                            html.Tr(
-                                                                                [
-                                                                                    html.Td(
-                                                                                        "zones"
-                                                                                    ),
-                                                                                    html.Td("12"),
-                                                                                    html.Td(
-                                                                                        "Zone"
-                                                                                        " metadata"
-                                                                                    ),
-                                                                                ]
-                                                                            ),
-                                                                            html.Tr(
-                                                                                [
-                                                                                    html.Td(
-                                                                                        "rooms"
-                                                                                    ),
-                                                                                    html.Td("184"),
-                                                                                    html.Td(
-                                                                                        "Room graph"
-                                                                                    ),
-                                                                                ]
-                                                                            ),
-                                                                            html.Tr(
-                                                                                [
-                                                                                    html.Td(
-                                                                                        "exits"
-                                                                                    ),
-                                                                                    html.Td("412"),
-                                                                                    html.Td(
-                                                                                        [
-                                                                                            "Room",
-                                                                                            html.Br(),
-                                                                                            "connections",
-                                                                                        ]
-                                                                                    ),
-                                                                                ]
-                                                                            ),
-                                                                            html.Tr(
-                                                                                [
-                                                                                    html.Td(
-                                                                                        "items"
-                                                                                    ),
-                                                                                    html.Td("57"),
-                                                                                    html.Td(
-                                                                                        "Inventory"
-                                                                                        " table"
-                                                                                    ),
-                                                                                ]
-                                                                            ),
-                                                                            html.Tr(
-                                                                                [
-                                                                                    html.Td(
-                                                                                        "llm_generations"
-                                                                                    ),
-                                                                                    html.Td("38"),
-                                                                                    html.Td(
-                                                                                        "Prompt"
-                                                                                        " history"
-                                                                                    ),
-                                                                                ]
-                                                                            ),
-                                                                        ]
+                                                                    dbc.Button(
+                                                                        "Refresh",
+                                                                        id="workspace-db-refresh",
+                                                                        color="link",
+                                                                        size="sm",
+                                                                        className="ms-auto",
                                                                     ),
                                                                 ],
-                                                                bordered=True,
-                                                                hover=True,
-                                                                size="sm",
-                                                                className="small mb-0",
+                                                                className=(
+                                                                    "d-flex align-items-center mb-2"
+                                                                ),
+                                                            ),
+                                                            html.Div(
+                                                                id="workspace-db-summary",
+                                                                className="small",
+                                                            ),
+                                                            html.Hr(className="my-2"),
+                                                            html.Div(
+                                                                id="workspace-db-table",
                                                             ),
                                                         ],
                                                         label="SQLite DB",
