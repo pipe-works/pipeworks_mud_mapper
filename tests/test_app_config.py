@@ -103,3 +103,15 @@ def test_format_short_path_absolute(tmp_path, monkeypatch):
 
     assert display.startswith("…/")
     assert display.endswith("/gamma/zones/")
+
+
+def test_format_short_path_absolute_short(tmp_path, monkeypatch):
+    """format_short_path should keep short absolute paths intact."""
+    project_root = tmp_path / "project"
+    outside = Path("/zones")
+
+    monkeypatch.setattr(app_config, "PROJECT_ROOT", project_root)
+
+    display = app_config.format_short_path(outside, keep_parts=5)
+
+    assert display == f"{outside}/"

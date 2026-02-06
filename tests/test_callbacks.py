@@ -713,6 +713,19 @@ class TestFileCallbacks:
         assert "zone2.map.json" in result
         assert "other.json" not in result
 
+    def test_load_map_files_list_refresh_bypasses_cache(self, temp_maps_dir):
+        """load_map_files_list should force refresh on refresh click."""
+        (temp_maps_dir / "zone1.map.json").write_text("{}")
+        with (
+            patch("pipeworks_mud_mapper.callbacks.file_callbacks.MAPS_DIR", temp_maps_dir),
+            patch("pipeworks_mud_mapper.callbacks.file_callbacks._FILE_LIST_CACHE", {}),
+            patch("pipeworks_mud_mapper.callbacks.file_callbacks.ctx") as mock_ctx,
+        ):
+            mock_ctx.triggered_id = "file-browser-refresh-btn"
+            result = load_map_files_list(1, 1)
+
+        assert "zone1.map.json" in result
+
     def test_get_cached_map_files_uses_cache(self):
         """_get_cached_map_files should return cached results within TTL."""
         fake_dir = Path("/tmp/fake")
@@ -813,6 +826,24 @@ class TestFileCallbacks:
         assert "zone2.json" in result
         assert "ignore.map.json" not in result
 
+    def test_load_zone_files_list_refresh_clears_cache(self, tmp_path):
+        """load_zone_files_list should clear cache on refresh click."""
+        zones_dir = tmp_path / "zones"
+        zones_dir.mkdir(parents=True, exist_ok=True)
+        (zones_dir / "zone1.json").write_text("{}")
+        cache: dict[Path, tuple[float, list[Path]]] = {zones_dir: (0.0, [])}
+
+        with (
+            patch("pipeworks_mud_mapper.callbacks.file_callbacks.ZONES_DIR", zones_dir),
+            patch("pipeworks_mud_mapper.callbacks.file_callbacks._FILE_LIST_CACHE", cache),
+            patch("pipeworks_mud_mapper.callbacks.file_callbacks.ctx") as mock_ctx,
+        ):
+            mock_ctx.triggered_id = "file-browser-refresh-btn"
+            result = load_zone_files_list(1, None, 1)
+
+        assert zones_dir not in cache
+        assert "zone1.json" in result
+
     def test_render_file_list_empty(self):
         """render_file_list should show message when no files."""
         result = render_file_list(files=[], selected_file=None)
@@ -890,6 +921,41 @@ class TestFileCallbacks:
         assert "zone.json" in str(result[1])
         assert result[3] == "zone.json"
 
+    def test_handle_zone_file_click_close(self):
+        """handle_zone_file_click should close when close button clicked."""
+        with patch("pipeworks_mud_mapper.callbacks.file_callbacks.ctx") as mock_ctx:
+            mock_ctx.triggered_id = "zone-json-close-btn"
+            result = handle_zone_file_click(zone_clicks=[0], close_clicks=1)
+
+        assert result == (False, no_update, no_update, no_update)
+
+    def test_handle_zone_file_click_invalid_json(self, tmp_path):
+        """handle_zone_file_click should show error for invalid JSON."""
+        zone_path = tmp_path / "bad.json"
+        zone_path.write_text("{bad json}")
+
+        with (
+            patch("pipeworks_mud_mapper.callbacks.file_callbacks.ZONES_DIR", tmp_path),
+            patch("pipeworks_mud_mapper.callbacks.file_callbacks.ctx") as mock_ctx,
+        ):
+            mock_ctx.triggered_id = {"type": "zone-file-item", "filename": "bad.json"}
+            result = handle_zone_file_click(zone_clicks=[1], close_clicks=None)
+
+        assert result[0] is True
+        assert "Invalid JSON" in str(result[2])
+
+    def test_handle_zone_file_click_missing_file(self, tmp_path):
+        """handle_zone_file_click should warn when file is missing."""
+        with (
+            patch("pipeworks_mud_mapper.callbacks.file_callbacks.ZONES_DIR", tmp_path),
+            patch("pipeworks_mud_mapper.callbacks.file_callbacks.ctx") as mock_ctx,
+        ):
+            mock_ctx.triggered_id = {"type": "zone-file-item", "filename": "missing.json"}
+            result = handle_zone_file_click(zone_clicks=[1], close_clicks=None)
+
+        assert result[0] is True
+        assert "not found" in str(result[2]).lower()
+
     def test_render_file_properties_none_selected(self):
         """render_file_properties should disable delete when nothing selected."""
         name, detail, disabled = render_file_properties(None, None, None)
@@ -925,6 +991,14 @@ class TestFileCallbacks:
             result = request_file_delete(1, None, None, None, None)
 
         assert result == (no_update, no_update, no_update)
+
+    def test_request_file_delete_cancel(self):
+        """request_file_delete should close modal on cancel."""
+        with patch("pipeworks_mud_mapper.callbacks.file_callbacks.ctx") as mock_ctx:
+            mock_ctx.triggered_id = "file-delete-cancel-btn"
+            result = request_file_delete(0, 1, "zone.map.json", "map", None)
+
+        assert result == (False, no_update, None)
 
     def test_request_file_delete_map_selected(self, tmp_path):
         """request_file_delete should open modal for map files."""
@@ -970,6 +1044,24 @@ class TestFileCallbacks:
         assert map_path.exists() is False
         assert result[0] == []  # maps list refresh
         assert result[3] is None  # selected file cleared
+
+    def test_confirm_file_delete_zone(self, tmp_path):
+        """confirm_file_delete should remove zone exports and refresh list."""
+        zone_path = tmp_path / "zone.json"
+        zone_path.write_text("{}")
+
+        with (
+            patch("pipeworks_mud_mapper.callbacks.file_callbacks.ZONES_DIR", tmp_path),
+            patch("pipeworks_mud_mapper.callbacks.file_callbacks._FILE_LIST_CACHE", {}),
+        ):
+            result = confirm_file_delete(
+                confirm_clicks=1,
+                pending={"type": "zone-file-delete-btn", "filename": "zone.json"},
+                selected_file=None,
+            )
+
+        assert zone_path.exists() is False
+        assert result[2] == []  # zones list refresh
 
     def test_handle_new_map_modal_open(self):
         """handle_new_map_modal should open when the button is clicked."""
