@@ -50,5 +50,5 @@ def create_action_bar() -> html.Div:
             # Spacer to keep the footer height consistent.
             html.Span(className="flex-grow-1"),
         ],
-        className="d-flex align-items-center p-2 bg-light border-top",
+        className="d-flex align-items-center p-2 bg-body-tertiary border-top",
     )

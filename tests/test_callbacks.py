@@ -36,6 +36,7 @@ import tempfile
 from pathlib import Path
 from unittest.mock import patch
 
+import dash_bootstrap_components as dbc
 import plotly.graph_objects as go
 import pytest
 from dash import no_update
@@ -73,6 +74,7 @@ from pipeworks_mud_mapper.callbacks.room_callbacks import (
     update_delete_button_state,
     update_room_properties,
 )
+from pipeworks_mud_mapper.callbacks.theme_callbacks import update_theme
 
 # =============================================================================
 # Fixtures
@@ -1370,6 +1372,14 @@ class TestFileCallbacks:
 
         feedback, job_store = result
         assert job_store and job_store["jobs"]
+
+    def test_update_theme_light(self):
+        """update_theme should return the light theme when disabled."""
+        assert update_theme(False) == dbc.themes.BOOTSTRAP
+
+    def test_update_theme_dark(self):
+        """update_theme should return the dark theme when enabled."""
+        assert update_theme(True) == dbc.themes.DARKLY
 
     def test_poll_io_jobs_no_jobs(self):
         """poll_io_jobs should no-op when no jobs are queued."""

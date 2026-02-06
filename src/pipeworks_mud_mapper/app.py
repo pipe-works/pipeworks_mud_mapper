@@ -54,7 +54,9 @@ from pipeworks_mud_mapper.layout import create_app_layout
 
 app = dash.Dash(
     __name__,
-    external_stylesheets=[dbc.themes.BOOTSTRAP],
+    # Load only the Bootstrap icon set here.
+    # Theme CSS is injected via a layout <link> so it can be toggled at runtime.
+    external_stylesheets=[dbc.icons.BOOTSTRAP],
     title="PipeWorks MUD Mapper",
 )
 """
