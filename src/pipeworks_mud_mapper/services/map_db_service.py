@@ -62,8 +62,7 @@ def _connect(db_path: Path | None = None) -> Iterator[sqlite3.Connection]:
 
 def _ensure_schema(conn: sqlite3.Connection) -> None:
     """Create tables if they do not exist."""
-    conn.executescript(
-        """
+    conn.executescript("""
         CREATE TABLE IF NOT EXISTS maps (
             id TEXT PRIMARY KEY,
             name TEXT NOT NULL,
@@ -94,8 +93,7 @@ def _ensure_schema(conn: sqlite3.Connection) -> None:
         );
 
         CREATE INDEX IF NOT EXISTS idx_rooms_map_id ON rooms(map_id);
-        """
-    )
+        """)
 
 
 # ---------------------------------------------------------------------------
