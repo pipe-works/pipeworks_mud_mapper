@@ -671,7 +671,6 @@ def handle_new_map_modal(
     Output("save-map-btn", "disabled"),
     Output("export-zone-btn", "disabled"),
     Output("status-indicator", "children"),
-    Output("debug-btn-state", "children"),
     Input("has-unsaved-changes", "data"),
     Input("selected-file", "data"),
 )
@@ -694,20 +693,20 @@ def update_save_status(has_unsaved: bool, selected_file: str | None) -> tuple:
     Returns
     -------
     tuple
-        (save_disabled, export_disabled, status_text, debug_text).
+        (save_disabled, export_disabled, status_text).
     """
     print(f"[DEBUG] update_save_status: has_unsaved={has_unsaved}, file={selected_file}")
 
     if not selected_file:
         print("[DEBUG] update_save_status: no file loaded")
-        return True, True, "No file loaded", "no-file"
+        return True, True, "No file loaded"
 
     # Display full file name for clarity
     display_name = selected_file
 
     if has_unsaved:
         print("[DEBUG] update_save_status: unsaved changes - save=ENABLED")
-        return False, True, f"Unsaved: {display_name}", "unsaved"
+        return False, True, f"Unsaved: {display_name}"
 
     print("[DEBUG] update_save_status: saved - export=ENABLED")
     saved_alert = dbc.Alert(
@@ -718,7 +717,7 @@ def update_save_status(has_unsaved: bool, selected_file: str | None) -> tuple:
         dismissable=True,
         fade=True,
     )
-    return True, False, saved_alert, "saved"
+    return True, False, saved_alert
 
 
 @callback(

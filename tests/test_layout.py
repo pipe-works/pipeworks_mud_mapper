@@ -152,11 +152,6 @@ class TestActionBar:
         result = create_action_bar()
         assert isinstance(result, html.Div)
 
-    def test_create_action_bar_has_debug_output(self):
-        """create_action_bar should include debug-btn-state."""
-        result = create_action_bar()
-        assert component_has_id(result, "debug-btn-state")
-
     def test_create_action_bar_has_flex_layout(self):
         """create_action_bar should use flexbox layout."""
         result = create_action_bar()

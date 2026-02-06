@@ -73,3 +73,20 @@
     font-size: 0.75rem;
     cursor: help;
 }
+
+/* =============================================================================
+ * Map Panel
+ * =============================================================================
+ */
+
+.map-graph-frame {
+    display: inline-block;
+    vertical-align: top;
+    border-right: 1px solid #e6e9ef;
+    padding-right: 12px;
+    margin-right: 12px;
+}
+
+.map-side-card {
+    min-height: 100%;
+}
