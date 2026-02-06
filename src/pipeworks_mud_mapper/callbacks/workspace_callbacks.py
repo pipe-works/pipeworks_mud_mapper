@@ -7,11 +7,12 @@ from __future__ import annotations
 
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import dash_bootstrap_components as dbc
-from dash import Input, Output, State, callback, ctx, html, no_update
+from dash import ALL, Input, Output, State, callback, ctx, html, no_update
 
+from pipeworks_mud_mapper.models.room import DIRECTION_SHORT, Direction
 from pipeworks_mud_mapper.services import db_tools, map_db_service
 from pipeworks_mud_mapper.services.app_config import get_path_settings
 from pipeworks_mud_mapper.services.io_queue import (
@@ -127,6 +128,40 @@ def _summarize_export(kind: str, result: list[str], output_dir: Path) -> str:
     return f"{kind}: {len(result)} files in {output_dir}"
 
 
+def _short_direction(direction: str) -> str:
+    """Convert a full direction label into its short UI form."""
+    if not direction:
+        return "?"
+    key = str(direction).lower()
+    if key in DIRECTION_SHORT:
+        return DIRECTION_SHORT[cast(Direction, key)]
+    return key[:1].upper()
+
+
+def _format_direction_list(directions: list[str]) -> str:
+    """Format a direction list for the room table."""
+    if not directions:
+        return "—"
+    return ", ".join(sorted(directions))
+
+
+def _build_entrance_map(rooms: dict[str, Any]) -> dict[str, list[str]]:
+    """Build an entrance lookup for each room based on other rooms' exits."""
+    entrances: dict[str, list[str]] = {room_id: [] for room_id in rooms}
+
+    # Walk every exit edge and record the direction on the target room.
+    for room in rooms.values():
+        for direction, target in room.exits.items():
+            if target in entrances:
+                entrances[target].append(_short_direction(direction))
+
+    for room_id, directions in entrances.items():
+        directions.sort()
+        entrances[room_id] = directions
+
+    return entrances
+
+
 @callback(
     Output("workspace-db-summary", "children"),
     Output("workspace-db-table", "children"),
@@ -224,6 +259,127 @@ def update_workspace_db(
         )
 
     return summary, table
+
+
+@callback(
+    Output("workspace-room-table", "children"),
+    Input("selected-file", "data"),
+    Input("room-feedback-save", "data"),
+    Input("new-map-create-btn", "n_clicks"),
+    Input("file-delete-confirm-btn", "n_clicks"),
+    Input("selected-room", "data"),
+    prevent_initial_call=False,
+)
+def update_workspace_room_table(
+    selected_file: str | None,
+    _: dict | None,
+    __: int | None,
+    ___: int | None,
+    selected_room: str | None,
+) -> Any:
+    """Render a table of rooms for the selected map in the Workspace tab."""
+    if not selected_file:
+        return html.Div(
+            "Select a map to inspect its rooms.",
+            className="text-muted small",
+        )
+
+    try:
+        map_file = map_db_service.load_map(selected_file, db_path=DB_PATH)
+    except KeyError:
+        return html.Div(
+            "Selected map not found in the database.",
+            className="text-muted small",
+        )
+
+    rooms = map_file.rooms
+    if not rooms:
+        return html.Div(
+            "No rooms saved for this map yet.",
+            className="text-muted small",
+        )
+
+    # Build entrance directions so each room shows both outgoing and incoming links.
+    entrances = _build_entrance_map(rooms)
+    rows = []
+
+    for room_id in sorted(rooms):
+        room = rooms[room_id]
+        coords = room.coords
+        exits = _format_direction_list(
+            [_short_direction(direction) for direction in room.exits.keys()]
+        )
+        incoming = _format_direction_list(entrances.get(room_id, []))
+
+        rows.append(
+            html.Tr(
+                [
+                    html.Td(room_id),
+                    html.Td(room.name),
+                    html.Td(coords.x),
+                    html.Td(coords.y),
+                    html.Td(coords.z),
+                    html.Td(exits),
+                    html.Td(incoming),
+                ],
+                id={"type": "workspace-room-row", "room_id": room_id},
+                className="table-primary" if room_id == selected_room else None,
+                style={"cursor": "pointer"},
+                n_clicks=0,
+                title="Click to select room",
+            )
+        )
+
+    return dbc.Table(
+        [
+            html.Thead(
+                html.Tr(
+                    [
+                        html.Th("Room"),
+                        html.Th("Name"),
+                        html.Th("X"),
+                        html.Th("Y"),
+                        html.Th("Z"),
+                        html.Th("Exits"),
+                        html.Th("Entrances"),
+                    ]
+                )
+            ),
+            html.Tbody(rows),
+        ],
+        bordered=True,
+        hover=True,
+        size="sm",
+        className="small mb-0",
+    )
+
+
+@callback(
+    Output("selected-room", "data", allow_duplicate=True),
+    Input({"type": "workspace-room-row", "room_id": ALL}, "n_clicks"),
+    State("selected-room", "data"),
+    prevent_initial_call=True,
+)
+def handle_workspace_room_click(
+    room_clicks: list[int],
+    current_room: str | None,
+) -> Any:
+    """Select a room when a Workspace table row is clicked."""
+    if not any(room_clicks):
+        return no_update
+
+    trigger = ctx.triggered_id
+    if not trigger or not isinstance(trigger, dict):
+        return no_update
+
+    room_id = trigger.get("room_id")
+    if not room_id:
+        return no_update
+
+    if room_id == current_room:
+        return None
+
+    return room_id
 
 
 @callback(

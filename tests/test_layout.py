@@ -220,6 +220,11 @@ class TestMapPanel:
         result = create_map_panel()
         assert component_has_id(result, "z-level-filter")
 
+    def test_create_map_panel_has_workspace_room_table(self):
+        """create_map_panel should include workspace-room-table."""
+        result = create_map_panel()
+        assert component_has_id(result, "workspace-room-table")
+
     def test_create_map_panel_graph_is_dcc_graph(self):
         """create_map_panel map-graph should be a dcc.Graph."""
         result = create_map_panel()

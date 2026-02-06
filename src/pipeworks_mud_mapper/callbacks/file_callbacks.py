@@ -36,6 +36,7 @@ Component Dependencies
 - ``selected-file``: Selected map ID
 - ``current-zone-data``: Loaded map data
 - ``current-zone``: Zone name display
+- ``selected-room``: Room selection (cleared on map change)
 - ``new-map-modal``: Modal visibility
 - ``has-unsaved-changes``: Unsaved flag
 - ``save-map-btn``: Save button state
@@ -230,12 +231,34 @@ def handle_zone_file_click(zone_clicks: list[int], close_clicks: int | None) -> 
     Output("file-properties-delete-btn", "disabled"),
     Input("selected-file", "data"),
     Input("selected-zone-file", "data"),
+    Input("selected-room", "data"),
+    Input("current-zone-data", "data"),
 )
 def render_file_properties(
     selected_file: str | None,
     selected_zone_file: str | None,
+    selected_room: str | None,
+    zone_data: dict | None,
 ) -> tuple:
     """Render the file properties summary in the right column."""
+    if selected_room and zone_data:
+        rooms = zone_data.get("rooms", {})
+        room = rooms.get(selected_room)
+        if room:
+            coords = room.get("coords", [0, 0, 0])
+            name = html.Span(selected_room)
+            detail = html.Div(
+                [
+                    dbc.Badge("Room", color="secondary", className="me-2"),
+                    html.Span(room.get("name", "")),
+                    html.Div(
+                        f"Coords: {coords[0]}, {coords[1]}, {coords[2]}",
+                        className="text-muted small",
+                    ),
+                ]
+            )
+            return name, detail, True
+
     if selected_file:
         name = html.Span(selected_file)
         badge = dbc.Badge("Map", color="primary", className="me-2")
@@ -372,6 +395,7 @@ def confirm_file_delete(
     Output("current-zone", "children"),
     Output("has-unsaved-changes", "data", allow_duplicate=True),
     Output("selected-zone-file", "data", allow_duplicate=True),
+    Output("selected-room", "data", allow_duplicate=True),
     Input({"type": "workspace-map-row", "map_id": ALL}, "n_clicks"),
     State("selected-file", "data"),
     prevent_initial_call=True,
@@ -397,7 +421,7 @@ def handle_file_click(
     # Bail out early when nothing has been clicked in either list.
     if not any(map_clicks):
         print("[DEBUG] handle_file_click: no clicks, returning no_update")
-        return no_update, no_update, no_update, no_update, no_update
+        return no_update, no_update, no_update, no_update, no_update, no_update
 
     # Log the trigger details so we can trace clicks across both lists.
     print("[DEBUG] handle_file_click: " f"map_clicks={map_clicks}, current={current_file}")
@@ -407,17 +431,17 @@ def handle_file_click(
     triggered = ctx.triggered_id
     if not triggered or not isinstance(triggered, dict):
         print("[DEBUG] handle_file_click: no valid trigger, returning no_update")
-        return no_update, no_update, no_update, no_update, no_update
+        return no_update, no_update, no_update, no_update, no_update, no_update
 
     map_id = triggered.get("map_id")
     if not map_id:
         print("[DEBUG] handle_file_click: no filename in trigger, returning no_update")
-        return no_update, no_update, no_update, no_update, no_update
+        return no_update, no_update, no_update, no_update, no_update, no_update
 
     # Avoid reloading the same file if it is already selected.
     if map_id == current_file:
         print(f"[DEBUG] handle_file_click: same map {map_id}, returning no_update")
-        return no_update, no_update, no_update, no_update, no_update
+        return no_update, no_update, no_update, no_update, no_update, no_update
 
     # Load the selected map file and reset unsaved changes.
     action = ZoneAction(type="LOAD_MAP", payload={"map_id": map_id})
@@ -425,10 +449,10 @@ def handle_file_click(
 
     if not transition.changed or transition.zone_data is None:
         print(f"Error loading map {map_id}")
-        return no_update, no_update, no_update, no_update, no_update
+        return no_update, no_update, no_update, no_update, no_update, no_update
 
     zone_name = transition.effects.get("zone_name", map_id)
-    return map_id, transition.zone_data, f"Zone: {zone_name}", False, None
+    return map_id, transition.zone_data, f"Zone: {zone_name}", False, None, None
 
 
 # =============================================================================
