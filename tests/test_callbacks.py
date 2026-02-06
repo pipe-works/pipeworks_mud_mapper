@@ -342,6 +342,17 @@ class TestMapCallbacks:
         room_traces = [t for t in figure.data if t.text is not None and len(t.text) > 0]
         assert len(room_traces) == 0
 
+    def test_update_map_with_rooms_default_offsets(self, simple_zone_data):
+        """update_map_with_rooms should fall back to default offsets."""
+        figure = update_map_with_rooms(
+            zone_data=simple_zone_data,
+            visible_z_levels=[-1, 0, 1],
+            selected_room=None,
+            visual_offset_x=None,
+            visual_offset_y=None,
+        )
+        assert isinstance(figure, go.Figure)
+
     def test_adjust_z_level_offset_x_decrease(self):
         """adjust_z_level_offset_x should decrement within bounds."""
         with patch("pipeworks_mud_mapper.callbacks.map_callbacks.ctx") as mock_ctx:
@@ -363,6 +374,18 @@ class TestMapCallbacks:
             result = adjust_z_level_offset_x(None, None, 0.4)
         assert result is no_update
 
+    def test_adjust_z_level_offset_x_clamps(self):
+        """adjust_z_level_offset_x should clamp to min/max."""
+        with patch("pipeworks_mud_mapper.callbacks.map_callbacks.ctx") as mock_ctx:
+            mock_ctx.triggered_id = "z-level-offset-x-decrease"
+            result = adjust_z_level_offset_x(1, None, -5.0)
+        assert result == -5.0
+
+        with patch("pipeworks_mud_mapper.callbacks.map_callbacks.ctx") as mock_ctx:
+            mock_ctx.triggered_id = "z-level-offset-x-increase"
+            result = adjust_z_level_offset_x(None, 1, 5.0)
+        assert result == 5.0
+
     def test_adjust_z_level_offset_y_decrease(self):
         """adjust_z_level_offset_y should decrement within bounds."""
         with patch("pipeworks_mud_mapper.callbacks.map_callbacks.ctx") as mock_ctx:
@@ -383,6 +406,13 @@ class TestMapCallbacks:
             mock_ctx.triggered_id = "other"
             result = adjust_z_level_offset_y(None, None, 0.4)
         assert result is no_update
+
+    def test_adjust_z_level_offset_y_defaults(self):
+        """adjust_z_level_offset_y should default when current value is None."""
+        with patch("pipeworks_mud_mapper.callbacks.map_callbacks.ctx") as mock_ctx:
+            mock_ctx.triggered_id = "z-level-offset-y-decrease"
+            result = adjust_z_level_offset_y(1, None, None)
+        assert result == 0.3
 
     def test_handle_map_click_no_data(self):
         """handle_map_click should return no_update when no click data."""
