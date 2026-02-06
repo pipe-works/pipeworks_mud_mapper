@@ -27,7 +27,6 @@ def test_get_path_settings_defaults(tmp_path, monkeypatch):
     settings = app_config.get_path_settings()
 
     assert settings["maps_dir"] == project_root / "data" / "maps"
-    assert settings["dev_snapshots_dir"] == project_root / "data" / "maps" / "dev_snapshots"
     assert settings["zones_dir"] == project_root / "data" / "zones"
 
 
@@ -38,12 +37,7 @@ def test_get_path_settings_from_server_ini(tmp_path, monkeypatch):
     config_dir.mkdir(parents=True, exist_ok=True)
     server_ini = config_dir / "server.ini"
 
-    server_ini.write_text(
-        "[paths]\n"
-        "maps_dir = custom/maps\n"
-        "dev_snapshots_dir = /abs/snapshots\n"
-        "zones_dir = custom/zones\n"
-    )
+    server_ini.write_text("[paths]\n" "maps_dir = custom/maps\n" "zones_dir = custom/zones\n")
 
     monkeypatch.setattr(app_config, "PROJECT_ROOT", project_root)
     monkeypatch.setattr(app_config, "CONFIG_DIR", config_dir)
@@ -52,7 +46,6 @@ def test_get_path_settings_from_server_ini(tmp_path, monkeypatch):
     settings = app_config.get_path_settings()
 
     assert settings["maps_dir"] == project_root / "custom" / "maps"
-    assert settings["dev_snapshots_dir"] == Path("/abs/snapshots")
     assert settings["zones_dir"] == project_root / "custom" / "zones"
 
 

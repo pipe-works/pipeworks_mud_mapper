@@ -181,11 +181,6 @@ class TestFileBrowser:
         result = create_file_browser()
         assert component_has_id(result, "file-list-container")
 
-    def test_create_file_browser_has_dev_snapshot_list_container(self):
-        """create_file_browser should include dev-snapshot-list-container."""
-        result = create_file_browser()
-        assert component_has_id(result, "dev-snapshot-list-container")
-
     def test_create_file_browser_has_header(self):
         """create_file_browser should have 'Mapper Files' header."""
         result = create_file_browser()
@@ -200,6 +195,11 @@ class TestFileBrowser:
         """create_file_browser should include status-indicator."""
         result = create_file_browser()
         assert component_has_id(result, "status-indicator")
+
+    def test_create_file_browser_has_exports_status_indicator(self):
+        """create_file_browser should include exports-status-indicator."""
+        result = create_file_browser()
+        assert component_has_id(result, "exports-status-indicator")
 
     def test_create_file_browser_status_default_text(self):
         """create_file_browser status should show 'No file loaded' initially."""
@@ -760,11 +760,6 @@ class TestMainLayout:
         result = create_app_layout()
         assert component_has_id(result, "zone-files-store")
 
-    def test_create_app_layout_has_dev_snapshot_files_store(self):
-        """create_app_layout should include dev-snapshot-files-store."""
-        result = create_app_layout()
-        assert component_has_id(result, "dev-snapshot-files-store")
-
     def test_create_app_layout_has_current_zone_data_store(self):
         """create_app_layout should include current-zone-data store."""
         result = create_app_layout()
@@ -822,9 +817,6 @@ class TestMainLayout:
         zone_files = find_component_by_id(result, "zone-files-store")
         assert zone_files.data == []
 
-        dev_snapshot_files = find_component_by_id(result, "dev-snapshot-files-store")
-        assert dev_snapshot_files.data == []
-
         current_zone = find_component_by_id(result, "current-zone-data")
         assert current_zone.data is None
 
@@ -851,8 +843,8 @@ class TestMainLayout:
 
         # File browser IDs
         assert "file-list-container" in ids
-        assert "dev-snapshot-list-container" in ids
         assert "new-map-btn" in ids
+        assert "exports-status-indicator" in ids
 
         # Map panel IDs
         assert "map-graph" in ids
@@ -885,12 +877,10 @@ class TestLayoutIntegration:
         # IDs used in file_callbacks.py
         file_callback_ids = [
             "zone-files-store",
-            "dev-snapshot-files-store",
             "initial-load",
             "io-job-poll",
             "io-jobs",
             "file-list-container",
-            "dev-snapshot-list-container",
             "selected-file",
             "current-zone-data",
             "current-zone",
@@ -904,10 +894,9 @@ class TestLayoutIntegration:
             "new-map-feedback",
             "save-map-btn",
             "export-zone-btn",
-            "dev-save-toggle",
-            "dev-snapshot-status",
             "has-unsaved-changes",
             "status-indicator",
+            "exports-status-indicator",
             "room-feedback-save",
             "room-feedback-export",
         ]

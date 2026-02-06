@@ -5,7 +5,7 @@
 - `tests/` contains pytest suites (naming: `test_*.py`).
 - `data/maps/` stores authoring files (`*.map.json` with coordinates).
 - `data/zones/` stores exported game files (`*.json` without coordinates).
-- Policy: commit/push `data/maps/` and `data/zones/` when they change; ignore `data/maps/dev_snapshots/`.
+- Policy: commit/push `data/maps/` and `data/zones/` when they change.
 - `docs/` contains Sphinx documentation sources.
 
 ## Build, Test, and Development Commands

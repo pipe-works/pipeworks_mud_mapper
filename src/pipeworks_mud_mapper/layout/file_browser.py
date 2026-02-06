@@ -24,10 +24,9 @@ Component IDs
 - ``save-map-btn``: Button to save current map with coordinates
 - ``export-zone-btn``: Button to export zone JSON without coordinates
 - ``validate-zone-btn``: Button to run validation checks on the map
-- ``dev-save-toggle``: Toggle to save snapshots to data/maps/dev_snapshots
-- ``dev-snapshot-list-container``: Container div for dev snapshot file list
 - ``zone-files-list-container``: Container div for exported zone file list
 - ``status-indicator``: Text showing current file state (saved/unsaved)
+- ``exports-status-indicator``: Text showing latest export status
 
 Notes
 -----
@@ -81,12 +80,9 @@ def create_file_browser() -> dbc.Card:
     """
     paths = get_path_settings()
     maps_label = format_display_path(paths["maps_dir"])
-    dev_snapshots_label = format_display_path(paths["dev_snapshots_dir"])
     zones_label = format_display_path(paths["zones_dir"])
     maps_short = format_short_path(paths["maps_dir"])
-    dev_snapshots_short = format_short_path(paths["dev_snapshots_dir"])
     zones_short = format_short_path(paths["zones_dir"])
-    dev_snapshots_toggle_label = f"Dev snapshots ({dev_snapshots_label.rstrip('/')})"
 
     # Separate cards clarify the three distinct file sources.
     mapper_files = dbc.Card(
@@ -135,35 +131,6 @@ def create_file_browser() -> dbc.Card:
         ]
     )
 
-    dev_snapshots = dbc.Card(
-        [
-            dbc.CardHeader("Dev Snapshots"),
-            dbc.CardBody(
-                [
-                    html.Div(
-                        [
-                            html.I(className="bi bi-folder-fill me-2 text-warning"),
-                            html.Span(dev_snapshots_short),
-                        ],
-                        className="file-path-chip mb-2",
-                        title=dev_snapshots_label,
-                    ),
-                    html.Div(
-                        id="dev-snapshot-list-container",
-                        className="ms-3 mb-2 file-list-scroll",
-                    ),
-                    dbc.Checkbox(
-                        id="dev-save-toggle",
-                        label=dev_snapshots_toggle_label,
-                        value=False,
-                        className="small",
-                    ),
-                ],
-                className="font-monospace small",
-            ),
-        ]
-    )
-
     exports = dbc.Card(
         [
             dbc.CardHeader("Game Server Exports"),
@@ -181,6 +148,11 @@ def create_file_browser() -> dbc.Card:
                         id="zone-files-list-container",
                         className="ms-3 mb-2 file-list-scroll",
                     ),
+                    html.Div(
+                        id="exports-status-indicator",
+                        children="No export activity yet",
+                        className="text-muted small mt-2",
+                    ),
                 ],
                 className="font-monospace small",
             ),
@@ -188,6 +160,6 @@ def create_file_browser() -> dbc.Card:
     )
 
     return html.Div(
-        [mapper_files, dev_snapshots, exports],
+        [mapper_files, exports],
         className="d-grid gap-2",
     )
