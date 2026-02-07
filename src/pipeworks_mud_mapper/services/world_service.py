@@ -27,13 +27,30 @@ def _resolve_zones_dir(zones_dir: Path | None) -> Path:
     return get_path_settings()["zones_dir"]
 
 
-def _resolve_world_path(zones_dir: Path | None = None) -> Path:
-    """Derive the ``world.json`` path from the zones directory."""
-    resolved_zones = _resolve_zones_dir(zones_dir)
-    return resolved_zones.parent / "world.json"
+def _resolve_world_path(world_path: Path | None = None, zones_dir: Path | None = None) -> Path:
+    """Derive the ``world.json`` path from config or the zones directory."""
+    # Prefer explicit overrides, then zones_dir parent, then config default.
+    if world_path is not None:
+        return world_path
+    if zones_dir is not None:
+        resolved_zones = _resolve_zones_dir(zones_dir)
+        return resolved_zones.parent / "world.json"
+    return get_path_settings()["world_json_path"]
 
 
-def load_world_zone_ids(zones_dir: Path | None = None) -> list[str]:
+def load_world_json(world_path: Path | None = None, zones_dir: Path | None = None) -> dict | None:
+    """Load the world.json payload as a dictionary when available."""
+    resolved_path = _resolve_world_path(world_path, zones_dir)
+    if not resolved_path.exists():
+        return None
+    try:
+        data = json.loads(resolved_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    return data if isinstance(data, dict) else None
+
+
+def load_world_zone_ids(zones_dir: Path | None = None, world_path: Path | None = None) -> list[str]:
     """Return the list of zone IDs known to the world.
 
     Parameters
@@ -41,6 +58,9 @@ def load_world_zone_ids(zones_dir: Path | None = None) -> list[str]:
     zones_dir : Path | None
         Optional override for the zones directory. When omitted, the path
         from ``config/server.ini`` (or defaults) is used.
+    world_path : Path | None
+        Optional override for the world.json path. Defaults to the configured
+        world_json_path, or to the parent of zones_dir when provided.
 
     Returns
     -------
@@ -48,7 +68,10 @@ def load_world_zone_ids(zones_dir: Path | None = None) -> list[str]:
         Sorted list of zone IDs. Returns an empty list if no zones are found.
     """
     resolved_zones = _resolve_zones_dir(zones_dir)
-    world_path = _resolve_world_path(resolved_zones)
+    world_path = _resolve_world_path(
+        world_path,
+        resolved_zones if zones_dir is not None else None,
+    )
     zone_ids: list[str] = []
 
     if world_path.exists():

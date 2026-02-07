@@ -5,6 +5,7 @@ These callbacks keep the Workspace card up to date with SQLite metadata.
 
 from __future__ import annotations
 
+import json
 from datetime import datetime
 from pathlib import Path
 from typing import Any, cast
@@ -13,7 +14,7 @@ import dash_bootstrap_components as dbc
 from dash import ALL, Input, Output, State, callback, ctx, html, no_update
 
 from pipeworks_mud_mapper.models.room import DIRECTION_SHORT, Direction
-from pipeworks_mud_mapper.services import db_tools, map_db_service
+from pipeworks_mud_mapper.services import db_tools, map_db_service, world_service
 from pipeworks_mud_mapper.services.app_config import get_path_settings
 from pipeworks_mud_mapper.services.exit_utils import EXIT_SHORT_ORDER, split_exits_by_scope
 from pipeworks_mud_mapper.services.io_queue import (
@@ -581,3 +582,50 @@ def poll_workspace_jobs(n_intervals: int, workspace_jobs: dict | None) -> tuple[
         return no_update, no_update
 
     return {"jobs": updated_jobs}, feedback
+
+
+@callback(
+    Output("workspace-world-json", "children"),
+    Input("initial-load", "n_intervals"),
+    Input("workspace-world-json-refresh", "n_clicks"),
+    prevent_initial_call=False,
+)
+def update_workspace_world_json(
+    _: int | None,
+    __: int | None,
+) -> Any:
+    """Render the configured world.json payload in the Workspace tab."""
+    # Always read from the configured path so operators can override location.
+    world_path = PATHS["world_json_path"]
+    payload = world_service.load_world_json(world_path=world_path)
+
+    if payload is None:
+        return html.Div(
+            [
+                _summary_row("World Path:", html.Code(str(world_path))),
+                html.Div(
+                    "world.json not found or invalid.",
+                    className="text-muted small",
+                ),
+            ]
+        )
+
+    # Surface basic metadata alongside the raw JSON for quick sanity checks.
+    zones = payload.get("zones", [])
+    zone_count = len(zones) if isinstance(zones, list) else 0
+    json_text = json.dumps(payload, indent=2, sort_keys=True)
+    pre_style = {
+        "maxHeight": "260px",
+        "overflowY": "auto",
+        "overflowX": "auto",
+        "whiteSpace": "pre-wrap",
+        "wordBreak": "break-word",
+    }
+
+    return html.Div(
+        [
+            _summary_row("World Path:", html.Code(str(world_path))),
+            _summary_row("Zones:", zone_count),
+            html.Pre(json_text, className="small mb-0", style=pre_style),
+        ]
+    )

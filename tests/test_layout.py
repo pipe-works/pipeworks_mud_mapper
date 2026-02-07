@@ -240,6 +240,12 @@ class TestMapPanel:
         for zone_exit_id in zone_exit_ids:
             assert component_has_id(result, zone_exit_id)
 
+    def test_create_map_panel_has_world_json_tab(self):
+        """create_map_panel should include world json ids."""
+        result = create_map_panel()
+        assert component_has_id(result, "workspace-world-json")
+        assert component_has_id(result, "workspace-world-json-refresh")
+
     def test_create_map_panel_graph_is_dcc_graph(self):
         """create_map_panel map-graph should be a dcc.Graph."""
         result = create_map_panel()
@@ -956,6 +962,8 @@ class TestLayoutIntegration:
             "workspace-zone-exit-clear",
             "workspace-zone-exit-table",
             "workspace-zone-exit-feedback",
+            "workspace-world-json",
+            "workspace-world-json-refresh",
         ]
         for id_ in exit_callback_ids:
             assert id_ in ids, f"Missing ID for exit callbacks: {id_}"
