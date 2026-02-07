@@ -128,16 +128,8 @@ def create_properties_panel() -> html.Div:
         [
             dbc.CardHeader(
                 [
-                    html.Span("Room Properties", className="me-auto"),
-                    dbc.Button(
-                        [html.I(className="bi bi-plus-lg me-1"), "New Room"],
-                        id="new-room-btn",
-                        color="primary",
-                        size="sm",
-                        outline=True,
-                    ),
+                    html.Span("Room Properties"),
                 ],
-                className="d-flex align-items-center",
             ),
             dbc.CardBody(
                 [
@@ -289,56 +281,52 @@ def create_properties_panel() -> html.Div:
         style={"overflowY": "auto"},
     )
 
-    # Compact one-line action row keeps file actions visible without dominating the UI.
-    action_row = dbc.Row(
+    # Compact action row keeps file + room creation visible without dominating the UI.
+    action_row = html.Div(
         [
-            dbc.Col(
-                dbc.Button(
-                    [html.I(className="bi bi-plus me-1"), "New Map"],
-                    id="new-map-btn",
-                    color="secondary",
-                    size="sm",
-                    outline=True,
-                    className="w-100",
-                ),
-                width=3,
+            dbc.Button(
+                [html.I(className="bi bi-plus me-1"), "New Map"],
+                id="new-map-btn",
+                color="secondary",
+                size="sm",
+                outline=True,
+                className="flex-fill",
             ),
-            dbc.Col(
-                dbc.Button(
-                    [html.I(className="bi bi-save me-1"), "Save"],
-                    id="save-map-btn",
-                    color="success",
-                    size="sm",
-                    className="w-100",
-                    disabled=True,
-                ),
-                width=3,
+            dbc.Button(
+                [html.I(className="bi bi-plus-lg me-1"), "New Room"],
+                id="new-room-btn",
+                color="secondary",
+                size="sm",
+                outline=True,
+                className="flex-fill",
             ),
-            dbc.Col(
-                dbc.Button(
-                    [html.I(className="bi bi-check-circle me-1"), "Validate"],
-                    id="validate-zone-btn",
-                    color="info",
-                    size="sm",
-                    outline=True,
-                    className="w-100",
-                    disabled=True,
-                ),
-                width=3,
+            dbc.Button(
+                [html.I(className="bi bi-save me-1"), "Save"],
+                id="save-map-btn",
+                color="success",
+                size="sm",
+                className="flex-fill",
+                disabled=True,
             ),
-            dbc.Col(
-                dbc.Button(
-                    [html.I(className="bi bi-download me-1"), "Export"],
-                    id="export-zone-btn",
-                    color="primary",
-                    size="sm",
-                    className="w-100",
-                    disabled=True,
-                ),
-                width=3,
+            dbc.Button(
+                [html.I(className="bi bi-check-circle me-1"), "Validate"],
+                id="validate-zone-btn",
+                color="info",
+                size="sm",
+                outline=True,
+                className="flex-fill",
+                disabled=True,
+            ),
+            dbc.Button(
+                [html.I(className="bi bi-download me-1"), "Export"],
+                id="export-zone-btn",
+                color="primary",
+                size="sm",
+                className="flex-fill",
+                disabled=True,
             ),
         ],
-        className="g-2 mb-3",
+        className="d-flex gap-2 mb-3",
     )
 
     # Status indicator now lives near the action row for quick visibility.
