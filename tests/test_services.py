@@ -176,13 +176,13 @@ class TestZoneService:
 
     def test_list_map_files_filters_extension(self, temp_dir):
         """list_map_files should return only *.map.json files."""
-        maps_dir = temp_dir / "maps"
-        maps_dir.mkdir(parents=True, exist_ok=True)
-        (maps_dir / "alpha.map.json").write_text("{}")
-        (maps_dir / "beta.map.json").write_text("{}")
-        (maps_dir / "ignore.json").write_text("{}")
+        exports_dir = temp_dir / "exports" / "maps"
+        exports_dir.mkdir(parents=True, exist_ok=True)
+        (exports_dir / "alpha.map.json").write_text("{}")
+        (exports_dir / "beta.map.json").write_text("{}")
+        (exports_dir / "ignore.json").write_text("{}")
 
-        results = list_map_files(maps_dir)
+        results = list_map_files(exports_dir)
         names = [p.name for p in results]
 
         assert "alpha.map.json" in names

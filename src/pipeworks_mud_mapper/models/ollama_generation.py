@@ -19,7 +19,7 @@ Storage and Export
 ------------------
 The metadata follows the same pattern as room coordinates:
 
-- **Stored in .map.json**: Preserved for authoring purposes
+- **Stored in .map.json exports**: Preserved for authoring purposes
 - **Stripped on zone export**: Not part of game truth
 
 This separation reflects the pipe-works philosophy that authoring scaffolding
@@ -68,7 +68,7 @@ class OllamaGenerationInfo(BaseModel):
 
     This model captures everything needed to reproduce or understand the
     provenance of a generated description. It is stored per-room in map
-    files (.map.json) but stripped during zone export (.json).
+    JSON exports (.map.json) but stripped during zone export (.json).
 
     The data structure mirrors the parameters sent to Ollama's ``/api/chat``
     endpoint, plus additional context about the prompts used.

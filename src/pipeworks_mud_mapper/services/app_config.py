@@ -18,7 +18,6 @@ SERVER_CONFIG_PATH: Final[Path] = CONFIG_DIR / "server.ini"
 DEFAULTS: Final[dict[str, dict[str, str]]] = {
     "paths": {
         "db_path": "data/mapper.db",
-        "maps_dir": "data/maps",
         "zones_dir": "data/zones",
         "world_json_path": "data/world.json",
     }
@@ -50,12 +49,10 @@ def get_path_settings() -> dict[str, Path]:
     """
     config = _load_config()
     db_path = _resolve_path(config.get("paths", "db_path"))
-    maps_dir = _resolve_path(config.get("paths", "maps_dir"))
     zones_dir = _resolve_path(config.get("paths", "zones_dir"))
     world_json_path = _resolve_path(config.get("paths", "world_json_path"))
     return {
         "db_path": db_path,
-        "maps_dir": maps_dir,
         "zones_dir": zones_dir,
         "world_json_path": world_json_path,
     }

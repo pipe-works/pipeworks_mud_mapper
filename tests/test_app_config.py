@@ -27,7 +27,6 @@ def test_get_path_settings_defaults(tmp_path, monkeypatch):
     settings = app_config.get_path_settings()
 
     assert settings["db_path"] == project_root / "data" / "mapper.db"
-    assert settings["maps_dir"] == project_root / "data" / "maps"
     assert settings["zones_dir"] == project_root / "data" / "zones"
     assert settings["world_json_path"] == project_root / "data" / "world.json"
 
@@ -42,7 +41,6 @@ def test_get_path_settings_from_server_ini(tmp_path, monkeypatch):
     server_ini.write_text(
         "[paths]\n"
         "db_path = custom/mapper.db\n"
-        "maps_dir = custom/maps\n"
         "zones_dir = custom/zones\n"
         "world_json_path = custom/world.json\n"
     )
@@ -54,7 +52,6 @@ def test_get_path_settings_from_server_ini(tmp_path, monkeypatch):
     settings = app_config.get_path_settings()
 
     assert settings["db_path"] == project_root / "custom" / "mapper.db"
-    assert settings["maps_dir"] == project_root / "custom" / "maps"
     assert settings["zones_dir"] == project_root / "custom" / "zones"
     assert settings["world_json_path"] == project_root / "custom" / "world.json"
 
@@ -62,13 +59,13 @@ def test_get_path_settings_from_server_ini(tmp_path, monkeypatch):
 def test_format_display_path_relative(tmp_path, monkeypatch):
     """format_display_path should prefer relative paths and trailing slash."""
     project_root = tmp_path / "project"
-    nested_path = project_root / "data" / "maps"
+    nested_path = project_root / "data" / "exports" / "maps"
 
     monkeypatch.setattr(app_config, "PROJECT_ROOT", project_root)
 
     display = app_config.format_display_path(nested_path)
 
-    assert display == "data/maps/"
+    assert display == "data/exports/maps/"
 
 
 def test_format_display_path_absolute(tmp_path, monkeypatch):
@@ -86,13 +83,13 @@ def test_format_display_path_absolute(tmp_path, monkeypatch):
 def test_format_short_path_relative(tmp_path, monkeypatch):
     """format_short_path should prefer relative and keep trailing slash."""
     project_root = tmp_path / "project"
-    nested = project_root / "data" / "maps"
+    nested = project_root / "data" / "exports" / "maps"
 
     monkeypatch.setattr(app_config, "PROJECT_ROOT", project_root)
 
     display = app_config.format_short_path(nested)
 
-    assert display == "data/maps/"
+    assert display == "data/exports/maps/"
 
 
 def test_format_short_path_absolute(tmp_path, monkeypatch):

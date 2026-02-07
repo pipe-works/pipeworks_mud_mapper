@@ -2,39 +2,41 @@ File Formats
 ============
 
 This document describes the JSON formats used by PipeWorks MUD Mapper.
-The mapper uses a two-file workflow with distinct formats for authoring
-and game deployment.
+The mapper stores authoring data in SQLite and exports JSON for
+interchange and game deployment.
 
-Two-File Workflow
------------------
+SQLite + Export Workflow
+------------------------
 
-**Map Files** (``data/maps/*.map.json``)
-    Authoring source files with coordinates. Used by the mapper for
-    visual editing. These are your working files.
+**Map JSON Exports** (``data/exports/maps/*.map.json``)
+    Optional authoring exports with coordinates. These mirror the SQLite
+    data when you export for sharing or inspection.
 
-**Zone Files** (``data/zones/*.json``)
+**Zone JSON Exports** (``data/zones/*.json``)
     Game truth files without coordinates. Exported for the MUD server.
     The game engine operates on topology (connections), not geometry.
 
 ::
 
     data/
-    ├── maps/                 # Authoring source (with coords)
-    │   ├── dungeon.map.json
-    │   └── town.map.json
+    ├── exports/
+    │   └── maps/             # Optional authoring exports (with coords)
+    │       ├── dungeon.map.json
+    │       └── town.map.json
     │
     └── zones/                # Game truth (exported, no coords)
         ├── dungeon.json
         └── town.json
 
-Map File Format
----------------
+Map JSON Export Format
+----------------------
 
-Map files are the authoring source and include coordinates for visualization.
+Map JSON exports include coordinates for visualization and mirror the
+SQLite authoring data.
 
 **Extension:** ``.map.json``
 
-**Location:** ``data/maps/``
+**Location:** ``data/exports/maps/`` (default)
 
 **JSON Schema:** ``schemas/map-file.schema.json``
 
@@ -245,7 +247,7 @@ map and zone files.
 Example Map File
 ----------------
 
-A complete example of a map file (``data/maps/tutorial_area.map.json``):
+A complete example of a map export (``data/exports/maps/tutorial_area.map.json``):
 
 .. code-block:: json
 

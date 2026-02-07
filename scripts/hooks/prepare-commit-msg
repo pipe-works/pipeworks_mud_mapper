@@ -2,7 +2,7 @@
 # prepare-commit-msg hook for pipeworks_mud_mapper
 #
 # Automatically generates commit messages for data-only changes.
-# When all staged files are in data/maps/ or data/validation/, this hook
+# When all staged files are local data artifacts (under data/), this hook
 # generates a standardized commit message with [skip ci] to avoid
 # triggering CI for non-code changes.
 #
@@ -30,9 +30,9 @@ if [ -z "$STAGED_FILES" ]; then
     exit 0
 fi
 
-# Check if ALL staged files are data files (maps or validation)
+# Check if ALL staged files are data artifacts
 # grep -v returns non-zero if no lines match (all files are data files)
-NON_DATA_FILES=$(echo "$STAGED_FILES" | grep -vE '^data/(maps|validation)/')
+NON_DATA_FILES=$(echo "$STAGED_FILES" | grep -vE '^data/')
 
 if [ -n "$NON_DATA_FILES" ]; then
     # There are non-data files staged - don't auto-generate message
@@ -40,18 +40,7 @@ if [ -n "$NON_DATA_FILES" ]; then
 fi
 
 # All staged files are data files - generate automatic commit message
-# Count the types of files being committed
-MAP_COUNT=$(echo "$STAGED_FILES" | grep -c '^data/maps/' || true)
-VALIDATION_COUNT=$(echo "$STAGED_FILES" | grep -c '^data/validation/' || true)
-
-# Build a descriptive message
-if [ "$MAP_COUNT" -gt 0 ] && [ "$VALIDATION_COUNT" -gt 0 ]; then
-    MSG="chore(data): update map and validation files [skip ci]"
-elif [ "$MAP_COUNT" -gt 0 ]; then
-    MSG="chore(data): update map files [skip ci]"
-else
-    MSG="chore(data): update validation files [skip ci]"
-fi
+MSG="chore(data): update local artifacts [skip ci]"
 
 # Write the auto-generated message
 echo "$MSG" > "$COMMIT_MSG_FILE"
