@@ -424,6 +424,7 @@ def create_map_panel() -> dbc.Card:
                                     className="map-side-card",
                                 ),
                                 className="ps-0",
+                                style={"minWidth": 0},
                             ),
                         ],
                         className="g-2 align-items-start",

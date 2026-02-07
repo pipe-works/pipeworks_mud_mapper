@@ -614,11 +614,18 @@ def update_workspace_world_json(
     zones = payload.get("zones", [])
     zone_count = len(zones) if isinstance(zones, list) else 0
     json_text = json.dumps(payload, indent=2, sort_keys=True)
+    pre_style = {
+        "maxHeight": "260px",
+        "overflowY": "auto",
+        "overflowX": "auto",
+        "whiteSpace": "pre-wrap",
+        "wordBreak": "break-word",
+    }
 
     return html.Div(
         [
             _summary_row("World Path:", html.Code(str(world_path))),
             _summary_row("Zones:", zone_count),
-            html.Pre(json_text, className="small mb-0"),
+            html.Pre(json_text, className="small mb-0", style=pre_style),
         ]
     )

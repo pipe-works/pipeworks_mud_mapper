@@ -33,6 +33,22 @@ def test_load_world_json_reads_payload(tmp_path):
     assert payload == {"zones": ["alpha"]}
 
 
+def test_load_world_json_uses_config_path(tmp_path, monkeypatch):
+    zones_dir = tmp_path / "zones"
+    zones_dir.mkdir()
+    world_path = tmp_path / "world.json"
+    world_path.write_text(json.dumps({"zones": ["alpha"]}), encoding="utf-8")
+
+    monkeypatch.setattr(
+        "pipeworks_mud_mapper.services.world_service.get_path_settings",
+        lambda: {"world_json_path": world_path, "zones_dir": zones_dir},
+    )
+
+    payload = load_world_json()
+
+    assert payload == {"zones": ["alpha"]}
+
+
 def test_load_world_json_missing_file(tmp_path):
     zones_dir = tmp_path / "zones"
     zones_dir.mkdir()
@@ -61,6 +77,21 @@ def test_load_world_zone_ids_fallback_to_zone_files(tmp_path):
 
     zone_ids = load_world_zone_ids(zones_dir)
     assert zone_ids == ["alpha", "beta"]
+
+
+def test_load_world_zone_ids_uses_config_defaults(tmp_path, monkeypatch):
+    zones_dir = tmp_path / "zones"
+    zones_dir.mkdir()
+    world_path = tmp_path / "world.json"
+    world_path.write_text(json.dumps({"zones": ["alpha"]}), encoding="utf-8")
+
+    monkeypatch.setattr(
+        "pipeworks_mud_mapper.services.world_service.get_path_settings",
+        lambda: {"world_json_path": world_path, "zones_dir": zones_dir},
+    )
+
+    zone_ids = load_world_zone_ids()
+    assert zone_ids == ["alpha"]
 
 
 def test_load_world_zone_ids_invalid_world_json_fallback(tmp_path):
