@@ -40,20 +40,20 @@ Open http://127.0.0.1:8050 in your browser.
 
 ---
 
-## Two-File Workflow
+## SQLite + Export Workflow
 
-The mapper distinguishes between authoring files and game files:
+The mapper now stores authoring data in SQLite and exports JSON on demand:
 
 | File Type | Location | Purpose |
 |-----------|----------|---------|
-| **Map Files** | `data/maps/*.map.json` | Authoring source with coordinates |
-| **Zone Files** | `data/zones/*.json` | Game truth without coordinates |
+| **Mapper DB** | `data/mapper.db` | Authoring source of truth (rooms + coords) |
+| **Map JSON Exports** | `data/exports/maps/*.map.json` | Optional authoring export with coordinates |
+| **Zone JSON Exports** | `data/zones/*.json` | Game-ready JSON without coordinates |
 
 ```
-Edit map file  →  Save  →  Export Zone JSON
-     ↓              ↓              ↓
-Visual coords   Preserved    Coords stripped
-for authoring   for editing  for game server
+Edit map  →  Save  →  Export Zone JSON
+   ↓           ↓              ↓
+SQLite DB  Preserved    Coords stripped
 ```
 
 Zone files are what the MUD server consumes. Coordinates are stripped because the game engine operates on topology (connections), not geometry (positions).
@@ -66,18 +66,18 @@ The mapper has a three-column layout:
 
 | Column | Purpose |
 |--------|---------|
-| **Left** | File browser - load maps from `data/maps/` |
+| **Left** | Game server exports list (`data/zones/` or configured zones dir) |
 | **Center** | Interactive map view with Z-level selector |
 | **Right** | Properties panel for room editing |
 | **Bottom** | Action bar with Save/Export and status |
 
 ### Creating a Zone
 
-1. Click **New Map** in the file browser
+1. Click **New Map** in the action row
 2. Enter Zone ID (e.g., `my_dungeon`) and Name
 3. Click **Create** - spawns with one room at origin
 4. Add rooms, connect with exits
-5. **Save Map** to preserve your work
+5. **Save** to persist into SQLite
 6. **Export Zone JSON** when ready for the MUD server
 
 ---

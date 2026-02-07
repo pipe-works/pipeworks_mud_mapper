@@ -17,32 +17,33 @@ Features
 * **Room Management** - Create, edit, and delete rooms with intuitive form
 * **Exit System** - Bidirectional exit creation with automatic reverse linking
 * **Multi-Level Support** - Z-axis filtering for 3D dungeon visualization
-* **Two-File Workflow** - Separate authoring (with coords) and export (without)
+* **SQLite + Export Workflow** - Authoring in DB, exports for the server
 * **Validation** - Check for connectivity, consistency, and language-direction issues
 * **LLM Integration** - Generate room descriptions using local Ollama server
 * **Description Validator** - Advisory checks for LLM prose constraints
 * **JSON Schema** - Editor validation support for map files
 
-Two-File Workflow
------------------
+SQLite + Export Workflow
+------------------------
 
-The mapper distinguishes between two file types:
+The mapper now stores authoring data in SQLite and exports JSON on demand:
 
-**Map Files** (``data/maps/*.map.json``)
-    Authoring source files that include coordinates for visual editing.
-    These are your working files.
+**Mapper DB** (``data/mapper.db``)
+    Authoring source of truth with coordinates for visual editing.
 
-**Zone Files** (``data/zones/*.json``)
+**Map JSON Exports** (``data/exports/maps/*.map.json``)
+    Optional authoring exports that preserve coordinates.
+
+**Zone JSON Exports** (``data/zones/*.json``)
     Game truth files exported without coordinates. These are what the
     MUD server consumes. Coordinates are stripped because the game engine
     operates on topology (connections), not geometry (positions).
 
 Workflow::
 
-    Edit map file  →  Save  →  Export Zone JSON
-         ↓              ↓              ↓
-    Visual coords   Preserved    Coords stripped
-    for authoring   for editing  for game server
+    Edit map  →  Save  →  Export Zone JSON
+         ↓         ↓              ↓
+    SQLite DB  Preserved    Coords stripped
 
 Quick Start
 -----------

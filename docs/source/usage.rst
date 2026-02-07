@@ -2,27 +2,29 @@ Usage Guide
 ===========
 
 This guide covers how to use the PipeWorks MUD Mapper to create and edit
-map files for your MUD world.
+maps for your MUD world.
 
-Two-File Workflow
------------------
+SQLite + Export Workflow
+------------------------
 
-The mapper distinguishes between two file types:
+The mapper now stores authoring data in SQLite and exports JSON on demand:
 
-**Map Files** (``data/maps/*.map.json``)
-    Authoring source files that include coordinates for visual editing.
-    These are your working files. Create and edit maps here.
+**Mapper DB** (``data/mapper.db``)
+    Authoring source of truth with coordinates for visual editing.
 
-**Zone Files** (``data/zones/*.json``)
+**Map JSON Exports** (``data/exports/maps/*.map.json``)
+    Optional authoring exports that preserve coordinates.
+
+**Zone JSON Exports** (``data/zones/*.json``)
     Game truth files exported without coordinates. These are what the
     MUD server consumes. Coordinates are stripped because the game engine
     operates on topology (connections), not geometry (positions).
 
 Typical workflow::
 
-    1. Create/edit map file  →  data/maps/my_zone.map.json
-    2. Save changes          →  Preserves coordinates for future editing
-    3. Export Zone JSON      →  data/zones/my_zone.json (coords stripped)
+    1. Create/edit map  →  SQLite DB (data/mapper.db)
+    2. Save changes     →  Preserves coordinates for future editing
+    3. Export Zone JSON →  data/zones/my_zone.json (coords stripped)
 
 Starting the Application
 ------------------------
@@ -42,15 +44,9 @@ Interface Overview
 
 The mapper has a three-column layout:
 
-**Left Column - File Browser**
-    Lists available map files from the ``data/maps/`` directory. Click a file
-    to load it. Also contains:
-
-    - **New Map**: Create a new map file
-    - **Save Map**: Save authoring file (with coordinates)
-    - **Export Zone**: Export game truth file (no coordinates)
-    - **Validate Zone**: Check for connectivity and consistency issues
-    - **Status**: Shows save state (unsaved/saved)
+**Left Column - Game Server Exports**
+    Shows the exported zone JSON files in the configured zones directory.
+    This helps verify what the server will consume.
 
 **Center Column - Map View**
     Interactive Plotly graph showing rooms as nodes and exits as connecting
@@ -65,19 +61,18 @@ The mapper has a three-column layout:
 Creating a New Map
 ------------------
 
-1. Click the **New Map** button in the file browser
+1. Click the **New Map** button in the action row
 2. Enter a **Zone ID** (lowercase, no spaces, e.g., ``my_dungeon``)
 3. Enter a **Zone Name** (display name, e.g., ``My Dungeon``)
 4. Optionally add a **Description**
 5. Click **Create**
 
-The new map file is saved to ``data/maps/`` and appears in the file browser.
-Click it to load and start editing.
+The new map is stored in SQLite. You can export map/zone JSON when needed.
 
 Adding Rooms
 ------------
 
-1. Click **New Room** button in the properties panel
+1. Click **New Room** in the action row
 2. Enter a unique **Room ID** (e.g., ``hallway_north``)
 3. Enter a **Room Name** (e.g., ``Northern Hallway``)
 4. Add a **Description** (optional)
@@ -213,7 +208,7 @@ the bottom shows:
 - **Yellow dot**: Unsaved changes (Save enabled, Export disabled)
 - **Green dot**: All changes saved (Save disabled, Export enabled)
 
-Click **Save Map** to save changes to the map file (``data/maps/*.map.json``).
+Click **Save** to persist changes to the SQLite database.
 
 **Exporting Zone Files**
 

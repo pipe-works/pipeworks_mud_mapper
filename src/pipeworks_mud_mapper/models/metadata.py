@@ -26,7 +26,7 @@ class ExportedFrom(BaseModel):
 
 
 class MapMetadata(BaseModel):
-    """Metadata stored on authoring ``*.map.json`` files."""
+    """Metadata stored on authoring ``*.map.json`` exports."""
 
     schema_version: str = Field(default="0.1.0", description="Runtime JSON schema version")
     map_version: str = Field(default="0", description="Authoring milestone (export counter)")

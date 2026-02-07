@@ -1,16 +1,15 @@
 """Zone service for file I/O operations.
 
 This module handles loading, saving, and exporting zone/map files. It
-implements the two-file workflow described in ``goblin_cartography.md``:
+supports the export workflow described in ``goblin_cartography.md``:
 
-- **Map files** (`*.map.json`): Authoring source with coordinates
-- **Zone files** (`*.json`): Game truth without coordinates
+- **Map JSON exports** (`*.map.json`): Authoring exports with coordinates
+- **Zone JSON exports** (`*.json`): Game truth without coordinates
 
-The Two-File Workflow
----------------------
+The Export Workflow
+-------------------
 ::
-
-    Author edits:  data/maps/my_zone.map.json   (has coords)
+    Author edits:  SQLite DB (data/mapper.db)
                           │
                           ▼
                    ┌─────────────┐
@@ -22,8 +21,8 @@ The Two-File Workflow
     save_map_file()              export_zone()
             │                           │
             ▼                           ▼
-    data/maps/my_zone.map.json   data/zones/my_zone.json
-    (authoring source)           (game truth, no coords)
+    data/exports/maps/*.map.json  data/zones/my_zone.json
+    (authoring export)            (game truth, no coords)
 
 File Format Detection
 ---------------------
@@ -42,11 +41,11 @@ Loading a map file::
     from pathlib import Path
     from pipeworks_mud_mapper.services import zone_service
 
-    map_file = zone_service.load_map_file(Path("data/maps/tutorial.map.json"))
+    map_file = zone_service.load_map_file(Path("data/exports/maps/tutorial.map.json"))
 
 Saving changes::
 
-    zone_service.save_map_file(map_file, Path("data/maps/tutorial.map.json"))
+    zone_service.save_map_file(map_file, Path("data/exports/maps/tutorial.map.json"))
 
 Exporting for game server::
 
@@ -104,7 +103,7 @@ def load_map_file(path: Path) -> MapFile:
 
     Examples
     --------
-    >>> map_file = load_map_file(Path("data/maps/tutorial.map.json"))
+    >>> map_file = load_map_file(Path("data/exports/maps/tutorial.map.json"))
     >>> len(map_file.rooms)
     5
     """
@@ -165,7 +164,7 @@ def save_map_file(map_file: MapFile, path: Path, *, bump_revision: bool = True) 
 
     Examples
     --------
-    >>> save_map_file(map_file, Path("data/maps/tutorial.map.json"))
+    >>> save_map_file(map_file, Path("data/exports/maps/tutorial.map.json"))
     """
     # Ensure parent directory exists
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -343,7 +342,7 @@ def load_zone(path: Path) -> Zone:
 def get_suggested_export_path(map_path: Path, zones_dir: Path | None = None) -> Path:
     """Get the suggested zone export path for a map file.
 
-    Converts ``data/maps/foo.map.json`` to ``data/zones/foo.json``.
+    Converts ``data/exports/maps/foo.map.json`` to ``data/zones/foo.json``.
 
     Parameters
     ----------
@@ -360,7 +359,7 @@ def get_suggested_export_path(map_path: Path, zones_dir: Path | None = None) -> 
 
     Examples
     --------
-    >>> get_suggested_export_path(Path("data/maps/tutorial.map.json"))
+    >>> get_suggested_export_path(Path("data/exports/maps/tutorial.map.json"))
     PosixPath('data/zones/tutorial.json')
     """
     # Remove .map.json or .json extension
@@ -377,7 +376,7 @@ def get_suggested_export_path(map_path: Path, zones_dir: Path | None = None) -> 
     if zones_dir is not None:
         return Path(zones_dir) / f"{base_name}.json"
 
-    # If in data/maps/, put in data/zones/; otherwise use same directory.
+    # If in data/exports/maps/, put in data/zones/; otherwise use same directory.
     if "maps" in map_path.parts:
         parts = list(map_path.parts)
         maps_index = parts.index("maps")
@@ -390,7 +389,7 @@ def get_suggested_export_path(map_path: Path, zones_dir: Path | None = None) -> 
 def list_map_files(directory: Path) -> list[Path]:
     """List map files in a directory.
 
-    Returns sorted ``*.map.json`` files for the map file browser.
+    Returns sorted ``*.map.json`` files for map export inspection.
     """
     directory = Path(directory)
     if not directory.exists():
