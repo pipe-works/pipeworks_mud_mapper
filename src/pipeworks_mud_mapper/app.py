@@ -47,6 +47,7 @@ import dash
 import dash_bootstrap_components as dbc
 
 from pipeworks_mud_mapper.layout import create_app_layout
+from pipeworks_mud_mapper.services.app_config import get_server_settings
 
 # =============================================================================
 # Application Initialization
@@ -90,7 +91,7 @@ register_callbacks(app)
 # =============================================================================
 
 
-def run_app(debug: bool = True, port: int = 8050) -> None:
+def run_app(debug: bool = True, port: int | None = None) -> None:
     """Run the Dash application.
 
     Starts the Flask development server and opens the mapper
@@ -101,8 +102,9 @@ def run_app(debug: bool = True, port: int = 8050) -> None:
     debug : bool, optional
         Enable debug mode with auto-reload (default: True).
         Set to False for production deployments.
-    port : int, optional
-        Port to run the server on (default: 8050).
+    port : int | None, optional
+        Port to run the server on. When omitted, uses config/server.ini
+        (or the default 8050 when not configured).
 
     Examples
     --------
@@ -121,4 +123,6 @@ def run_app(debug: bool = True, port: int = 8050) -> None:
     - Access the application at http://127.0.0.1:{port}
     - Ctrl+C to stop the server
     """
+    if port is None:
+        port = get_server_settings()["port"]
     app.run(debug=debug, port=port)

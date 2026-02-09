@@ -23,6 +23,7 @@ An interactive map editor built with Dash and Plotly for creating MUD (Multi-Use
 - **Exit System** - Bidirectional exit creation with automatic reverse linking
 - **Multi-Level Support** - Z-axis filtering for 3D dungeon visualization
 - **Two-File Workflow** - Separate authoring (with coords) and export (without)
+- **Workspace API Runner** - Save and run remote API commands from the UI
 
 ---
 
@@ -68,6 +69,7 @@ The mapper has a three-column layout:
 |--------|---------|
 | **Left** | Game server exports list (`data/zones/` or configured zones dir) |
 | **Center** | Interactive map view with Z-level selector |
+| **Center (Workspace Tabs)** | SQLite status, room lists, cross-zone exits, API runner |
 | **Right** | Properties panel for room editing |
 | **Bottom** | Action bar with Save/Export and status |
 

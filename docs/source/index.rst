@@ -21,6 +21,7 @@ Features
 * **Validation** - Check for connectivity, consistency, and language-direction issues
 * **LLM Integration** - Generate room descriptions using local Ollama server
 * **Description Validator** - Advisory checks for LLM prose constraints
+* **Workspace API** - Save and run remote API commands from the UI
 * **JSON Schema** - Editor validation support for map files
 
 SQLite + Export Workflow

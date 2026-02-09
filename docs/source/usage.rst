@@ -58,6 +58,39 @@ The mapper has a three-column layout:
     coordinates, and exit checkboxes. Also includes the Ollama LLM integration
     section for generating room descriptions.
 
+**Workspace Panel (Center Column)**
+    Tabs for SQLite status, room lists, cross-zone exits, and the API runner.
+    The **API** tab lets you save remote service definitions and run HTTP
+    commands directly from the UI.
+
+Workspace API Runner
+--------------------
+
+The **Workspace → API** tab can store remote API definitions and reusable
+commands (GET/POST/etc). This is useful for calling external services like
+the Pipeworks Name Generation API without leaving the mapper UI.
+
+**Configuration**
+
+The API catalog is stored in its own SQLite database. You can change the
+location via ``config/server.ini``:
+
+.. code-block:: ini
+
+    [paths]
+    api_db_path = data/api_services.db
+
+**Basic Workflow**
+
+1. Create a **Service** with a name and base URL (for example, ``https://name.api.pipe-works.org``).
+2. Add a **Command** (method, path, optional query/body JSON).
+3. Click **Run** to execute; the response appears in the panel below.
+
+**Notes**
+
+- Query and body fields require valid JSON.
+- Service auth secrets are stored as plain text until a vault integration is added.
+
 Creating a New Map
 ------------------
 

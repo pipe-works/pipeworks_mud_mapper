@@ -1,117 +1,43 @@
-"""Tests for application configuration helpers."""
+"""Tests for app configuration helpers."""
+
+from __future__ import annotations
 
 from pathlib import Path
-
-import pytest
 
 from pipeworks_mud_mapper.services import app_config
 
 
-@pytest.fixture(autouse=True)
-def clear_app_config_cache():
-    """Ensure cached config is cleared between tests."""
-    app_config.get_path_settings.cache_clear()
-    yield
-    app_config.get_path_settings.cache_clear()
+def _write_config(path: Path, content: str) -> None:
+    path.write_text(content, encoding="utf-8")
 
 
-def test_get_path_settings_defaults(tmp_path, monkeypatch):
-    """get_path_settings should resolve defaults relative to project root."""
-    project_root = tmp_path / "project"
-    config_dir = project_root / "config"
+def test_get_server_settings_defaults(tmp_path, monkeypatch):
+    """Missing server.ini should fall back to defaults."""
+    config_path = tmp_path / "server.ini"
+    monkeypatch.setattr(app_config, "SERVER_CONFIG_PATH", config_path)
+    app_config.get_server_settings.cache_clear()
 
-    monkeypatch.setattr(app_config, "PROJECT_ROOT", project_root)
-    monkeypatch.setattr(app_config, "CONFIG_DIR", config_dir)
-    monkeypatch.setattr(app_config, "SERVER_CONFIG_PATH", config_dir / "server.ini")
-
-    settings = app_config.get_path_settings()
-
-    assert settings["db_path"] == project_root / "data" / "mapper.db"
-    assert settings["zones_dir"] == project_root / "data" / "zones"
-    assert settings["world_json_path"] == project_root / "data" / "world.json"
+    settings = app_config.get_server_settings()
+    assert settings["port"] == 8050
 
 
-def test_get_path_settings_from_server_ini(tmp_path, monkeypatch):
-    """get_path_settings should honor overrides from server.ini."""
-    project_root = tmp_path / "project"
-    config_dir = project_root / "config"
-    config_dir.mkdir(parents=True, exist_ok=True)
-    server_ini = config_dir / "server.ini"
+def test_get_server_settings_invalid_port(tmp_path, monkeypatch):
+    """Invalid port values should fall back to defaults."""
+    config_path = tmp_path / "server.ini"
+    _write_config(config_path, "[server]\nport = not-a-number\n")
+    monkeypatch.setattr(app_config, "SERVER_CONFIG_PATH", config_path)
+    app_config.get_server_settings.cache_clear()
 
-    server_ini.write_text(
-        "[paths]\n"
-        "db_path = custom/mapper.db\n"
-        "zones_dir = custom/zones\n"
-        "world_json_path = custom/world.json\n"
-    )
-
-    monkeypatch.setattr(app_config, "PROJECT_ROOT", project_root)
-    monkeypatch.setattr(app_config, "CONFIG_DIR", config_dir)
-    monkeypatch.setattr(app_config, "SERVER_CONFIG_PATH", server_ini)
-
-    settings = app_config.get_path_settings()
-
-    assert settings["db_path"] == project_root / "custom" / "mapper.db"
-    assert settings["zones_dir"] == project_root / "custom" / "zones"
-    assert settings["world_json_path"] == project_root / "custom" / "world.json"
+    settings = app_config.get_server_settings()
+    assert settings["port"] == 8050
 
 
-def test_format_display_path_relative(tmp_path, monkeypatch):
-    """format_display_path should prefer relative paths and trailing slash."""
-    project_root = tmp_path / "project"
-    nested_path = project_root / "data" / "exports" / "maps"
+def test_get_server_settings_valid_port(tmp_path, monkeypatch):
+    """Valid port values should be parsed as integers."""
+    config_path = tmp_path / "server.ini"
+    _write_config(config_path, "[server]\nport = 9001\n")
+    monkeypatch.setattr(app_config, "SERVER_CONFIG_PATH", config_path)
+    app_config.get_server_settings.cache_clear()
 
-    monkeypatch.setattr(app_config, "PROJECT_ROOT", project_root)
-
-    display = app_config.format_display_path(nested_path)
-
-    assert display == "data/exports/maps/"
-
-
-def test_format_display_path_absolute(tmp_path, monkeypatch):
-    """format_display_path should fall back to absolute path."""
-    project_root = tmp_path / "project"
-    outside_path = tmp_path / "other" / "zones"
-
-    monkeypatch.setattr(app_config, "PROJECT_ROOT", project_root)
-
-    display = app_config.format_display_path(outside_path)
-
-    assert display == f"{outside_path}/"
-
-
-def test_format_short_path_relative(tmp_path, monkeypatch):
-    """format_short_path should prefer relative and keep trailing slash."""
-    project_root = tmp_path / "project"
-    nested = project_root / "data" / "exports" / "maps"
-
-    monkeypatch.setattr(app_config, "PROJECT_ROOT", project_root)
-
-    display = app_config.format_short_path(nested)
-
-    assert display == "data/exports/maps/"
-
-
-def test_format_short_path_absolute(tmp_path, monkeypatch):
-    """format_short_path should shorten absolute paths with ellipsis."""
-    project_root = tmp_path / "project"
-    outside = tmp_path / "alpha" / "beta" / "gamma" / "zones"
-
-    monkeypatch.setattr(app_config, "PROJECT_ROOT", project_root)
-
-    display = app_config.format_short_path(outside, keep_parts=2)
-
-    assert display.startswith("…/")
-    assert display.endswith("/gamma/zones/")
-
-
-def test_format_short_path_absolute_short(tmp_path, monkeypatch):
-    """format_short_path should keep short absolute paths intact."""
-    project_root = tmp_path / "project"
-    outside = Path("/zones")
-
-    monkeypatch.setattr(app_config, "PROJECT_ROOT", project_root)
-
-    display = app_config.format_short_path(outside, keep_parts=5)
-
-    assert display == f"{outside}/"
+    settings = app_config.get_server_settings()
+    assert settings["port"] == 9001

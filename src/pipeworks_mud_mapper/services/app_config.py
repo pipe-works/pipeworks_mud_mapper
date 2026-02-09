@@ -18,9 +18,13 @@ SERVER_CONFIG_PATH: Final[Path] = CONFIG_DIR / "server.ini"
 DEFAULTS: Final[dict[str, dict[str, str]]] = {
     "paths": {
         "db_path": "data/mapper.db",
+        "api_db_path": "data/api_services.db",
         "zones_dir": "data/zones",
         "world_json_path": "data/world.json",
-    }
+    },
+    "server": {
+        "port": "8050",
+    },
 }
 
 
@@ -49,13 +53,27 @@ def get_path_settings() -> dict[str, Path]:
     """
     config = _load_config()
     db_path = _resolve_path(config.get("paths", "db_path"))
+    api_db_path = _resolve_path(config.get("paths", "api_db_path"))
     zones_dir = _resolve_path(config.get("paths", "zones_dir"))
     world_json_path = _resolve_path(config.get("paths", "world_json_path"))
     return {
         "db_path": db_path,
+        "api_db_path": api_db_path,
         "zones_dir": zones_dir,
         "world_json_path": world_json_path,
     }
+
+
+@lru_cache
+def get_server_settings() -> dict[str, int]:
+    """Return server settings used by the app (for example, the default port)."""
+    config = _load_config()
+    port_value = config.get("server", "port", fallback=DEFAULTS["server"]["port"])
+    try:
+        port = int(port_value)
+    except ValueError:
+        port = int(DEFAULTS["server"]["port"])
+    return {"port": port}
 
 
 def format_display_path(path: Path) -> str:
