@@ -32,6 +32,12 @@ def test_merge_headers_overrides_case_insensitive():
     assert merged == {"x-token": "new"}
 
 
+def test_merge_headers_ignores_none_values():
+    """Headers with None values should be skipped."""
+    merged = api_client._merge_headers({"X-Token": None}, {"X-Test": "1"})
+    assert merged == {"X-Test": "1"}
+
+
 def test_header_present_case_insensitive():
     """Header checks should be case-insensitive."""
     assert api_client._header_present({"X-Token": "abc"}, "x-token") is True
@@ -70,6 +76,27 @@ def test_apply_auth_sets_basic_auth():
     headers, auth = api_client._apply_auth({}, "basic", "user:pass")
     assert isinstance(auth, httpx.BasicAuth)
     assert headers == {}
+
+
+def test_apply_auth_basic_with_existing_auth_header():
+    """Basic auth should not override an existing Authorization header."""
+    headers, auth = api_client._apply_auth({"Authorization": "Existing"}, "basic", "user:pass")
+    assert headers["Authorization"] == "Existing"
+    assert auth is None
+
+
+def test_apply_auth_basic_without_password():
+    """Basic auth should handle secrets without a colon."""
+    headers, auth = api_client._apply_auth({}, "basic", "useronly")
+    assert isinstance(auth, httpx.BasicAuth)
+    assert headers == {}
+
+
+def test_apply_auth_unknown_type():
+    """Unknown auth types should be ignored."""
+    headers, auth = api_client._apply_auth({"X-Test": "1"}, "unknown", "secret")
+    assert headers == {"X-Test": "1"}
+    assert auth is None
 
 
 def test_execute_api_request_success(monkeypatch):
@@ -164,6 +191,51 @@ def test_execute_api_request_non_json(monkeypatch):
 
     assert result["ok"] is True
     assert result["json"] is None
+
+
+def test_execute_api_request_with_body(monkeypatch):
+    """JSON bodies should be passed through to the request."""
+
+    class DummyResponse:
+        def __init__(self) -> None:
+            self.is_success = True
+            self.status_code = 200
+            self.reason_phrase = "OK"
+            self.url = httpx.URL("http://example.com/api")
+            self.elapsed = timedelta(milliseconds=5)
+            self.headers = {"content-type": "application/json"}
+            self.text = "{}"
+
+        def json(self):  # type: ignore[override]
+            return {}
+
+    class DummyClient:
+        last_request: dict | None = None
+
+        def __init__(self, *args, **kwargs) -> None:
+            self.kwargs = kwargs
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def request(self, *args, **kwargs):
+            DummyClient.last_request = kwargs
+            return DummyResponse()
+
+    monkeypatch.setattr(api_client.httpx, "Client", DummyClient)
+
+    api_client.execute_api_request(
+        base_url="http://example.com",
+        path="/api",
+        method="POST",
+        body={"hello": "world"},
+    )
+
+    assert DummyClient.last_request is not None
+    assert DummyClient.last_request["json"] == {"hello": "world"}
 
 
 def test_execute_api_request_handles_errors(monkeypatch):

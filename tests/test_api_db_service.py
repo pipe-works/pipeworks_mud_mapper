@@ -75,6 +75,39 @@ def test_service_list_excludes_disabled(tmp_path):
     assert services[0]["name"] == "Enabled"
 
 
+def test_resolve_db_path_uses_config(tmp_path, monkeypatch):
+    """When no override is provided, the config path should be used."""
+    config_db = tmp_path / "config_api.db"
+
+    monkeypatch.setattr(
+        api_db_service,
+        "get_path_settings",
+        lambda: {"api_db_path": config_db},
+    )
+
+    # Ensure the path is used by attempting to list services (creates DB).
+    services = api_db_service.list_services()
+    assert services == []
+    assert config_db.exists()
+
+
+def test_connect_rolls_back_on_error(tmp_path, monkeypatch):
+    """_connect should roll back and re-raise on schema errors."""
+    db_path = tmp_path / "api.db"
+
+    def _raise(_conn):
+        raise RuntimeError("schema boom")
+
+    monkeypatch.setattr(api_db_service, "_ensure_schema", _raise)
+
+    try:
+        api_db_service.list_services(db_path)
+    except RuntimeError as exc:
+        assert "schema boom" in str(exc)
+    else:
+        raise AssertionError("Expected RuntimeError")
+
+
 def test_command_crud_round_trip(tmp_path):
     """Commands can be created, updated, listed, and deleted."""
     db_path = tmp_path / "api.db"
@@ -134,6 +167,27 @@ def test_missing_entities_raise_key_error(tmp_path):
         api_db_service.get_service("missing", db_path=db_path)
     with pytest.raises(KeyError):
         api_db_service.get_command("missing", db_path=db_path)
+
+    with pytest.raises(KeyError):
+        api_db_service.update_service(
+            "missing",
+            name="Name",
+            base_url="http://example.com",
+            db_path=db_path,
+        )
+    with pytest.raises(KeyError):
+        api_db_service.delete_service("missing", db_path=db_path)
+    with pytest.raises(KeyError):
+        api_db_service.update_command(
+            "missing",
+            service_id="svc-1",
+            name="Generate",
+            method="GET",
+            path="/api/generate",
+            db_path=db_path,
+        )
+    with pytest.raises(KeyError):
+        api_db_service.delete_command("missing", db_path=db_path)
 
 
 def test_invalid_json_falls_back(tmp_path):

@@ -481,3 +481,530 @@ def test_render_api_response_variants():
 
     payload = api_callbacks.render_api_response({"ok": True, "json": {"a": 1}, "text": ""})
     assert "a" in str(payload)
+
+
+def test_helper_format_and_parse_json():
+    """Helper utilities should handle empty/invalid JSON inputs."""
+    assert api_callbacks._format_json(None) == ""
+    assert api_callbacks._format_json({}) == ""
+
+    value, error = api_callbacks._parse_json_field(
+        "",
+        field_label="Query",
+        expect_dict=True,
+        default={},
+    )
+    assert value == {}
+    assert error is None
+
+    value, error = api_callbacks._parse_json_field(
+        '["not", "a", "dict"]',
+        field_label="Query",
+        expect_dict=True,
+        default={},
+    )
+    assert value is None
+    assert "expected a JSON object" in str(error)
+
+
+def test_helper_merge_and_options():
+    """Helper builders should handle disabled services and None headers."""
+    merged = api_callbacks._merge_headers({"X-Test": "1", "Drop": None}, {"x-test": "2"})
+    assert merged == {"x-test": "2"}
+
+    options = api_callbacks._service_options(
+        [{"id": "svc-1", "name": "Name API", "enabled": False}]
+    )
+    assert options[0]["label"] == "Name API (disabled)"
+
+    command_options = api_callbacks._command_options([{"id": "cmd-1", "name": "Generate"}])
+    assert command_options == [{"label": "Generate", "value": "cmd-1"}]
+
+
+def test_manage_api_services_new(monkeypatch):
+    """New action should reset selection and show feedback."""
+    monkeypatch.setattr(api_callbacks, "ctx", DummyCtx("workspace-api-service-new"))
+    monkeypatch.setattr(api_callbacks.api_db_service, "list_services", lambda *args, **kwargs: [])
+
+    _, selection, feedback = api_callbacks.manage_api_services(
+        0,
+        0,
+        0,
+        0,
+        1,
+        "svc-1",
+        "Name API",
+        "http://example.com",
+        "none",
+        "",
+        "{}",
+        ["enabled"],
+        "",
+    )
+
+    assert selection is None
+    assert "Ready to create" in _alert_text(feedback)
+
+
+def test_manage_api_services_requires_base_url(monkeypatch):
+    """Saving a service without a base URL should return validation feedback."""
+    monkeypatch.setattr(api_callbacks, "ctx", DummyCtx("workspace-api-service-save"))
+    monkeypatch.setattr(api_callbacks.api_db_service, "list_services", lambda *args, **kwargs: [])
+
+    _, _, feedback = api_callbacks.manage_api_services(
+        0,
+        0,
+        1,
+        0,
+        0,
+        None,
+        "Name API",
+        "",
+        "none",
+        "",
+        "{}",
+        ["enabled"],
+        "",
+    )
+
+    assert "Base URL is required" in _alert_text(feedback)
+
+
+def test_manage_api_services_invalid_headers(monkeypatch):
+    """Invalid headers JSON should return validation feedback."""
+    monkeypatch.setattr(api_callbacks, "ctx", DummyCtx("workspace-api-service-save"))
+    monkeypatch.setattr(api_callbacks.api_db_service, "list_services", lambda *args, **kwargs: [])
+
+    _, _, feedback = api_callbacks.manage_api_services(
+        0,
+        0,
+        1,
+        0,
+        0,
+        None,
+        "Name API",
+        "http://example.com",
+        "none",
+        "",
+        "{bad}",
+        ["enabled"],
+        "",
+    )
+
+    assert "invalid JSON" in _alert_text(feedback)
+
+
+def test_manage_api_services_delete_requires_selection(monkeypatch):
+    """Delete action should warn when no service is selected."""
+    monkeypatch.setattr(api_callbacks, "ctx", DummyCtx("workspace-api-service-delete"))
+    monkeypatch.setattr(api_callbacks.api_db_service, "list_services", lambda *args, **kwargs: [])
+
+    _, selection, feedback = api_callbacks.manage_api_services(
+        0,
+        0,
+        0,
+        1,
+        0,
+        None,
+        "Name API",
+        "http://example.com",
+        "none",
+        "",
+        "{}",
+        ["enabled"],
+        "",
+    )
+
+    assert selection is None
+    assert "Select a service" in _alert_text(feedback)
+
+
+def test_manage_api_services_initial_selection(monkeypatch):
+    """Initial load should select the first available service."""
+    monkeypatch.setattr(api_callbacks, "ctx", DummyCtx(None))
+    monkeypatch.setattr(
+        api_callbacks.api_db_service,
+        "list_services",
+        lambda *args, **kwargs: [{"id": "svc-1", "name": "Name API", "enabled": True}],
+    )
+
+    _, selection, _ = api_callbacks.manage_api_services(
+        0,
+        0,
+        0,
+        0,
+        0,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+    )
+
+    assert selection == "svc-1"
+
+
+def test_manage_api_services_invalid_selection(monkeypatch):
+    """Selections that no longer exist should be cleared."""
+    monkeypatch.setattr(api_callbacks, "ctx", DummyCtx("workspace-api-service-refresh"))
+    monkeypatch.setattr(
+        api_callbacks.api_db_service,
+        "list_services",
+        lambda *args, **kwargs: [{"id": "svc-1", "name": "Name API", "enabled": True}],
+    )
+
+    _, selection, _ = api_callbacks.manage_api_services(
+        0,
+        1,
+        0,
+        0,
+        0,
+        "missing",
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+    )
+
+    assert selection is None
+
+
+def test_manage_api_commands_new(monkeypatch):
+    """New command action should reset selection."""
+    monkeypatch.setattr(api_callbacks, "ctx", DummyCtx("workspace-api-command-new"))
+    monkeypatch.setattr(api_callbacks.api_db_service, "list_commands", lambda *args, **kwargs: [])
+
+    _, selection, feedback = api_callbacks.manage_api_commands(
+        "svc-1",
+        0,
+        0,
+        1,
+        "cmd-1",
+        "Generate",
+        "GET",
+        "/api/generate",
+        "{}",
+        "{}",
+        "{}",
+        10,
+    )
+
+    assert selection is None
+    assert "Ready to create" in _alert_text(feedback)
+
+
+def test_manage_api_commands_requires_name(monkeypatch):
+    """Missing command name should return validation feedback."""
+    monkeypatch.setattr(api_callbacks, "ctx", DummyCtx("workspace-api-command-save"))
+    monkeypatch.setattr(api_callbacks.api_db_service, "list_commands", lambda *args, **kwargs: [])
+
+    _, _, feedback = api_callbacks.manage_api_commands(
+        "svc-1",
+        1,
+        0,
+        0,
+        None,
+        "",
+        "GET",
+        "/api/generate",
+        "{}",
+        "{}",
+        "{}",
+        10,
+    )
+
+    assert "Command name is required" in _alert_text(feedback)
+
+
+def test_manage_api_commands_requires_path(monkeypatch):
+    """Missing command path should return validation feedback."""
+    monkeypatch.setattr(api_callbacks, "ctx", DummyCtx("workspace-api-command-save"))
+    monkeypatch.setattr(api_callbacks.api_db_service, "list_commands", lambda *args, **kwargs: [])
+
+    _, _, feedback = api_callbacks.manage_api_commands(
+        "svc-1",
+        1,
+        0,
+        0,
+        None,
+        "Generate",
+        "GET",
+        "",
+        "{}",
+        "{}",
+        "{}",
+        10,
+    )
+
+    assert "Command path is required" in _alert_text(feedback)
+
+
+def test_manage_api_commands_invalid_query(monkeypatch):
+    """Invalid query JSON should return validation feedback."""
+    monkeypatch.setattr(api_callbacks, "ctx", DummyCtx("workspace-api-command-save"))
+    monkeypatch.setattr(api_callbacks.api_db_service, "list_commands", lambda *args, **kwargs: [])
+
+    _, _, feedback = api_callbacks.manage_api_commands(
+        "svc-1",
+        1,
+        0,
+        0,
+        None,
+        "Generate",
+        "GET",
+        "/api/generate",
+        "{bad}",
+        "{}",
+        "{}",
+        10,
+    )
+
+    assert "invalid JSON" in _alert_text(feedback)
+
+
+def test_manage_api_commands_invalid_headers(monkeypatch):
+    """Invalid headers JSON should return validation feedback."""
+    monkeypatch.setattr(api_callbacks, "ctx", DummyCtx("workspace-api-command-save"))
+    monkeypatch.setattr(api_callbacks.api_db_service, "list_commands", lambda *args, **kwargs: [])
+
+    _, _, feedback = api_callbacks.manage_api_commands(
+        "svc-1",
+        1,
+        0,
+        0,
+        None,
+        "Generate",
+        "GET",
+        "/api/generate",
+        "{}",
+        "{bad}",
+        "{}",
+        10,
+    )
+
+    assert "invalid JSON" in _alert_text(feedback)
+
+
+def test_manage_api_commands_invalid_body(monkeypatch):
+    """Invalid body JSON should return validation feedback."""
+    monkeypatch.setattr(api_callbacks, "ctx", DummyCtx("workspace-api-command-save"))
+    monkeypatch.setattr(api_callbacks.api_db_service, "list_commands", lambda *args, **kwargs: [])
+
+    _, _, feedback = api_callbacks.manage_api_commands(
+        "svc-1",
+        1,
+        0,
+        0,
+        None,
+        "Generate",
+        "GET",
+        "/api/generate",
+        "{}",
+        "{}",
+        "{bad}",
+        10,
+    )
+
+    assert "invalid JSON" in _alert_text(feedback)
+
+
+def test_manage_api_commands_delete_requires_selection(monkeypatch):
+    """Delete action should warn when no command is selected."""
+    monkeypatch.setattr(api_callbacks, "ctx", DummyCtx("workspace-api-command-delete"))
+    monkeypatch.setattr(api_callbacks.api_db_service, "list_commands", lambda *args, **kwargs: [])
+
+    _, selection, feedback = api_callbacks.manage_api_commands(
+        "svc-1",
+        0,
+        1,
+        0,
+        None,
+        "Generate",
+        "GET",
+        "/api/generate",
+        "{}",
+        "{}",
+        "{}",
+        10,
+    )
+
+    assert selection is None
+    assert "Select a command" in _alert_text(feedback)
+
+
+def test_manage_api_commands_service_select(monkeypatch):
+    """Service selection should reset command selection."""
+    monkeypatch.setattr(api_callbacks, "ctx", DummyCtx("workspace-api-service-select"))
+    monkeypatch.setattr(
+        api_callbacks.api_db_service,
+        "list_commands",
+        lambda *args, **kwargs: [{"id": "cmd-1", "name": "Generate"}],
+    )
+
+    _, selection, _ = api_callbacks.manage_api_commands(
+        "svc-1",
+        0,
+        0,
+        0,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+    )
+
+    assert selection is None
+
+
+def test_manage_api_commands_invalid_selection(monkeypatch):
+    """Selections that no longer exist should be cleared."""
+    monkeypatch.setattr(api_callbacks, "ctx", DummyCtx("workspace-api-command-save"))
+    monkeypatch.setattr(
+        api_callbacks.api_db_service, "update_command", lambda *args, **kwargs: None
+    )
+    monkeypatch.setattr(
+        api_callbacks.api_db_service,
+        "list_commands",
+        lambda *args, **kwargs: [{"id": "cmd-1", "name": "Generate"}],
+    )
+
+    _, selection, _ = api_callbacks.manage_api_commands(
+        "svc-1",
+        1,
+        0,
+        0,
+        "missing",
+        "Generate",
+        "GET",
+        "/api/generate",
+        "{}",
+        "{}",
+        "{}",
+        10,
+    )
+
+    assert selection is None
+
+
+def test_run_api_request_requires_base_url():
+    """run_api_request should reject empty base URLs."""
+    jobs, feedback = api_callbacks.run_api_request(
+        1,
+        {"jobs": []},
+        "svc-1",
+        "",
+        "none",
+        "",
+        "{}",
+        "GET",
+        "/api/health",
+        "{}",
+        "{}",
+        "{}",
+        10,
+    )
+
+    assert jobs is no_update
+    assert "Service base URL is required" in _alert_text(feedback)
+
+
+def test_run_api_request_invalid_query():
+    """Invalid query JSON should return validation feedback."""
+    jobs, feedback = api_callbacks.run_api_request(
+        1,
+        {"jobs": []},
+        "svc-1",
+        "http://example.com",
+        "none",
+        "",
+        "{}",
+        "GET",
+        "/api/health",
+        "{bad}",
+        "{}",
+        "{}",
+        10,
+    )
+
+    assert jobs is no_update
+    assert "invalid JSON" in _alert_text(feedback)
+
+
+def test_run_api_request_invalid_headers():
+    """Invalid headers JSON should return validation feedback."""
+    jobs, feedback = api_callbacks.run_api_request(
+        1,
+        {"jobs": []},
+        "svc-1",
+        "http://example.com",
+        "none",
+        "",
+        "{}",
+        "GET",
+        "/api/health",
+        "{}",
+        "{bad}",
+        "{}",
+        10,
+    )
+
+    assert jobs is no_update
+    assert "invalid JSON" in _alert_text(feedback)
+
+
+def test_run_api_request_invalid_body():
+    """Invalid body JSON should return validation feedback."""
+    jobs, feedback = api_callbacks.run_api_request(
+        1,
+        {"jobs": []},
+        "svc-1",
+        "http://example.com",
+        "none",
+        "",
+        "{}",
+        "GET",
+        "/api/health",
+        "{}",
+        "{}",
+        "{bad}",
+        10,
+    )
+
+    assert jobs is no_update
+    assert "invalid JSON" in _alert_text(feedback)
+
+
+def test_poll_api_jobs_empty():
+    """Empty job lists should be a no-op."""
+    jobs, response, feedback = api_callbacks.poll_api_jobs(1, {"jobs": []})
+    assert jobs is no_update
+    assert response is no_update
+    assert feedback is no_update
+
+
+def test_poll_api_jobs_missing_id(monkeypatch):
+    """Jobs missing an id should be dropped silently."""
+    monkeypatch.setattr(api_callbacks, "get_io_job_status", lambda _job_id: {"status": "done"})
+    monkeypatch.setattr(api_callbacks, "forget_io_job", lambda _job_id: None)
+
+    jobs, response, feedback = api_callbacks.poll_api_jobs(1, {"jobs": [{"label": "no-id"}]})
+    assert jobs == {"jobs": []}
+    assert response is no_update
+    assert feedback is no_update
+
+
+def test_render_api_response_text_body():
+    """Non-JSON responses should render raw text."""
+    payload = api_callbacks.render_api_response(
+        {"ok": True, "json": None, "text": "plain text", "status_code": 200}
+    )
+    assert "plain text" in str(payload)
