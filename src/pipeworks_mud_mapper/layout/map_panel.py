@@ -52,6 +52,275 @@ from pipeworks_mud_mapper.components.map_view import create_map_figure
 from pipeworks_mud_mapper.services.exit_utils import EXIT_SHORT_ORDER
 
 
+def _create_api_workspace_tab() -> dbc.Tab:
+    """Create the Workspace API tab layout.
+
+    The API tab provides:
+    - Service configuration (base URL, auth, headers)
+    - Command builder (method/path/body)
+    - Response display area
+    """
+    service_card = dbc.Card(
+        [
+            dbc.CardHeader("Services"),
+            dbc.CardBody(
+                [
+                    html.Div(id="workspace-api-service-feedback", className="mb-2"),
+                    dbc.Label("Service", html_for="workspace-api-service-select"),
+                    dbc.Row(
+                        [
+                            dbc.Col(
+                                dcc.Dropdown(
+                                    id="workspace-api-service-select",
+                                    options=[],
+                                    placeholder="Select a service...",
+                                    clearable=True,
+                                    className="small",
+                                ),
+                                width=9,
+                            ),
+                            dbc.Col(
+                                dbc.Button(
+                                    [html.I(className="bi bi-arrow-clockwise me-1"), "Refresh"],
+                                    id="workspace-api-service-refresh",
+                                    color="secondary",
+                                    size="sm",
+                                    outline=True,
+                                    className="w-100",
+                                ),
+                                width=3,
+                            ),
+                        ],
+                        className="g-2 mb-2",
+                    ),
+                    dbc.Label("Name", html_for="workspace-api-service-name"),
+                    dbc.Input(
+                        id="workspace-api-service-name",
+                        type="text",
+                        placeholder="e.g., Name Generation",
+                        className="mb-2",
+                    ),
+                    dbc.Label("Base URL", html_for="workspace-api-service-base-url"),
+                    dbc.Input(
+                        id="workspace-api-service-base-url",
+                        type="text",
+                        placeholder="http://localhost:8000",
+                        className="mb-2",
+                    ),
+                    dbc.Label("Auth Type", html_for="workspace-api-service-auth-type"),
+                    dbc.Select(
+                        id="workspace-api-service-auth-type",
+                        options=[
+                            {"label": "None", "value": "none"},
+                            {"label": "Bearer", "value": "bearer"},
+                            {"label": "Basic", "value": "basic"},
+                            {"label": "API Key", "value": "api_key"},
+                        ],
+                        value="none",
+                        className="mb-2",
+                    ),
+                    dbc.Label("Auth Secret", html_for="workspace-api-service-auth-secret"),
+                    dbc.Input(
+                        id="workspace-api-service-auth-secret",
+                        type="password",
+                        placeholder="token or user:pass",
+                        className="mb-2",
+                    ),
+                    dbc.Label("Default Headers (JSON)", html_for="workspace-api-service-headers"),
+                    dbc.Textarea(
+                        id="workspace-api-service-headers",
+                        placeholder='{"X-Client": "mapper"}',
+                        style={"height": "90px", "fontFamily": "monospace"},
+                        className="mb-2",
+                    ),
+                    dbc.Checklist(
+                        id="workspace-api-service-enabled",
+                        options=[{"label": "Enabled", "value": "enabled"}],
+                        value=["enabled"],
+                        switch=True,
+                        className="mb-2",
+                    ),
+                    dbc.Label("Notes", html_for="workspace-api-service-notes"),
+                    dbc.Textarea(
+                        id="workspace-api-service-notes",
+                        placeholder="Optional notes for this service.",
+                        style={"height": "70px"},
+                        className="mb-2",
+                    ),
+                    dbc.ButtonGroup(
+                        [
+                            dbc.Button(
+                                [html.I(className="bi bi-plus me-1"), "New"],
+                                id="workspace-api-service-new",
+                                color="secondary",
+                                size="sm",
+                                outline=True,
+                            ),
+                            dbc.Button(
+                                [html.I(className="bi bi-save me-1"), "Save"],
+                                id="workspace-api-service-save",
+                                color="primary",
+                                size="sm",
+                            ),
+                            dbc.Button(
+                                [html.I(className="bi bi-trash me-1"), "Delete"],
+                                id="workspace-api-service-delete",
+                                color="danger",
+                                size="sm",
+                                outline=True,
+                            ),
+                        ],
+                        className="w-100",
+                    ),
+                ],
+                className="small",
+            ),
+        ]
+    )
+
+    command_card = dbc.Card(
+        [
+            dbc.CardHeader("Commands"),
+            dbc.CardBody(
+                [
+                    html.Div(id="workspace-api-command-feedback", className="mb-2"),
+                    dbc.Label("Command", html_for="workspace-api-command-select"),
+                    dcc.Dropdown(
+                        id="workspace-api-command-select",
+                        options=[],
+                        placeholder="Select a command...",
+                        clearable=True,
+                        className="small mb-2",
+                    ),
+                    dbc.Label("Name", html_for="workspace-api-command-name"),
+                    dbc.Input(
+                        id="workspace-api-command-name",
+                        type="text",
+                        placeholder="e.g., Generate Names",
+                        className="mb-2",
+                    ),
+                    dbc.Label("Method", html_for="workspace-api-command-method"),
+                    dbc.Select(
+                        id="workspace-api-command-method",
+                        options=[
+                            {"label": "GET", "value": "GET"},
+                            {"label": "POST", "value": "POST"},
+                            {"label": "PUT", "value": "PUT"},
+                            {"label": "PATCH", "value": "PATCH"},
+                            {"label": "DELETE", "value": "DELETE"},
+                        ],
+                        value="GET",
+                        className="mb-2",
+                    ),
+                    dbc.Label("Path", html_for="workspace-api-command-path"),
+                    dbc.Input(
+                        id="workspace-api-command-path",
+                        type="text",
+                        placeholder="/api/generate",
+                        className="mb-2",
+                    ),
+                    dbc.Label("Query (JSON)", html_for="workspace-api-command-query"),
+                    dbc.Textarea(
+                        id="workspace-api-command-query",
+                        placeholder='{"limit": 10}',
+                        style={"height": "70px", "fontFamily": "monospace"},
+                        className="mb-2",
+                    ),
+                    dbc.Label("Headers (JSON)", html_for="workspace-api-command-headers"),
+                    dbc.Textarea(
+                        id="workspace-api-command-headers",
+                        placeholder='{"X-Request": "mapper"}',
+                        style={"height": "70px", "fontFamily": "monospace"},
+                        className="mb-2",
+                    ),
+                    dbc.Label("Body (JSON)", html_for="workspace-api-command-body"),
+                    dbc.Textarea(
+                        id="workspace-api-command-body",
+                        placeholder='{"class": "goblin"}',
+                        style={"height": "90px", "fontFamily": "monospace"},
+                        className="mb-2",
+                    ),
+                    dbc.Label("Timeout (seconds)", html_for="workspace-api-command-timeout"),
+                    dbc.Input(
+                        id="workspace-api-command-timeout",
+                        type="number",
+                        min=1,
+                        step=1,
+                        placeholder="30",
+                        className="mb-3",
+                    ),
+                    dbc.ButtonGroup(
+                        [
+                            dbc.Button(
+                                [html.I(className="bi bi-play-fill me-1"), "Run"],
+                                id="workspace-api-command-run",
+                                color="primary",
+                                size="sm",
+                            ),
+                            dbc.Button(
+                                [html.I(className="bi bi-save me-1"), "Save"],
+                                id="workspace-api-command-save",
+                                color="secondary",
+                                size="sm",
+                                outline=True,
+                            ),
+                            dbc.Button(
+                                [html.I(className="bi bi-plus me-1"), "New"],
+                                id="workspace-api-command-new",
+                                color="secondary",
+                                size="sm",
+                                outline=True,
+                            ),
+                            dbc.Button(
+                                [html.I(className="bi bi-trash me-1"), "Delete"],
+                                id="workspace-api-command-delete",
+                                color="danger",
+                                size="sm",
+                                outline=True,
+                            ),
+                        ],
+                        className="w-100",
+                    ),
+                ],
+                className="small",
+            ),
+        ]
+    )
+
+    response_card = dbc.Card(
+        [
+            dbc.CardHeader("Response"),
+            dbc.CardBody(
+                [
+                    html.Div(id="workspace-api-run-feedback", className="mb-2"),
+                    html.Div(
+                        id="workspace-api-response-view",
+                        className="small",
+                    ),
+                ],
+                className="small",
+            ),
+        ]
+    )
+
+    return dbc.Tab(
+        [
+            dcc.Store(id="workspace-api-response", data=None),
+            dcc.Store(id="workspace-api-jobs", data={"jobs": []}),
+            dbc.Row(
+                [
+                    dbc.Col(service_card, xs=12, md=6),
+                    dbc.Col(command_card, xs=12, md=6),
+                ],
+                className="g-2",
+            ),
+            html.Hr(className="my-2"),
+            response_card,
+        ],
+        label="API",
+    )
+
+
 def create_map_panel() -> dbc.Card:
     """Create the center column map panel component.
 
@@ -389,13 +658,7 @@ def create_map_panel() -> dbc.Card:
                                                         ],
                                                         label="World JSON",
                                                     ),
-                                                    dbc.Tab(
-                                                        html.P(
-                                                            "Placeholder: migrations log",
-                                                            className="small text-muted mb-0",
-                                                        ),
-                                                        label="Migrations",
-                                                    ),
+                                                    _create_api_workspace_tab(),
                                                     dbc.Tab(
                                                         html.P(
                                                             "Placeholder: index inspector",

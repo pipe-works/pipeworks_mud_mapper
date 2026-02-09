@@ -57,6 +57,7 @@ See Also
 """
 
 from pipeworks_mud_mapper.callbacks import (
+    api_callbacks,  # noqa: F401
     exit_callbacks,  # noqa: F401
     file_callbacks,  # noqa: F401
     map_callbacks,  # noqa: F401
