@@ -54,6 +54,27 @@ def test_service_crud_round_trip(tmp_path):
     assert api_db_service.list_services(db_path) == []
 
 
+def test_service_list_excludes_disabled(tmp_path):
+    """Disabled services can be filtered out of list_services."""
+    db_path = tmp_path / "api.db"
+    api_db_service.create_service(
+        name="Enabled",
+        base_url="http://example.com",
+        enabled=True,
+        db_path=db_path,
+    )
+    api_db_service.create_service(
+        name="Disabled",
+        base_url="http://example.com",
+        enabled=False,
+        db_path=db_path,
+    )
+
+    services = api_db_service.list_services(db_path, include_disabled=False)
+    assert len(services) == 1
+    assert services[0]["name"] == "Enabled"
+
+
 def test_command_crud_round_trip(tmp_path):
     """Commands can be created, updated, listed, and deleted."""
     db_path = tmp_path / "api.db"
@@ -113,3 +134,22 @@ def test_missing_entities_raise_key_error(tmp_path):
         api_db_service.get_service("missing", db_path=db_path)
     with pytest.raises(KeyError):
         api_db_service.get_command("missing", db_path=db_path)
+
+
+def test_invalid_json_falls_back(tmp_path):
+    """Invalid JSON in stored headers should fall back safely."""
+    db_path = tmp_path / "api.db"
+    service_id = api_db_service.create_service(
+        name="Name API",
+        base_url="http://example.com",
+        db_path=db_path,
+    )
+
+    with api_db_service._connect(db_path) as conn:
+        conn.execute(
+            "UPDATE api_services SET default_headers_json = '{bad json' WHERE id = ?",
+            (service_id,),
+        )
+
+    services = api_db_service.list_services(db_path)
+    assert services[0]["default_headers"] == {}
