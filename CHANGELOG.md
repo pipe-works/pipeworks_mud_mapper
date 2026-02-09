@@ -1,5 +1,62 @@
 # Changelog
 
+## [0.1.10](https://github.com/pipe-works/pipeworks_mud_mapper/compare/pipeworks-mud-mapper-v0.1.9...pipeworks-mud-mapper-v0.1.10) (2026-02-09)
+
+
+### Features
+
+* **config:** add configurable file browsers ([cd70ebc](https://github.com/pipe-works/pipeworks_mud_mapper/commit/cd70ebc76158e0883ee72adb6ec2905042dd76f3))
+* **config:** configurable file browsers ([734d25b](https://github.com/pipe-works/pipeworks_mud_mapper/commit/734d25b674b7fe89797e72fddce776aee760f2a5))
+* **db:** add backup and export helpers ([bc0c77c](https://github.com/pipe-works/pipeworks_mud_mapper/commit/bc0c77c41c61873bdfa64e2253d86c2dbab64d62))
+* **db:** add backup and export helpers ([5902d6d](https://github.com/pipe-works/pipeworks_mud_mapper/commit/5902d6d6de8e747a3fb2fd4a5767b249caeaf9a6))
+* **map:** split stack offset axes ([d312203](https://github.com/pipe-works/pipeworks_mud_mapper/commit/d3122034e823704389d6fb64524b668a4cf1b76e))
+* **map:** split stack offset axes ([5268882](https://github.com/pipe-works/pipeworks_mud_mapper/commit/526888284c92fab9cb4f6c149baadbedeb21babd))
+* **ollama:** add parameter presets ([1bf1ba7](https://github.com/pipe-works/pipeworks_mud_mapper/commit/1bf1ba787a796bd4c16e829f25fc76646ffdff76))
+* **ollama:** add parameter presets ([fef3290](https://github.com/pipe-works/pipeworks_mud_mapper/commit/fef32904b5fa2aec8387e031537c2e1608c29922))
+* **schema:** add map metadata and export provenance ([a2c8ee7](https://github.com/pipe-works/pipeworks_mud_mapper/commit/a2c8ee72d8ddd709ceb3b537512a8c808a50fa2d))
+* **schema:** add map metadata and export provenance ([eaef555](https://github.com/pipe-works/pipeworks_mud_mapper/commit/eaef5558c55946f82bd27fbb227f69435854a30e))
+* **sqlite:** add sqlite map storage ([0eab047](https://github.com/pipe-works/pipeworks_mud_mapper/commit/0eab04731fbcf136e9d3ea359a56c549c5c96696))
+* **sqlite:** add sqlite map storage ([206140b](https://github.com/pipe-works/pipeworks_mud_mapper/commit/206140bddc65593c629f5194c3e515f21503d9a1))
+* **ui:** add theme toggle ([bedf69d](https://github.com/pipe-works/pipeworks_mud_mapper/commit/bedf69d6e661ee8452d4e4d5d9592e1cac14a07e))
+* **ui:** add theme toggle ([a024457](https://github.com/pipe-works/pipeworks_mud_mapper/commit/a0244575d72264f70e76b9113b7e991e8a5aa163))
+* **ui:** add workspace tabs ([6342cc0](https://github.com/pipe-works/pipeworks_mud_mapper/commit/6342cc049cfb843dede9a0c930a3ad8a52fc8695))
+* **ui:** add world json tab ([b67ef5c](https://github.com/pipe-works/pipeworks_mud_mapper/commit/b67ef5ca850ab205f387e4b5daf37229ee9383c4))
+* **ui:** add world json tab ([110fcea](https://github.com/pipe-works/pipeworks_mud_mapper/commit/110fcea38c3f9eb61eb8439563232d9131c2eb11))
+* **ui:** move map navigation to workspace ([4e8a5c5](https://github.com/pipe-works/pipeworks_mud_mapper/commit/4e8a5c5e25e2025100034ed5237a38a4c7892dd7))
+* **ui:** move map navigation to workspace ([5e2d6f2](https://github.com/pipe-works/pipeworks_mud_mapper/commit/5e2d6f2b7a7fa9ffbd93a70f2d1ad5d9a8d1cbd7))
+* **ui:** move new room to action row ([9914418](https://github.com/pipe-works/pipeworks_mud_mapper/commit/9914418ddeb7fb7d2281f404cfcadd979bde91c3))
+* **ui:** move new room to action row ([a35f916](https://github.com/pipe-works/pipeworks_mud_mapper/commit/a35f916e2e016fd778bdefa80e4b6129e3b73704))
+* **ui:** refine file browsers and file actions ([04cdf15](https://github.com/pipe-works/pipeworks_mud_mapper/commit/04cdf1596e03a8ce5e4dfd5ec9abc14a4e3ceaf7))
+* **ui:** refine file browsers and file actions ([26c2b77](https://github.com/pipe-works/pipeworks_mud_mapper/commit/26c2b7705272cb970c4b87e4c3878004180ddc78))
+* **ui:** rework zone exits and vertical links ([68b9449](https://github.com/pipe-works/pipeworks_mud_mapper/commit/68b9449c75b12bbdb9bde0282c3bd2ce56774750))
+* **ui:** rework zone exits and vertical links ([0722d41](https://github.com/pipe-works/pipeworks_mud_mapper/commit/0722d4173f0fe044be151c579a9fcca7fa66efe5))
+* **ui:** workspace tabs ([62375d8](https://github.com/pipe-works/pipeworks_mud_mapper/commit/62375d8950d7d771c6fd1390564a766c3d62a612))
+* **workspace:** add API runner and config defaults ([fa708da](https://github.com/pipe-works/pipeworks_mud_mapper/commit/fa708da38d96584db6e2dbe4e93b6b3d6b6a8df3))
+* **workspace:** add db tool actions ([189adef](https://github.com/pipe-works/pipeworks_mud_mapper/commit/189adefe0ae19fb79fcb06cc9d6087174b04910c))
+* **workspace:** add db tool actions ([c941c38](https://github.com/pipe-works/pipeworks_mud_mapper/commit/c941c385e6aaf95f910b4bd3c4142fdd6fccd242))
+* **workspace:** add rooms table ([3bd85d0](https://github.com/pipe-works/pipeworks_mud_mapper/commit/3bd85d0be8e421258a40db7cc2b2774ab67f7827))
+* **workspace:** add rooms table ([a535c3d](https://github.com/pipe-works/pipeworks_mud_mapper/commit/a535c3dee24bd3a613f9172ab7c9137ce9b485d8))
+* **workspace:** add sqlite overview panel ([93d1ccc](https://github.com/pipe-works/pipeworks_mud_mapper/commit/93d1ccc1929276481c1392903ed3ed9842c429dd))
+* **workspace:** add sqlite overview panel ([c3d4601](https://github.com/pipe-works/pipeworks_mud_mapper/commit/c3d46011e7b5c31087456e35e34d8604c5c51cdb))
+* **workspace:** API runner and config defaults ([560a9b9](https://github.com/pipe-works/pipeworks_mud_mapper/commit/560a9b98597b02758797812dc1db621466ed48d2))
+
+
+### Fixes
+
+* **ui:** constrain world json layout ([933fd2b](https://github.com/pipe-works/pipeworks_mud_mapper/commit/933fd2b6569a26bbea64ea254daeb5ec45540d1d))
+
+
+### Documentation
+
+* update data tracking guidance ([6593f70](https://github.com/pipe-works/pipeworks_mud_mapper/commit/6593f7002e2c8ababf2438e749e43ba03c8f5daf))
+* update data tracking guidance ([78f1493](https://github.com/pipe-works/pipeworks_mud_mapper/commit/78f14937ccb852f015bc8cf01f17b4b1693a701f))
+
+
+### Internal Changes
+
+* **core:** remove legacy utilities ([11dcba7](https://github.com/pipe-works/pipeworks_mud_mapper/commit/11dcba7def4cc8dcae054734938aa1c0a1236176))
+* **core:** remove legacy utilities ([68ca4f3](https://github.com/pipe-works/pipeworks_mud_mapper/commit/68ca4f3040e02f143de3d1a579de1a2831976490))
+
 ## [0.1.9](https://github.com/pipe-works/pipeworks_mud_mapper/compare/pipeworks-mud-mapper-v0.1.8...pipeworks-mud-mapper-v0.1.9) (2026-02-04)
 
 
